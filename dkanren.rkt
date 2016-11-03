@@ -159,6 +159,8 @@
       (`(letrec ,binding* ,letrec-body)
         (let ((res `((rec . ,binding*) . ,env)))
           (and (binding-terms? binding* res) (term? letrec-body res))))
+      (`(and . ,t*) (terms? t* env))
+      (`(or . ,t*) (terms? t* env))
       (_ #f))))
 
 (define (eval-prim prim-id args)
@@ -177,6 +179,17 @@
     (`(,'unquote ,term) (eval-term term env))
     (`(,a . ,d) `(,(eval-qq a env) . ,(eval-qq d env)))
     ((? quotable? datum) datum)))
+(define (eval-and t* env)
+  (match t*
+    ('() #t)
+    (`(,t) (eval-term t env))
+    (`(,t . ,t*) (if (eval-term t env) (eval-and t* env) #f))))
+(define (eval-or t* env)
+  (match t*
+    ('() #f)
+    (`(,t) (eval-term t env))
+    (`(,t . ,t*) (let ((condition (eval-term t env)))
+                   (if condition condition (eval-or t* env))))))
 (define (eval-term-list terms env)
   (match terms
     ('() '())
@@ -212,7 +225,9 @@
           `(,closure-tag (lambda ,params ,body) ,env))
          (`(let ,_ ,_) (eval-term (let->lambda operation) env))
          (`(letrec ,binding* ,letrec-body)
-          (eval-term letrec-body `((rec . ,binding*) . ,env))))))))
+          (eval-term letrec-body `((rec . ,binding*) . ,env)))
+         (`(and . ,t*) (eval-and t* env))
+         (`(or . ,t*) (eval-or t* env)))))))
 
 (module+ test
   (check-equal? (eval-term 3 initial-env) 3)
@@ -225,6 +240,9 @@
   (check-equal? (eval-term '(null? '()) initial-env) #t)
   (check-equal? (eval-term '(null? '(0)) initial-env) #f)
   (check-equal? (eval-term '(list 5 6) initial-env) '(5 6))
+  (check-equal? (eval-term '(and #f 9 10) initial-env) #f)
+  (check-equal? (eval-term '(and 8 9 10) initial-env) 10)
+  (check-equal? (eval-term '(or #f 11 12) initial-env) 11)
   (check-equal? (eval-term '(let ((p (cons 8 9))) (cdr p)) initial-env) 9)
   (check-equal?
     (eval-term
