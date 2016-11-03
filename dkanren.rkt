@@ -92,6 +92,35 @@
     ((? param-list?) #t)
     (x (symbol? x))))
 
+(define (term? term env)
+  (letrec ((term1? (lambda (v) (term? v env)))
+           (terms? (lambda (ts env)
+                     (match ts
+                       ('() #t)
+                       (`(,t . ,ts) (and (term? t env) (terms? ts env)))))))
+    (match term
+      (#t #t)
+      (#f #t)
+      ((? number?) #t)
+      ((and (? symbol? sym)) (in-env? env sym))
+      (`(,(? term1?) . ,rands) (terms? rands env))
+      (`(quote ,datum) (quotable? datum))
+      (`(if ,c ,t ,f) (and (term1? c) (term1? t) (term1? f)))
+      (`(lambda ,params ,body)
+        (and (params? params)
+             (let ((res (match params
+                          ((not (? symbol? params))
+                           (extend-env* params params env))
+                          (sym `((,sym . (val . ,sym)) . ,env)))))
+               (term? body res))))
+      (`(letrec ((,p-name ,(and `(lambda ,params ,body) lam-expr)))
+          ,letrec-body)
+        (and (params? params)
+             (let ((res `((,p-name . (rec . (lambda ,params ,body)))
+                          . ,env)))
+               (and (term? lam-expr res) (term? letrec-body res)))))
+      (_ #f))))
+
 ; the goal is to support something like this interpreter
 
 ;(let ((closure-tag (gensym "#%closure"))
