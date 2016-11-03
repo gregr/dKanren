@@ -131,6 +131,18 @@
           (and (binding-terms? binding* res) (term? letrec-body res))))
       (_ #f))))
 
+(define (eval-prim prim-id args)
+  (match `(,prim-id . ,args)
+    (`(cons ,a ,d) `(,a . ,d))
+    (`(car (,(and (not (? applicable-tag?)) a) . ,d)) a)
+    (`(cdr (,(and (not (? applicable-tag?)) a) . ,d)) d)
+    (`(null? ,v) (match v ('() #t) (_ #f)))
+    (`(pair? ,v) (match v (`(,(not (? applicable-tag?)) . ,_) #t) (_ #f)))
+    (`(symbol? ,v) (symbol? v))
+    (`(number? ,v) (number? v))
+    (`(not ,v) (match v (#f #t) (_ #f)))
+    (`(equal? ,v1 ,v2) (equal? v1 v2))))
+
 ; the goal is to support something like this interpreter
 
 ;(let ((closure-tag (gensym "#%closure"))
