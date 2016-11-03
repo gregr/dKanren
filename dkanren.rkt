@@ -49,8 +49,9 @@
                      ;. ,empty-env)))
 
 ;(letrec
-  ;((applicable-tag? (lambda (v)
-                      ;(or (equal? closure-tag v) (equal? prim-tag v))))
+  ;((closure-tag? (lambda (v) (equal? v closure-tag)))
+   ;(prim-tag? (lambda (v) (equal? v prim-tag)))
+   ;(applicable-tag? (lambda (v) (or (closure-tag? v) (prim-tag? v))))
    ;(quotable? (lambda (v)
                 ;(match v
                   ;((? symbol?) (not (applicable-tag? v)))
@@ -74,7 +75,7 @@
    ;(in-env? (lambda (env sym)
               ;(match env
                 ;('() #f)
-                ;(`(,a . ,d) (or (equal? a sym) (in-env? d sym))))))
+                ;(`((,a . ,_). ,d) (or (equal? a sym) (in-env? d sym))))))
    ;(extend-env* (lambda (params args env)
                   ;(match `(,params . ,args)
                     ;(`(() . ()) env)
@@ -90,8 +91,8 @@
                    ;(lookup rest sym))))))
    ;(term?
      ;(lambda (term env)
-       ;(let ((term1? (lambda (v) (term? v env)))
-             ;(terms? (lambda (ts env)
+       ;(letrec ((term1? (lambda (v) (term? v env)))
+                ;(terms? (lambda (ts env)
                        ;(match ts
                          ;('() #t)
                          ;(`(,t . ,ts) (and (term? t env) (terms? ts env)))))))
@@ -106,16 +107,16 @@
            ;(`(lambda ,params ,body)
              ;(and (params? params)
                   ;(let ((res (match params
-                               ;((not (? symbol? params))
-                                ;(extend-env* params params env^))
-                               ;(sym `((,x . (val . ,x)) . ,env^)))))
+                               ;((and (not (? symbol?)) params)
+                                ;(extend-env* params params env))
+                               ;(sym `((,sym . (val . ,sym)) . ,env)))))
                     ;(term? body res))))
-           ;(`(letrec ((,p-name (lambda ,params ,body)))
+           ;(`(letrec ((,p-name ,(and `(lambda ,params ,body) lam-expr)))
                ;,letrec-body)
              ;(and (params? params)
                   ;(let ((res `((,p-name . (rec . (lambda ,params ,body)))
                                ;. ,env)))
-                    ;(and (term? body res) (term? letrec-body res)))))
+                    ;(and (term? lam-expr res) (term? letrec-body res)))))
            ;(_ #f)))))
    ;(eval-prim
      ;(lambda (prim-id args)
@@ -144,7 +145,7 @@
              ;(1 #t #t)
              ;(1 #f #f)
              ;(1 (? number? num) num)
-             ;(1 `((and 'quote (not (? bound?))) ,(? quotable? datum)) datum)
+             ;(1 `(,(and 'quote (not (? bound?))) ,(? quotable? datum)) datum)
              ;(1 (? symbol? sym) (lookup env sym))
              ;(1 (and `(,op . ,_) operation)
                ;(match-cws operation
@@ -152,12 +153,12 @@
                   ;(let ((op (eval-term op env))
                         ;(a* (eval-term-list rands env)))
                     ;(match-c op
-                      ;(0 `(,prim-tag . ,prim-id) (eval-prim prim-id a*))
-                      ;(0 `(,closure-tag (lambda ,x ,body) ,env^)
+                      ;(0 `(,(? prim-tag?) . ,prim-id) (eval-prim prim-id a*))
+                      ;(0 `(,(? closure-tag?) (lambda ,x ,body) ,env^)
                        ;(let ((res (match-cws x
                                     ;(0 10 (not (? symbol? params))
                                      ;(extend-env* params a* env^))
-                                    ;(0 1 sym `((,x . (val . ,a*)) . ,env^)))))
+                                    ;(0 1 sym `((,sym . (val . ,a*)) . ,env^)))))
                          ;(eval-term body res))))))
                  ;(1 10 `(if ,condition ,alt-true ,alt-false)
                   ;(if (eval-term condition env)
