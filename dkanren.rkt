@@ -3,6 +3,10 @@
 
   )
 
+(require
+  racket/match
+  )
+
 ; match pattern compiler
 ; patterns: _, var, literal, ', `, ?, not, and, or
 ; ideally, minimize let-bound/fresh vars
@@ -31,6 +35,62 @@
 ;     domain = _ (anything), ([quasi]quoted) literal, infinite set (i.e. number, symbol), list (union) of domains
 ;   last-of-this-value markers: if you have this value, it's the last case where it's possible, so commit to it
 
+
+(define closure-tag (gensym "#%closure"))
+(define prim-tag (gensym "#%primitive"))
+
+(define (applicable-tag? v)
+  (or (equal? closure-tag v) (equal? prim-tag v)))
+(define (quotable? v)
+  (match v
+    ((? symbol?) (not (applicable-tag? v)))
+    (`(,a . ,d) (and (quotable? a) (quotable? d)))
+    (_ #t)))
+
+(define empty-env '())
+(define initial-env `((cons . (val . (,prim-tag . cons)))
+                      (car . (val . (,prim-tag . car)))
+                      (cdr . (val . (,prim-tag . cdr)))
+                      (null? . (val . (,prim-tag . null?)))
+                      (pair? . (val . (,prim-tag . pair?)))
+                      (symbol? . (val . (,prim-tag . symbol?)))
+                      (not . (val . (,prim-tag . not)))
+                      (equal? . (val . (,prim-tag . equal?)))
+                      (list . (val . (,closure-tag (lambda x x) ,empty-env)))
+                      . ,empty-env))
+(define (in-env? env sym)
+  (match env
+    ('() #f)
+    (`((,a . ,_) . ,d) (or (equal? a sym) (in-env? d sym)))))
+(define (extend-env* params args env)
+  (match `(,params . ,args)
+    (`(() . ()) env)
+    (`((,x . ,dx*) . (,a . ,da*))
+      (extend-env* dx* da* `((,x . (val . ,a)) . ,env)))))
+(define (lookup env sym)
+  (match env
+    (`((,y . ,b) . ,rest)
+      (if (equal? sym y)
+        (match b
+          (`(val . ,v) v)
+          (`(rec . ,lam-expr) `(,closure-tag ,lam-expr ,env)))
+        (lookup rest sym)))))
+
+(define (not-in-params? ps sym)
+  (match ps
+    ('() #t)
+    (`(,a . ,d)
+      (and (not (equal? a sym)) (not-in-params? d sym)))))
+(define (param-list? x)
+  (match x
+    ('() #t)
+    (`(,(? symbol? a) . ,d)
+      (and (param-list? d) (not-in-params? d a)))
+    (_ #f)))
+(define (params? x)
+  (match x
+    ((? param-list?) #t)
+    (x (symbol? x))))
 
 ; the goal is to support something like this interpreter
 
