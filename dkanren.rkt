@@ -106,6 +106,22 @@
   (match x
     ((? param-list?) #t)
     (x (symbol? x))))
+(define (bindings? b*)
+  (match b*
+    ('() #t)
+    (`((,p ,v) . ,b*) (bindings? b*))
+    (_ #f)))
+(define (split-bindings b*)
+  (match b*
+    ('() (values '() '()))
+    (`((,param ,val) . ,b*)
+      (let-values (((ps vs) (split-bindings b*)))
+        (values (cons param ps) (cons val vs))))))
+(define (let->lambda term)
+  (match term
+    (`(let ,binding* ,let-body)
+      (let-values (((ps vs) (split-bindings binding*)))
+        `((lambda ,ps ,let-body) . ,vs)))))
 
 (define (term? term env)
   (letrec ((term1? (lambda (v) (term? v env)))
@@ -133,6 +149,7 @@
                            (extend-env* params params env))
                           (sym `((val . (,sym . ,sym)) . ,env)))))
                (term? body res))))
+      (`(let ,b* ,_) (and (bindings? b*) (term? (let->lambda term) env)))
       (`(letrec ,binding* ,letrec-body)
         (let ((res `((rec . ,binding*) . ,env)))
           (and (binding-terms? binding* res) (term? letrec-body res))))
@@ -182,6 +199,7 @@
              (eval-term alt-false env)))
          ((? term1? `(lambda ,params ,body))
           `(,closure-tag (lambda ,params ,body) ,env))
+         (`(let ,_ ,_) (eval-term (let->lambda operation) env))
          ((? term1? `(letrec ,binding* ,letrec-body))
           (eval-term letrec-body `((rec . ,binding*) . ,env))))))))
 
@@ -196,6 +214,7 @@
   (check-equal? (eval-term '(null? '()) initial-env) #t)
   (check-equal? (eval-term '(null? '(0)) initial-env) #f)
   (check-equal? (eval-term '(list 5 6) initial-env) '(5 6))
+  (check-equal? (eval-term '(let ((p (cons 8 9))) (cdr p)) initial-env) 9)
   (check-equal?
     (eval-term
       '(letrec ((append
