@@ -183,8 +183,7 @@
     (`(,term . ,terms)
       `(,(eval-term term env) . ,(eval-term-list terms env)))))
 (define (eval-term term env)
-  (let ((bound? (lambda (sym) (in-env? env sym)))
-        (term1? (lambda (v) (term? v env))))
+  (let ((bound? (lambda (sym) (in-env? env sym))))
     (match term
       (#t #t)
       (#f #f)
@@ -209,10 +208,10 @@
            (if (eval-term condition env)
              (eval-term alt-true env)
              (eval-term alt-false env)))
-         ((? term1? `(lambda ,params ,body))
+         (`(lambda ,params ,body)
           `(,closure-tag (lambda ,params ,body) ,env))
          (`(let ,_ ,_) (eval-term (let->lambda operation) env))
-         ((? term1? `(letrec ,binding* ,letrec-body))
+         (`(letrec ,binding* ,letrec-body)
           (eval-term letrec-body `((rec . ,binding*) . ,env))))))))
 
 (module+ test
@@ -235,7 +234,7 @@
          (list (append '() '()) (append '(foo) '(bar)) (append '(1 2) '(3 4))))
       initial-env)
     '(() (foo bar) (1 2 3 4)))
-  (check-equal?  (eval-term '`(1 ,(car `(,(cdr '(b 2)) 3)) ,'a) initial-env)
+  (check-equal? (eval-term '`(1 ,(car `(,(cdr '(b 2)) 3)) ,'a) initial-env)
     '(1 (2) a))
   )
 
