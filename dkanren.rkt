@@ -123,6 +123,11 @@
       (let-values (((ps vs) (split-bindings binding*)))
         `((lambda ,ps ,let-body) . ,vs)))))
 
+(define (term-qq? qqterm env)
+  (match qqterm
+    (`(,'unquote ,term) (term? term env))
+    (`(,a . ,d) (and (term-qq? a env) (term-qq? d env)))
+    (datum (quotable? datum))))
 (define (term? term env)
   (letrec ((term1? (lambda (v) (term? v env)))
            (terms? (lambda (ts env)
@@ -141,6 +146,7 @@
       ((and (? symbol? sym)) (in-env? env sym))
       (`(,(? term1?) . ,rands) (terms? rands env))
       (`(quote ,datum) (quotable? datum))
+      (`(quasiquote ,qqterm) (term-qq? qqterm env))
       (`(if ,c ,t ,f) (and (term1? c) (term1? t) (term1? f)))
       (`(lambda ,params ,body)
         (and (params? params)
@@ -166,6 +172,11 @@
     (`(number? ,v) (number? v))
     (`(not ,v) (match v (#f #t) (_ #f)))
     (`(equal? ,v1 ,v2) (equal? v1 v2))))
+(define (eval-qq qqterm env)
+  (match qqterm
+    (`(,'unquote ,term) (eval-term term env))
+    (`(,a . ,d) `(,(eval-qq a env) . ,(eval-qq d env)))
+    ((? quotable? datum) datum)))
 (define (eval-term-list terms env)
   (match terms
     ('() '())
@@ -178,7 +189,6 @@
       (#t #t)
       (#f #f)
       ((? number? num) num)
-      (`(,(and 'quote (not (? bound?))) ,(? quotable? datum)) datum)
       ((? symbol? sym) (lookup env sym))
       ((and `(,op . ,_) operation)
        (match operation
@@ -193,6 +203,8 @@
                                (extend-env* params a* env^))
                               (sym `((val . (,sym . ,a*)) . ,env^)))))
                    (eval-term body res))))))
+         (`(quote ,(? quotable? datum)) datum)
+         (`(quasiquote ,qqterm) (eval-qq qqterm env))
          (`(if ,condition ,alt-true ,alt-false)
            (if (eval-term condition env)
              (eval-term alt-true env)
@@ -222,7 +234,10 @@
                     (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
          (list (append '() '()) (append '(foo) '(bar)) (append '(1 2) '(3 4))))
       initial-env)
-    '(() (foo bar) (1 2 3 4))))
+    '(() (foo bar) (1 2 3 4)))
+  (check-equal?  (eval-term '`(1 ,(car `(,(cdr '(b 2)) 3)) ,'a) initial-env)
+    '(1 (2) a))
+  )
 
 ; the goal is to support something like this interpreter
 
