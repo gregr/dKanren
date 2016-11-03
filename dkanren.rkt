@@ -25,6 +25,11 @@
 ;   goals can't easily do this without messing up scheduling priorities
 ;
 ; match/r
+;
+; optional match result-domain annotations
+;   type or finite domain: support fast, conservative domain constraints
+;     domain = _ (anything), ([quasi]quoted) literal, infinite set (i.e. number, symbol), list (union) of domains
+;   last-of-this-value markers: if you have this value, it's the last case where it's possible, so commit to it
 
 
 ; the goal is to support something like this interpreter
