@@ -105,7 +105,12 @@
            (terms? (lambda (ts env)
                      (match ts
                        ('() #t)
-                       (`(,t . ,ts) (and (term? t env) (terms? ts env)))))))
+                       (`(,t . ,ts) (and (term? t env) (terms? ts env))))))
+           (binding-terms? (lambda (binding* env)
+                             (match binding*
+                               ('() #t)
+                               (`((,_ ,(and `(lambda ,_ ,_) t)) . ,b*)
+                                 (and (term? t env) (binding-terms? b* env)))))))
     (match term
       (#t #t)
       (#f #t)
@@ -121,12 +126,9 @@
                            (extend-env* params params env))
                           (sym `((val . (,sym . ,sym)) . ,env)))))
                (term? body res))))
-      (`(letrec ((,p-name ,(and `(lambda ,params ,body) lam-expr)))
-          ,letrec-body)
-        (and (params? params)
-             (let ((res `((rec . ((,p-name . (lambda ,params ,body))))
-                          . ,env)))
-               (and (term? lam-expr res) (term? letrec-body res)))))
+      (`(letrec ,binding* ,letrec-body)
+        (let ((res `((rec . ,binding*) . ,env)))
+          (and (binding-terms? binding* res) (term? letrec-body res))))
       (_ #f))))
 
 ; the goal is to support something like this interpreter
