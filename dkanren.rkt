@@ -7,6 +7,11 @@
   racket/match
   )
 
+(module+ test
+  (require
+    rackunit
+    ))
+
 ; match pattern compiler
 ; patterns: _, var, literal, ', `, ?, not, and, or
 ; ideally, minimize let-bound/fresh vars
@@ -37,7 +42,9 @@
 
 
 (define closure-tag (gensym "#%closure"))
+(define (closure-tag? x) (eq? x closure-tag))
 (define prim-tag (gensym "#%primitive"))
+(define (prim-tag? x) (eq? x prim-tag))
 
 (define (applicable-tag? v)
   (or (equal? closure-tag v) (equal? prim-tag v)))
@@ -142,6 +149,61 @@
     (`(number? ,v) (number? v))
     (`(not ,v) (match v (#f #t) (_ #f)))
     (`(equal? ,v1 ,v2) (equal? v1 v2))))
+(define (eval-term-list terms env)
+  (match terms
+    ('() '())
+    (`(,term . ,terms)
+      `(,(eval-term term env) . ,(eval-term-list terms env)))))
+(define (eval-term term env)
+  (let ((bound? (lambda (sym) (in-env? env sym)))
+        (term1? (lambda (v) (term? v env))))
+    (match term
+      (#t #t)
+      (#f #f)
+      ((? number? num) num)
+      (`(,(and 'quote (not (? bound?))) ,(? quotable? datum)) datum)
+      ((? symbol? sym) (lookup env sym))
+      ((and `(,op . ,_) operation)
+       (match operation
+         (`(,(or (? bound?) (not (? symbol?))) . ,rands)
+           (let ((op (eval-term op env))
+                 (a* (eval-term-list rands env)))
+             (match op
+               (`(,(? prim-tag?) . ,prim-id) (eval-prim prim-id a*))
+               (`(,(? closure-tag?) (lambda ,x ,body) ,env^)
+                 (let ((res (match x
+                              ((and (not (? symbol?)) params)
+                               (extend-env* params a* env^))
+                              (sym `((val . (,sym . ,a*)) . ,env^)))))
+                   (eval-term body res))))))
+         (`(if ,condition ,alt-true ,alt-false)
+           (if (eval-term condition env)
+             (eval-term alt-true env)
+             (eval-term alt-false env)))
+         ((? term1? `(lambda ,params ,body))
+          `(,closure-tag (lambda ,params ,body) ,env))
+         ((? term1? `(letrec ,binding* ,letrec-body))
+          (eval-term letrec-body `((rec . ,binding*) . ,env))))))))
+
+(module+ test
+  (check-equal? (eval-term 3 initial-env) 3)
+  (check-equal? (eval-term '3 initial-env) 3)
+  (check-equal? (eval-term ''x initial-env) 'x)
+  (check-equal? (eval-term ''(1 (2) 3) initial-env) '(1 (2) 3))
+  (check-equal? (eval-term '(car '(1 (2) 3)) initial-env) 1)
+  (check-equal? (eval-term '(cdr '(1 (2) 3)) initial-env) '((2) 3))
+  (check-equal? (eval-term '(cons 'x 4) initial-env) '(x . 4))
+  (check-equal? (eval-term '(null? '()) initial-env) #t)
+  (check-equal? (eval-term '(null? '(0)) initial-env) #f)
+  (check-equal? (eval-term '(list 5 6) initial-env) '(5 6))
+  (check-equal?
+    (eval-term
+      '(letrec ((append
+                  (lambda (xs ys)
+                    (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
+         (list (append '() '()) (append '(foo) '(bar)) (append '(1 2) '(3 4))))
+      initial-env)
+    '(() (foo bar) (1 2 3 4))))
 
 ; the goal is to support something like this interpreter
 
