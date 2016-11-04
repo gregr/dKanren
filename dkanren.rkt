@@ -43,6 +43,78 @@
 ;     domain = _ (anything), ([quasi]quoted) literal, infinite set (i.e. number, symbol), list (union) of domains
 ;   last-of-this-value markers: if you have this value, it's the last case where it's possible, so commit to it
 
+; TODO:
+; basic mk variant
+;   domains
+;   unify
+;   cxs
+;   primitive goals for unify/cxs
+;   goal store and scheduling
+;     goal entry: (tag, result var, blocking var, thunk)
+;       (or goal ref instead of thunk? could duplicate goal store metadata in var cxs for faster fetching)
+;     var cxs w/ deterministic, non-deterministic suspended goals
+;       when suspending a goal, choose bucket via this question:
+;         "if var is bound, will goal execute deterministically?"
+;       point to goals in separate store via goal ref/var to shrink namespace, allow sharing
+;       goals update goal store w/ progress
+;   simple reify for debugging
+;   bind, mplus w/ costs
+;     dfs, ws, quota/cost?
+;     cost must be able to express size-incrementing search
+;       goal scoped or leaky costs?
+;       quota wrapper?
+;   simple take, run, for debugging
+; extended mk variant, mixing in deterministic computation where possible
+;   match/pattern compiler
+;     backwards result value information flow
+;       match clause rhs can often be treated as a pattern
+;       track a pair of values that distinguish these cases:
+;         [partly-]instantiated datum: #f, datum
+;           apply backwards pattern matching where helpful
+;         existing var w or w/o cxs: var, cxs/#f
+;           if goal doesn't produce a result, bind to existing logic var
+;         no value, no existing var: #t, cxs/#f
+;           if goal doesn't produce a result, create and bind to a fresh logic var
+;           is there really ever a cxs in this case?
+;     goal suspension
+;       incomplete goals (due to nondeterminism) bind themselves to blocking logic vars
+;         match scrutinees are the blocking vars
+;       unifying such a logic var w/ value resumes the goal, at least until the next blocker
+;   non-root-deterministic-only quotas
+;   tagging and pluggable solvers (one in particular)
+;     aggressive, parallel term guesser
+;       not complete on its own, but likely more effective for typical synthesis
+;       analayzes all eval goals for the same term, analyzing the different envs and results
+;       size-incrementing basic component enumeration
+;         literals, vars, car/cdrs of everything available in env
+;         then cons (only as backwards info flow suggests) and predicate applications of components
+;         note: some primitives may have been shadowed or renamed
+;         may introduce lambdas when backwards info flow indicates a closure is necessary
+;       identifying components useful as conditions (capable of partitioning the eval goals)
+;         not useful unless component expresses both #f and not #f at least once each across envs
+;         e.g. literals are not useful
+;         could perform this identification in parallel, for each component over each env
+;           defer components that are not available in all envs, until conditional splitting
+;       general size-incrementing component enumeration
+;         e.g. applying non-primitive procedures (try to avoid unnested self-application/non-termination)
+;              conditional splitting, producing lambdas, letrecs, etc.
+;         conditional splitting (if, cond, match, depending on shadowing/complexity)
+;           if none of if/cond/match are available, and no closures are capable of conditional splitting,
+;           could potentially refute this line of search early
+;           if there are basic components useful as conditions, try those before general components
+; faster-mk interface
+;   port everything to chez
+;   import/export substitution and constraint store, translating constraints
+; performance and benchmarking
+;   move from closure-encoding interpreter to ahead-of-time compiler
+;   tweak match clauses and costs
+;   tweak mk data reprs
+;     e.g. try path compression
+; future
+;   de bruijn encoding interpreter
+;     could be a useful alternative to closure-encoding for 1st order languages
+;     try for both dkanren (for comparison) and relational interpreter (may improve perf)
+
 (define (quotable? v)
   (match v
     (`(,a . ,d) (and (quotable? a) (quotable? d)))
