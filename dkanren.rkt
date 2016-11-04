@@ -190,6 +190,15 @@
     (`(,t) (eval-term t env))
     (`(,t . ,t*) (let ((condition (eval-term t env)))
                    (if condition condition (eval-or t* env))))))
+(define (eval-application proc a*)
+  (match proc
+    (`(,(? prim-tag?) . ,prim-id) (eval-prim prim-id a*))
+    (`(,(? closure-tag?) (lambda ,x ,body) ,env^)
+      (let ((res (match x
+                   ((and (not (? symbol?)) params)
+                    (extend-env* params a* env^))
+                   (sym `((val . (,sym . ,a*)) . ,env^)))))
+        (eval-term body res)))))
 (define (eval-term-list terms env)
   (match terms
     ('() '())
@@ -207,14 +216,7 @@
          (`(,(or (? bound?) (not (? symbol?))) . ,rands)
            (let ((op (eval-term op env))
                  (a* (eval-term-list rands env)))
-             (match op
-               (`(,(? prim-tag?) . ,prim-id) (eval-prim prim-id a*))
-               (`(,(? closure-tag?) (lambda ,x ,body) ,env^)
-                 (let ((res (match x
-                              ((and (not (? symbol?)) params)
-                               (extend-env* params a* env^))
-                              (sym `((val . (,sym . ,a*)) . ,env^)))))
-                   (eval-term body res))))))
+             (eval-application op a*)))
          (`(quote ,(? quotable? datum)) datum)
          (`(quasiquote ,qqterm) (eval-qq qqterm env))
          (`(if ,condition ,alt-true ,alt-false)
