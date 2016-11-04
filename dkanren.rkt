@@ -174,11 +174,12 @@
                      (match ts
                        ('() #t)
                        (`(,t . ,ts) (and (term? t env) (terms? ts env))))))
-           (binding-terms? (lambda (binding* env)
-                             (match binding*
-                               ('() #t)
-                               (`((,_ ,(and `(lambda ,_ ,_) t)) . ,b*)
-                                 (and (term? t env) (binding-terms? b* env)))))))
+           (binding-lambdas?
+             (lambda (binding* env)
+               (match binding*
+                 ('() #t)
+                 (`((,_ ,(and `(lambda ,_ ,_) t)) . ,b*)
+                   (and (term? t env) (binding-lambdas? b* env)))))))
     (match term
       (#t #t)
       (#f #t)
@@ -202,7 +203,7 @@
                     (term? let-body (extend-env* ps ps env))))))
       (`(letrec ,binding* ,letrec-body)
         (let ((res `((rec . ,binding*) . ,env)))
-          (and (binding-terms? binding* res) (term? letrec-body res))))
+          (and (binding-lambdas? binding* res) (term? letrec-body res))))
       (`(and . ,t*) (terms? t* env))
       (`(or . ,t*) (terms? t* env))
       (`(match ,s . ,pt*) (and (term1? s) (match-clauses? pt* env)))
