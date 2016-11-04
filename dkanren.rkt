@@ -136,8 +136,8 @@
     ((? quotable?) ps)))
 (define (pattern-or? pattern* ps env)
   (match pattern*
-    ('() #f)
-    (`(,pattern . pattern*)
+    ('() ps)
+    (`(,pattern . ,pattern*)
       (let ((ps (pattern? pattern ps env)))
         (and (equal? ps (pattern-or? pattern* ps env)) ps)))))
 (define (pattern*? pattern* ps env)
@@ -226,7 +226,7 @@
 (define (eval-pattern-or pattern* penv v env)
   (match pattern*
     ('() #f)
-    (`(,pattern . pattern*)
+    (`(,pattern . ,pattern*)
       (let ((penv (eval-pattern pattern penv v env)))
         (or penv (eval-pattern-or pattern* penv v env))))))
 (define (eval-pattern* pattern* penv v env)
