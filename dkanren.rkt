@@ -120,11 +120,6 @@
     (`((,param ,val) . ,b*)
       (let-values (((ps vs) (split-bindings b*)))
         (values (cons param ps) (cons val vs))))))
-(define (let->lambda term)
-  (match term
-    (`(let ,binding* ,let-body)
-      (let-values (((ps vs) (split-bindings binding*)))
-        `((lambda ,ps ,let-body) . ,vs)))))
 
 (define (pattern-var? b* vname ps)
   (match b*
@@ -200,7 +195,11 @@
                            (extend-env* params params env))
                           (sym `((val . (,sym . ,sym)) . ,env)))))
                (term? body res))))
-      (`(let ,b* ,_) (and (bindings? b*) (term? (let->lambda term) env)))
+      (`(let ,binding* ,let-body)
+        (and (bindings? binding*)
+             (let-values (((ps vs) (split-bindings binding*)))
+               (and (terms? vs env)
+                    (term? let-body (extend-env* ps ps env))))))
       (`(letrec ,binding* ,letrec-body)
         (let ((res `((rec . ,binding*) . ,env)))
           (and (binding-terms? binding* res) (term? letrec-body res))))
@@ -321,7 +320,10 @@
              (eval-term alt-false env)))
          (`(lambda ,params ,body)
           `(,closure-tag (lambda ,params ,body) ,env))
-         (`(let ,_ ,_) (eval-term (let->lambda operation) env))
+         (`(let ,binding* ,let-body)
+           (let-values (((ps vs) (split-bindings binding*)))
+             (eval-term let-body
+                        (extend-env* ps (eval-term-list vs env) env))))
          (`(letrec ,binding* ,letrec-body)
           (eval-term letrec-body `((rec . ,binding*) . ,env)))
          (`(and . ,t*) (eval-and t* env))
