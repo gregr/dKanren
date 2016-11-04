@@ -1,6 +1,8 @@
 #lang racket/base
 (provide
-
+  term?
+  eval-term
+  initial-env
   )
 
 (require
