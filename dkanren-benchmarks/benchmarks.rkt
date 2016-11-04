@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require
-  (rename-in "../dkanren.rkt"
+  (rename-in "closure-encoding.rkt"
              (term? term-closure-encoded?)
              (eval-term eval-term-closure-encoded)
              (initial-env initial-env-closure-encoded))
