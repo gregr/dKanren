@@ -227,7 +227,7 @@
       (let ((penv (eval-pattern pat '() v env)))
         (if penv
           (let-values (((ps vs) (split-bindings penv)))
-            (eval-term rhs (extend-env* ps vs env)))
+            (eval-term rhs (extend-env* (reverse ps) (reverse vs) env)))
           (eval-match pt* v env))))))
 
 (define (eval-prim prim-id args)
