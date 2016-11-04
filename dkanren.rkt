@@ -123,6 +123,48 @@
       (let-values (((ps vs) (split-bindings binding*)))
         `((lambda ,ps ,let-body) . ,vs)))))
 
+(define (pattern-var? b* vname ps)
+  (match b*
+    ('() `(,vname . ,ps))
+    (`(,name . ,b*) (if (eq? name vname) ps (pattern-var? b* vname ps)))))
+(define (pattern-qq? qqpattern ps env)
+  (match qqpattern
+    (`(,'unquote ,pat) (pattern? pat ps env))
+    (`(,a . ,d) (let ((ps (pattern-qq? a ps env)))
+                  (and ps (pattern-qq? d ps env))))
+    ((? quotable?) ps)))
+(define (pattern-or? pattern* ps env)
+  (match pattern*
+    ('() #f)
+    (`(,pattern . pattern*)
+      (let ((ps (pattern? pattern ps env)))
+        (and (equal? ps (pattern-or? pattern* ps env)) ps)))))
+(define (pattern*? pattern* ps env)
+  (match pattern*
+    ('() ps)
+    (`(,pattern . ,pattern*)
+      (let ((ps (pattern? pattern ps env)))
+        (and ps (pattern*? pattern* ps env))))))
+(define (pattern? pattern ps env)
+  (match pattern
+    (`(quote ,(? quotable?)) ps)
+    (`(quasiquote ,qqpat) (pattern-qq? qqpat ps env))
+    (`(not . ,pat*) (pattern*? pat* ps env))
+    (`(and . ,pat*) (pattern*? pat* ps env))
+    (`(or . ,pat*) (pattern-or? pat* ps env))
+    (`(? ,predicate . ,pat*)
+      (and (term? predicate env) (pattern*? pat* ps env)))
+    ('_ ps)
+    ((? symbol? vname) (pattern-var? ps vname ps))
+    ((? quotable?) ps)))
+(define (match-clauses? pt* env)
+  (match pt*
+    ('() #t)
+    (`((,pat ,rhs) . ,pt*)
+      (let ((ps (pattern? pat '() env)))
+        (and
+          ps (term? rhs (extend-env* ps ps env)) (match-clauses? pt* env))))))
+
 (define (term-qq? qqterm env)
   (match qqterm
     (`(,'unquote ,term) (term? term env))
@@ -161,7 +203,58 @@
           (and (binding-terms? binding* res) (term? letrec-body res))))
       (`(and . ,t*) (terms? t* env))
       (`(or . ,t*) (terms? t* env))
+      (`(match ,s . ,pt*) (and (term1? s) (match-clauses? pt* env)))
       (_ #f))))
+
+(define (eval-pattern-literal literal penv v) (and (equal? literal v) penv))
+(define (eval-pattern-var b* vname penv v)
+  (match b*
+    ('() `((,vname ,v) . ,penv))
+    (`((,name ,x) . ,b*)
+      (if (eq? name vname)
+        (and (equal? x v) penv)
+        (eval-pattern-var b* vname penv v)))))
+(define (eval-pattern-qq qqpattern penv v env)
+  (match qqpattern
+    (`(,'unquote ,pat) (eval-pattern pat penv v env))
+    (`(,a . ,d)
+      (and (pair? v)
+           (let ((penv (eval-pattern-qq a penv (car v) env)))
+             (and penv (eval-pattern-qq d penv (cdr v) env)))))
+    ((? quotable? datum) (eval-pattern-literal datum penv v))))
+(define (eval-pattern-or pattern* penv v env)
+  (match pattern*
+    ('() #f)
+    (`(,pattern . pattern*)
+      (let ((penv (eval-pattern pattern penv v env)))
+        (or penv (eval-pattern-or pattern* penv v env))))))
+(define (eval-pattern* pattern* penv v env)
+  (match pattern*
+    ('() penv)
+    (`(,pattern . ,pattern*)
+      (let ((penv (eval-pattern pattern penv v env)))
+        (and penv (eval-pattern* pattern* penv v env))))))
+(define (eval-pattern pattern penv v env)
+  (match pattern
+    (`(quote ,(? quotable? datum)) (eval-pattern-literal datum penv v))
+    (`(quasiquote ,qqpat) (eval-pattern-qq qqpat penv v env))
+    (`(not . ,pat*) (and (not (eval-pattern* pat* penv v env)) penv))
+    (`(and . ,pat*) (eval-pattern* pat* penv v env))
+    (`(or . ,pat*) (eval-pattern-or pat* penv v env))
+    (`(? ,predicate . ,pat*)
+      (and (eval-application (eval-term predicate env) (list v))
+           (eval-pattern* pat* penv v env)))
+    ('_ penv)
+    ((? symbol? vname) (eval-pattern-var penv vname penv v))
+    ((? quotable? datum) (eval-pattern-literal datum penv v))))
+(define (eval-match pt* v env)
+  (match pt*
+    (`((,pat ,rhs) . ,pt*)
+      (let ((penv (eval-pattern pat '() v env)))
+        (if penv
+          (let-values (((ps vs) (split-bindings penv)))
+            (eval-term rhs (extend-env* ps vs env)))
+          (eval-match pt* v env))))))
 
 (define (eval-prim prim-id args)
   (match `(,prim-id . ,args)
@@ -229,7 +322,9 @@
          (`(letrec ,binding* ,letrec-body)
           (eval-term letrec-body `((rec . ,binding*) . ,env)))
          (`(and . ,t*) (eval-and t* env))
-         (`(or . ,t*) (eval-or t* env)))))))
+         (`(or . ,t*) (eval-or t* env))
+         (`(match ,scrutinee . ,pt*)
+           (eval-match pt* (eval-term scrutinee env) env)))))))
 
 (module+ test
   (check-equal? (eval-term 3 initial-env) 3)
@@ -258,6 +353,59 @@
     '(() (foo bar) (1 2 3 4)))
   (check-equal? (eval-term '`(1 ,(car `(,(cdr '(b 2)) 3)) ,'a) initial-env)
     '(1 (2) a))
+
+  (check-equal?
+    (eval-term
+      '(match '(1 (b 2))
+         (`(1 (a ,x)) 3)
+         (`(1 (b ,x)) x)
+         (_ 4))
+      initial-env)
+    2)
+  (check-equal?
+    (eval-term
+      '(match '(1 1 2)
+         (`(,a ,b ,a) `(first ,a ,b))
+         (`(,a ,a ,b) `(second ,a ,b))
+         (_ 4))
+      initial-env)
+    '(second 1 2))
+
+  (define ex-match
+    '(match '(1 2 1)
+       (`(,a ,b ,a) `(first ,a ,b))
+       (`(,a ,a ,b) `(second ,a ,b))
+       (_ 4)))
+  (check-true (term? ex-match initial-env))
+  (check-equal?
+    (eval-term ex-match initial-env)
+    '(first 1 2))
+
+  (define ex-eval-expr
+    '(letrec
+       ((eval-expr
+          (lambda (expr env)
+            (match expr
+              (`(quote ,datum) datum)
+              (`(lambda (,(? symbol? x)) ,body)
+                (lambda (a)
+                  (eval-expr body (lambda (y)
+                                    (if (equal? y x) a (env y))))))
+              ((? symbol? x) (env x))
+              (`(cons ,e1 ,e2) (cons (eval-expr e1 env) (eval-expr e2 env)))
+              (`(,rator ,rand) ((eval-expr rator env)
+                                (eval-expr rand env)))))))
+       (list
+         (eval-expr '((lambda (y) y) 'g1) 'initial-env)
+         (eval-expr '(((lambda (z) z) (lambda (v) v)) 'g2) 'initial-env)
+         (eval-expr '(((lambda (a) (a a)) (lambda (b) b)) 'g3) 'initial-env)
+         (eval-expr '(((lambda (c) (lambda (d) c)) 'g4) 'g5) 'initial-env)
+         (eval-expr '(((lambda (f) (lambda (v1) (f (f v1)))) (lambda (e) e)) 'g6) 'initial-env)
+         (eval-expr '((lambda (g) ((g g) g)) (lambda (i) (lambda (j) 'g7))) 'initial-env))))
+  (check-true (term? ex-eval-expr initial-env))
+  (check-equal?
+    (eval-term ex-eval-expr initial-env)
+    '(g1 g2 g3 g4 g6 g7))
   )
 
 ; the goal is to support something like this interpreter
