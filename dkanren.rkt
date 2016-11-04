@@ -246,13 +246,15 @@
   (check-equal? (eval-term '(and 8 9 10) initial-env) 10)
   (check-equal? (eval-term '(or #f 11 12) initial-env) 11)
   (check-equal? (eval-term '(let ((p (cons 8 9))) (cdr p)) initial-env) 9)
+
+  (define ex-append
+    '(letrec ((append
+                (lambda (xs ys)
+                  (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
+       (list (append '() '()) (append '(foo) '(bar)) (append '(1 2) '(3 4)))) )
+  (check-true (term? ex-append initial-env))
   (check-equal?
-    (eval-term
-      '(letrec ((append
-                  (lambda (xs ys)
-                    (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
-         (list (append '() '()) (append '(foo) '(bar)) (append '(1 2) '(3 4))))
-      initial-env)
+    (eval-term ex-append initial-env)
     '(() (foo bar) (1 2 3 4)))
   (check-equal? (eval-term '`(1 ,(car `(,(cdr '(b 2)) 3)) ,'a) initial-env)
     '(1 (2) a))
