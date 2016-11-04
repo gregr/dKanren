@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require
-  "dkanren.rkt"
+  "../dkanren.rkt"
   racket/list
   racket/match
   )
