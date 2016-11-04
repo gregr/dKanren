@@ -1,7 +1,10 @@
 #lang racket/base
 
 (require
-  "../dkanren.rkt"
+  (rename-in "../dkanren.rkt"
+             (term? term-closure-encoded?)
+             (eval-term eval-term-closure-encoded)
+             (initial-env initial-env-closure-encoded))
   (rename-in "raw.rkt"
              (term? term-raw?)
              (eval-term eval-term-raw)
@@ -11,19 +14,21 @@
   )
 
 (define problem-iterations 100)
-(define problem-size 100)
-
-(define ex-append
-  `(letrec ((append
-              (lambda (xs ys)
-                (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
-     (list . ,(make-list problem-iterations
-                         `(append ',(range problem-size) '())))))
+(define problem-size 10)
+;; Use this size to differentiate immediate and runtime scheme eval, but
+;; remember to turn off the slow evaluators!
+;(define problem-size 10000)
 
 (define (run/scheme-eval term) (eval term))
 (define (run/raw-eval term) (eval-term-raw term initial-env-raw))
-(define (run/raw-eval-eval term)
-  (run/raw-eval
+(define (run/closure-eval term) (eval-term-closure-encoded term initial-env-closure-encoded))
+
+(define (run/scheme-eval-eval term) (run/eval-eval run/scheme-eval term))
+(define (run/closure-eval-eval term) (run/eval-eval run/closure-eval term))
+(define (run/raw-eval-eval term) (run/eval-eval run/raw-eval term))
+
+(define (run/eval-eval run/eval term)
+  (run/eval
     `(let ((closure-tag ',(gensym "#%closure"))
            (prim-tag ',(gensym "#%primitive"))
            (empty-env '()))
@@ -180,11 +185,52 @@
 
            (let ((program ',term)) (eval-term program initial-env)))))))
 
+(define ex-append
+  `(letrec ((append
+              (lambda (xs ys)
+                (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
+     (list . ,(make-list problem-iterations
+                         `(append ',(range problem-size) '())))))
+(define ex-reverse-quadratic
+  `(letrec ((append
+              (lambda (xs ys)
+                (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
+     (letrec ((reverse
+                (lambda (xs)
+                  (if (null? xs)
+                    '()
+                    (append (reverse (cdr xs)) (list (car xs)))))))
+       (list . ,(make-list problem-iterations
+                           `(reverse ',(range problem-size)))))))
 
-(time (void (run/scheme-eval ex-append)))
-(time (void (run/raw-eval ex-append)))
-(time (void (run/raw-eval-eval ex-append)))  ; currently really slow!
+(define (benchmark)
+  (let loop-prog ((programs `((append ,ex-append)
+                              (reverse-quadratic ,ex-reverse-quadratic)
+                              )))
+    (when (pair? programs)
+      (let ((program (car programs)) (programs (cdr programs)))
+        (newline)
+        (displayln `(program: ,(car program)))
+        (let loop-eval ((runners `((scheme-eval-static
+                                     ,(eval `(lambda (,(gensym "unused"))
+                                               ,(cadr program))))
+                                   (scheme-eval-runtime ,run/scheme-eval)
+                                   (closure-eval ,run/closure-eval)
+                                   (raw-eval ,run/raw-eval)
+                                   ;; TODO: this needs to require racket/match
+                                   ;(scheme-eval-eval ,run/scheme-eval-eval)
+                                   (closure-eval-eval ,run/closure-eval-eval)
+                                   (raw-eval-eval ,run/raw-eval-eval)
+                                   )))
+          (if (null? runners) (loop-prog programs)
+            (let ((runner (car runners)) (runners (cdr runners)))
+              (collect-garbage 'major)
+              (displayln `(evaluator: ,(car runner)))
+              (time (void ((cadr runner) (cadr program))))
+              ;(time (displayln ((cadr runner) (cadr program))))
+              (loop-eval runners))))))))
 
+(benchmark)
 
 ; TODO: port these to Chez Scheme
 
@@ -194,8 +240,9 @@
 ; across runtimes:
 ;   scheme, mk-only, mixed
 ; across interpreter architectures:
-;   immediate (scheme only)
-;   eval at runtime (scheme only, is this really different from immediate?)
+;   static (scheme only)
+;   eval at runtime (scheme only)
+;   ahead-of-time compiled (dkanren only)
 ;   closure encoding (mk would need to support procedure values)
 ;   de bruin encoding (with and without integer support)
 ;   raw interpretation
