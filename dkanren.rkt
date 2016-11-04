@@ -61,6 +61,7 @@
                       (val . (null? . (,prim-tag . null?)))
                       (val . (pair? . (,prim-tag . pair?)))
                       (val . (symbol? . (,prim-tag . symbol?)))
+                      (val . (number? . (,prim-tag . number?)))
                       (val . (not . (,prim-tag . not)))
                       (val . (equal? . (,prim-tag . equal?)))
                       (val . (list . (,closure-tag (lambda x x) ,empty-env)))
