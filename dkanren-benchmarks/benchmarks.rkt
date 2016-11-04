@@ -2,6 +2,10 @@
 
 (require
   "../dkanren.rkt"
+  (rename-in "raw.rkt"
+             (term? term-raw?)
+             (eval-term eval-term-raw)
+             (initial-env initial-env-raw))
   racket/list
   racket/match
   )
@@ -17,9 +21,9 @@
                          `(append ',(range problem-size) '())))))
 
 (define (run/scheme-eval term) (eval term))
-(define (run/raw-eval term) (eval-term term initial-env))
+(define (run/raw-eval term) (eval-term-raw term initial-env-raw))
 (define (run/raw-eval-eval term)
-  (eval-term
+  (run/raw-eval
     `(let ((closure-tag ',(gensym "#%closure"))
            (prim-tag ',(gensym "#%primitive"))
            (empty-env '()))
@@ -174,8 +178,7 @@
                           `((,p-name . (rec . (lambda ,params ,body)))
                             . ,env))))))))))
 
-           (let ((program ',term)) (eval-term program initial-env)))))
-    initial-env))
+           (let ((program ',term)) (eval-term program initial-env)))))))
 
 
 (time (void (run/scheme-eval ex-append)))
