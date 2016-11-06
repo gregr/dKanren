@@ -45,18 +45,8 @@
 
 ; TODO:
 ; basic mk variant
-;   domains
-;   unify
-;   cxs
 ;   primitive goals for unify/cxs
-;   goal store and scheduling
-;     goal entry: (tag, result var, blocking var, thunk)
-;       (or goal ref instead of thunk? could duplicate goal store metadata in var cxs for faster fetching)
-;     var cxs w/ deterministic, non-deterministic suspended goals
-;       when suspending a goal, choose bucket via this question:
-;         "if var is bound, will goal execute deterministically?"
-;       point to goals in separate store via goal ref/var to shrink namespace, allow sharing
-;       goals update goal store w/ progress
+;   goal scheduling
 ;   simple reify for debugging
 ;   bind, mplus w/ costs
 ;     dfs, ws, quota/cost?
@@ -114,6 +104,253 @@
 ;   de bruijn encoding interpreter
 ;     could be a useful alternative to closure-encoding for 1st order languages
 ;     try for both dkanren (for comparison) and relational interpreter (may improve perf)
+
+
+;(struct domain-unknown (numbers symbols pairs) #:transparent)
+;(struct domain-typed (type ) #:transparent)
+
+; want a domain to be more like the pair: positive, negative
+;   a typed domain is then: positive=type-tag, negative=invalid-typed-values
+
+(define store-empty (hasheq))
+(define store-set hash-set)
+(define (list-add-unique xs v) (if (memq v xs) xs (car v xs)))
+(define (list-append-unique xs ys)
+  (if (null? xs) ys
+    (let ((zs (list-append-unique (cdr xs) ys))
+          (x0 (car xs)))
+      (if (memq x0 ys) zs (cons x0 zs)))))
+
+(struct var (name) #:transparent)
+
+(define domain-full '(pair symbol number () #f #t))
+(define (domain-remove dmn type) (remove dmn type))
+(define (domain-has-type? dmn type)
+  (or (eq? domain-full dmn) (memq type dmn)))
+(define (domain-has-val? dmn val)
+  (or (eq? domain-full dmn) (memq (match val
+                                    ((? pair?) 'pair)
+                                    ((? symbol?) 'symbol)
+                                    ((? number?) 'number)
+                                    (_ val)) dmn)))
+(define (domain-overlap? d1 d2)
+  (cond ((eq? domain-full d1) #t)
+        ((eq? domain-full d2) #t)
+        (else (let loop ((d1 d1) (d2 d2))
+                (or (memq (car d1) d2)
+                    (and (pair? (cdr d1)) (loop (cdr d1) d2)))))))
+(define (domain-intersect d1 d2)
+  (cond ((eq? domain-full d1) d2)
+        ((eq? domain-full d2) d1)
+        (else (let loop ((d1 d1) (d2 d2) (di '()))
+                (let* ((d1a (car d1))
+                       (d1d (cdr d1))
+                       (d2d (memq d1a d2))
+                       (di (if d2d (cons (car d1) di) di))
+                       (d2d (if d2d (cdr d2d) d2)))
+                  (if (or (null? d1d) (null? d2d))
+                    (if (null? di) #f (reverse di))
+                    (loop d1d d2d di)))))))
+
+(struct vattr (domain =/=s goals-det goals-nondet) #:transparent)
+(define (vattrs-get vs vr) (hash-ref vs vr vattr-empty))
+(define vattrs-set hash-set)
+(define vattr-empty (vattr domain-full '() '() '()))
+(define (vattr-domain-set va dmn)
+  (vattr dmn (vattr-=/=s va) (vattr-goals-det va) (vattr-goals-nondet va)))
+(define (vattr-=/=s-clear va)
+  (vattr (vattr-domain va) '() (vattr-goals-det va) (vattr-goals-nondet va)))
+(define (vattr-=/=s-add va val)
+  (if (or (var? val) (domain-has-val? (vattr-domain va) val))
+    (vattr (vattr-domain va)
+           (list-add-unique (vattr-=/=s va) val)
+           (vattr-goals-det va)
+           (vattr-goals-nondet va))
+    va))
+(define (vattr-=/=s-has? va val) (memq val (vattr-=/=s va)))
+(define (vattr-suspend-det va goal)
+  (vattr (vattr-domain va)
+         (vattr-=/=s va)
+         (cons goal (vattr-goals-det va))
+         (vattr-goals-nondet va)))
+(define (vattr-suspend-nondet va goal)
+  (vattr (vattr-domain va)
+         (vattr-=/=s va)
+         (vattr-goals-det va)
+         (cons goal (vattr-goals-nondet va))))
+(define (vattr-overlap? va1 va2)
+  (domain-overlap? (vattr-domain va1) (vattr-domain va2)))
+(define (vattr-intersect va1 va2)
+  (let ((di (domain-intersect (vattr-domain va1) (vattr-domain va2))))
+    (and di (vattr di
+                   (list-append-unique (vattr-=/=s va1) (vattr-=/=s va2))
+                   (append (vattr-goals-det va1) (vattr-goals-det va2))
+                   (append (vattr-goals-nondet va1)
+                           (vattr-goals-nondet va2))))))
+
+(struct goal-suspended (tag result blocker resume) #:transparent)
+
+(struct state (vs goals active-goals-det active-goals-nondet) #:transparent)
+(define state-empty (state store-empty store-empty '() '()))
+(define (state-var-get st vr) (vattrs-get (state-vs st) vr))
+(define (state-var-set st vr va)
+  (state (vattrs-set (state-vs st) vr va)
+         (state-goals st)
+         (state-active-goals-det st)
+         (state-active-goals-nondet st)))
+(define (state-suspend st det? vr goal)
+  (state-var-set
+    st vr (let ((va (state-var-get st vr)))
+            (if det?
+              (vattr-suspend-det va goal)
+              (vattr-suspend-nondet va goal)))))
+(define (state-suspend* st var-dets var-nondets goal)
+  (let* ((goal-ref (gensym))
+         (goals (hash-set (state-goals st) goal-ref goal))
+         (vs (state-vs st))
+         (vs (foldl (lambda (vr vs)
+                      (vattrs-set vs vr (vattr-suspend-det
+                                          (vattrs-get vs vr) goal-ref)))
+                    vs var-dets))
+         (vs (foldl (lambda (vr vs)
+                      (vattrs-set vs vr (vattr-suspend-nondet
+                                          (vattrs-get vs vr) goal-ref)))
+                    vs var-nondets)))
+    (state vs
+           goals
+           (state-active-goals-det st)
+           (state-active-goals-nondet st))))
+
+(define (state-var-type-== st vr va type)
+  (and (domain-has-type? (vattr-domain va) type)
+       (state-var-set st vr (vattr-domain-set va `(,type)))))
+(define (state-var-type-=/= st vr va type)
+  (match (domain-remove (vattr-domain va) type)
+    (`(,(and (not 'symbol) (not 'number) singleton))
+      (state-var-== st vr va (if (eq? 'pair singleton)
+                               `(,(var 'pair-a) . ,(var 'pair-d)) singleton)))
+    ('() #f)
+    (dmn (state-var-set st vr (vattr-domain-set va dmn)))))
+
+(define (state-var-== st vr va val)
+  (cond
+    ((eq? vattr-empty va) (state-var-set st vr val))
+    ((domain-has-val? (vattr-domain va) val)
+     (let ((=/=s (vattr-=/=s va)))
+       ; TODO: perf: combine memq with filter
+       (and (not (memq val =/=s))
+            (let ((vps (filter (if (pair? val)
+                                 (lambda (x) (or (var? x) (pair? x)))
+                                 var?) =/=s))
+                  (st (state (store-set (state-vs st) vr val)
+                             (state-goals st)
+                             (cons (vattr-goals-det va)
+                                   (state-active-goals-det st))
+                             (cons (vattr-goals-nondet va)
+                                   (state-active-goals-nondet st)))))
+              (disunify* st val vps)))))
+     (else #f)))
+(define (state-var-=/= st vr va val)
+  (if (or (eq? '() val) (eq? #f val) (eq? #t val))
+    (state-var-type-=/= st vr va val)
+    (state-var-set st vr (vattr-=/=s-add va val))))
+(define (state-var-==-var st vr1 va1 vr2 va2)
+  (let ((va (vattr-intersect va1 va2)))
+    (and va (let ((=/=s (vattr-=/=s va))
+                  (va (vattr-=/=s-clear va))
+                  (st (state-var-set st vr1 vr2)))
+              (disunify* (state-var-set st vr2 va) vr2 =/=s)))))
+(define (state-var-=/=-var st vr1 va1 vr2 va2)
+  (if (vattr-overlap? va1 va2)
+    (state-var-set (state-var-set st vr1 (vattr-=/=s-add va1 vr2))
+                   vr2 (vattr-=/=s-add va2 vr1))
+    st))
+(define (state-var-=/=-redundant? st vr va val)
+  (or (not (domain-has-val? (vattr-domain va) val))
+      (vattr-=/=s-has? va val)))
+(define (state-var-=/=-var-redundant? st vr1 va1 vr2 va2)
+  (or (not (vattr-overlap? va1 va2))
+      (vattr-=/=s-has? va1 vr2)
+      (vattr-=/=s-has? va2 vr1)))
+
+(define (walk st tm)
+  (if (var? tm)
+    (let ((vs (state-vs st)))
+      (let loop ((vr tm))
+        (let ((va (vattrs-get vs vr)))
+          (cond ((vattr? va) (values vr va))
+                ((var? va) (loop va))
+                (else (values va #f))))))
+    (values tm #f)))
+(define (not-occurs? st vr tm)
+  (if (pair? tm) (let-values (((ht _) (walk st (car tm))))
+                   (let ((st (not-occurs? st vr ht)))
+                     (and st (let-values (((tt _) (walk st (cdr tm))))
+                               (not-occurs? st vr tt)))))
+    (if (eq? vr tm) #f st)))
+(define (unify st v1 v2)
+  (let-values (((v1 va1) (walk st v1))
+               ((v2 va2) (walk st v2)))
+    (cond ((eq? v1 v2) st)
+          ((var? v1) (if (var? v2)
+                       (state-var-==-var st v1 va1 v2 va2)
+                       (and (not-occurs? st v1 v2)
+                            (state-var-== st v1 va1 v2))))
+          ((var? v2) (and (not-occurs? st v2 v1)
+                          (state-var-== st v2 va2 v1)))
+          ((and (pair? v1) (pair? v2))
+           (let ((st (unify st (car v1) (car v2))))
+             (and st (unify st (cdr v1) (cdr v2)))))
+          (else #f))))
+(define (disunify* st v1 vs)
+  (if (null? vs) st (let ((st (disunify st v1 (car vs))))
+                      (and st (disunify* st v1 (cdr vs))))))
+(define (disunify st v1 v2) (disunify-or st v1 v2 '()))
+
+(define (disunify-or-suspend st v1 va1 v2 pairings)
+  (state-suspend st #t v1 (lambda (st) (disunify-or st v1 v2 pairings))))
+(define (disunify-or st v1 v2 pairings)
+  (let-values (((v1 va1) (walk st v1)))
+    (disunify-or-rhs st v1 va1 v2 pairings)))
+(define (disunify-or-rhs st v1 va1 v2 pairings)
+  (let-values (((v2 va2) (walk st v2)))
+    (cond
+      ((eq? v1 v2)
+       (and (pair? pairings)
+            (disunify-or st (caar pairings) (cdar pairings) (cdr pairings))))
+      ((var? v1)
+       (if (null? pairings)
+         (if (var? v2)
+           (state-var-=/=-var st v1 va1 v2 va2)
+           (state-var-=/= st v1 va1 v2))
+         (if (var? v2)
+           (if (state-var-=/=-var-redundant? st v1 va1 v2 va2) st
+             (if (state-var-=/=-var st v1 va1 v2 va2)
+               (disunify-or-suspend st v1 va1 v2 pairings)
+               (disunify-or
+                 st (caar pairings) (cdar pairings) (cdr pairings))))
+           (if (state-var-=/=-redundant? st v1 va1 v2) st
+             (if (state-var-=/= st v1 va1 v2)
+               (disunify-or-suspend st v1 va1 v2 pairings)
+               (disunify-or
+                 st (caar pairings) (cdar pairings) (cdr pairings)))))))
+      ((var? v2)
+       (if (null? pairings)
+         (state-var-=/= st v2 va2 v1)
+         (if (state-var-=/=-redundant? st v2 va2 v1) st
+           (if (state-var-=/= st v2 va2 v1)
+             (disunify-or-suspend st v2 va2 v1 pairings)
+             (disunify-or
+               st (caar pairings) (cdar pairings) (cdr pairings))))))
+      ((and (pair? v1) (pair? v2))
+       (disunify-or
+         st (car v1) (car v2) (cons (cons (cdr v1) (cdr v2)) pairings)))
+      (else st))))
+
+
+(define (succeed st) st)
+(define (fail st) #f)
+
 
 (define (quotable? v)
   (match v
