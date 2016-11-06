@@ -174,10 +174,10 @@
                          (if (eval-term condition env)
                            (eval-term alt-true env)
                            (eval-term alt-false env)))
-                       ((? term1? `(lambda ,params ,body))
+                       (`(lambda ,params ,body)
                         `(,closure-tag (lambda ,params ,body) ,env))
-                       ((? term1? `(letrec ((,p-name (lambda ,params ,body)))
-                                     ,letrec-body))
+                       (`(letrec ((,p-name (lambda ,params ,body)))
+                           ,letrec-body)
                         (eval-term
                           letrec-body
                           `((,p-name . (rec . (lambda ,params ,body)))
