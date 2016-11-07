@@ -105,13 +105,6 @@
 ;     could be a useful alternative to closure-encoding for 1st order languages
 ;     try for both dkanren (for comparison) and relational interpreter (may improve perf)
 
-
-;(struct domain-unknown (numbers symbols pairs) #:transparent)
-;(struct domain-typed (type ) #:transparent)
-
-; want a domain to be more like the pair: positive, negative
-;   a typed domain is then: positive=type-tag, negative=invalid-typed-values
-
 (define store-empty (hasheq))
 (define store-set hash-set)
 (define (list-add-unique xs v) (if (memq v xs) xs (car v xs)))
@@ -190,14 +183,28 @@
 
 (struct goal-suspended (tag result blocker resume) #:transparent)
 
-(struct state (vs goals active-goals-det active-goals-nondet) #:transparent)
-(define state-empty (state store-empty store-empty '() '()))
+(struct schedule (det det-deferred nondet) #:transparent)
+(define schedule-empty (schedule '() '() '()))
+(define (schedule-activate sch det nondet)
+  (schedule (cons det (schedule-det sch))
+            (schedule-det-deferred sch)
+            (cons nondet (schedule-nondet sch))))
+(define (schedule-defer sch goal)
+  (schedule (schedule-det sch)
+            (cons goal (schedule-det-deferred sch))
+            (schedule-nondet sch)))
+(define (schedule-undefer sch goal)
+  (schedule (append (schedule-det sch) (schedule-det-deferred sch))
+            '()
+            (schedule-nondet sch)))
+
+(struct state (vs goals schedule) #:transparent)
+(define state-empty (state store-empty store-empty schedule-empty))
 (define (state-var-get st vr) (vattrs-get (state-vs st) vr))
 (define (state-var-set st vr va)
   (state (vattrs-set (state-vs st) vr va)
          (state-goals st)
-         (state-active-goals-det st)
-         (state-active-goals-nondet st)))
+         (state-schedule st)))
 (define (state-suspend st det? vr goal)
   (state-var-set
     st vr (let ((va (state-var-get st vr)))
@@ -216,10 +223,7 @@
                       (vattrs-set vs vr (vattr-suspend-nondet
                                           (vattrs-get vs vr) goal-ref)))
                     vs var-nondets)))
-    (state vs
-           goals
-           (state-active-goals-det st)
-           (state-active-goals-nondet st))))
+    (state vs goals (state-schedule st))))
 
 (define (state-var-type-== st vr va type)
   (and (domain-has-type? (vattr-domain va) type)
@@ -244,10 +248,9 @@
                                  var?) =/=s))
                   (st (state (store-set (state-vs st) vr val)
                              (state-goals st)
-                             (cons (vattr-goals-det va)
-                                   (state-active-goals-det st))
-                             (cons (vattr-goals-nondet va)
-                                   (state-active-goals-nondet st)))))
+                             (schedule-activate (state-schedule st)
+                                                (vattr-goals-det va)
+                                                (vattr-goals-nondet va)))))
               (disunify* st val vps)))))
      (else #f)))
 (define (state-var-=/= st vr va val)
