@@ -560,19 +560,6 @@
          (`(or . ,t*) (denote-or t* senv))
          (`(match ,scrutinee . ,pt*) (denote-match pt* scrutinee senv)))))))
 
-(define empty-env '())
-(define initial-env `((val . (cons . ,cons))
-                      (val . (car . ,car))
-                      (val . (cdr . ,cdr))
-                      (val . (null? . ,null?))
-                      (val . (pair? . ,pair?))
-                      (val . (symbol? . ,symbol?))
-                      (val . (number? . ,number?))
-                      (val . (not . ,not))
-                      (val . (equal? . ,equal?))
-                      (val . (list . ,(lambda x x)))
-                      . ,empty-env))
-
 (define (in-env? env sym)
   (match env
     ('() #f)
@@ -704,6 +691,32 @@
       (_ #f))))
 
 (define (eval-term term env) ((denote-term term env) (map cddr env)))
+
+(define (primitive params body)
+  ((denote-lambda params body '()) '()))
+
+(define empty-env '())
+(define initial-env `((val . (cons . ,(primitive '(a d) '`(,a . ,d))))
+                      (val . (car . ,(primitive '(x) '(match x
+                                                        (`(,a . ,d) a)))))
+                      (val . (cdr . ,(primitive '(x) '(match x
+                                                        (`(,a . ,d) d)))))
+                      (val . (null? . ,(primitive '(x) '(match x
+                                                          ('() #t)
+                                                          (_ #f)))))
+                      (val . (pair? . ,(primitive '(x) '(match x
+                                                          (`(,a . ,d) #t)
+                                                          (_ #f)))))
+                      (val . (symbol? . ,symbol?))  ; TODO: logical lifting
+                      (val . (number? . ,number?))  ; TODO: logical lifting
+                      (val . (not . ,(primitive '(x) '(match x
+                                                        (#f #t)
+                                                        (_ #f)))))
+                      (val . (equal? . ,(primitive '(x y) '(match `(,x . ,y)
+                                                             (`(,a . ,a) #t)
+                                                             (_ #f)))))
+                      (val . (list . ,(primitive 'x 'x)))
+                      . ,empty-env))
 
 (module+ test
   (check-equal? (eval-term 3 initial-env) 3)
