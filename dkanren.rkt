@@ -440,17 +440,17 @@
   (match qqpattern
     (`(,'unquote ,pat) (denote-pattern pat penv senv))
     (`(,a . ,d)
-      (let-values (((penv da) (denote-pattern-qq a penv senv)))
-        (let-values (((penv dd) (denote-pattern-qq d penv senv)))
-          (values penv
-                  (lambda (k)
-                    (let* ((kd (dd k))
-                           (k (lambda (env penv v)
-                                ((da (lambda (_env penv _v)
-                                       (kd env penv (cdr v))))
-                                 env penv (car v)))))
-                      (lambda (env penv v)
-                        (and (pair? v) (k env penv v)))))))))
+      (let*-values (((penv da) (denote-pattern-qq a penv senv))
+                    ((penv dd) (denote-pattern-qq d penv senv)))
+        (values penv
+                (lambda (k)
+                  (let* ((kd (dd k))
+                         (k (lambda (env penv v)
+                              ((da (lambda (_env penv _v)
+                                     (kd env penv (cdr v))))
+                               env penv (car v)))))
+                    (lambda (env penv v)
+                      (and (pair? v) (k env penv v))))))))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
 (define (denote-pattern-fail k) (lambda (env penv v) #f))
 (define (denote-pattern-or pattern* penv penv-or senv)
@@ -468,14 +468,14 @@
   (match pattern*
     ('() (values penv (lambda (k) k)))
     (`(,pattern . ,pattern*)
-      (let-values (((penv d0) (denote-pattern pattern penv senv)))
-        (let-values (((penv d*) (denote-pattern* pattern* penv senv)))
-          (values penv
-                  (lambda (k)
-                    (let* ((k* (d* k)))
-                      (lambda (env penv v)
-                        ((d0 (lambda (_env penv _v) (k* env penv v)))
-                         env penv v))))))))))
+      (let*-values (((penv d0) (denote-pattern pattern penv senv))
+                    ((penv d*) (denote-pattern* pattern* penv senv)))
+        (values penv
+                (lambda (k)
+                  (let* ((k* (d* k)))
+                    (lambda (env penv v)
+                      ((d0 (lambda (_env penv _v) (k* env penv v)))
+                       env penv v)))))))))
 (define (denote-pattern pattern penv senv)
   (match pattern
     (`(quote ,(? quotable? datum)) (denote-pattern-literal datum penv))
@@ -508,18 +508,18 @@
                 ('() (lambda (env v)
                        (error (format "~s" `(match-failure ,v ,pt*-all)))))
                 (`((,pat ,rhs) . ,pt*)
-                  (let-values (((penv dpat) (denote-pattern pat '() senv)))
-                    (let-values (((ps vs) (split-bindings penv)))
-                      (let ((drhs (denote-term
-                                    rhs (extend-env*
-                                          (reverse ps) (reverse vs) senv)))
-                            (k (dpat denote-pattern-identity))
-                            (km (loop pt*)))
-                        (lambda (env v)
-                          (let ((penv (k env '() v)))
-                            (if penv
-                              (drhs (append penv env))
-                              (km env v))))))))))))
+                  (let*-values (((penv dpat) (denote-pattern pat '() senv))
+                                ((ps vs) (split-bindings penv)))
+                    (let ((drhs (denote-term
+                                  rhs (extend-env*
+                                        (reverse ps) (reverse vs) senv)))
+                          (k (dpat denote-pattern-identity))
+                          (km (loop pt*)))
+                      (lambda (env v)
+                        (let ((penv (k env '() v)))
+                          (if penv
+                            (drhs (append penv env))
+                            (km env v)))))))))))
     (lambda (env) (km env (dv env)))))
 
 (define (denote-term term senv)
