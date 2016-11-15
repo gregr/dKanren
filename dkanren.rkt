@@ -506,6 +506,20 @@
                       (and (not (k-not env penv v)) (k env penv v))))))))
     (`(and . ,pat*) (denote-pattern* pat* penv senv))
     (`(or . ,pat*) (denote-pattern-or pat* penv penv senv))
+    (`(symbol . ,pat*)
+      (let-values (((penv dp*) (denote-pattern* pat* penv senv)))
+        (values penv
+                (lambda (k)
+                  (let ((k* (dp* k)))
+                    (lambda (env penv v)
+                      (and (symbol? v) (k* env penv v))))))))
+    (`(number . ,pat*)
+      (let-values (((penv dp*) (denote-pattern* pat* penv senv)))
+        (values penv
+                (lambda (k)
+                  (let ((k* (dp* k)))
+                    (lambda (env penv v)
+                      (and (number? v) (k* env penv v))))))))
     (`(? ,predicate . ,pat*)
       (let ((dpred (denote-term predicate senv)))
         (let-values (((penv dp*) (denote-pattern* pat* penv senv)))
@@ -725,8 +739,12 @@
                       (val . (pair? . ,(primitive '(x) '(match x
                                                           (`(,a . ,d) #t)
                                                           (_ #f)))))
-                      (val . (symbol? . ,symbol?))  ; TODO: logical lifting
-                      (val . (number? . ,number?))  ; TODO: logical lifting
+                      (val . (symbol? . ,(primitive '(x) '(match x
+                                                            ((symbol) #t)
+                                                            (_ #f)))))
+                      (val . (number? . ,(primitive '(x) '(match x
+                                                            ((number) #t)
+                                                            (_ #f)))))
                       (val . (not . ,(primitive '(x) '(match x
                                                         (#f #t)
                                                         (_ #f)))))
