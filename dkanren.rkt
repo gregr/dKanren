@@ -8,6 +8,7 @@
 (require
   racket/list
   racket/match
+  racket/set
   )
 
 (module+ test
@@ -392,6 +393,18 @@
                   ((list-ref (list-ref env idx) ridx) (drop env idx)))
                 (loop-rec (+ ridx 1) binding*)))))))))
 
+(define (penv-reorderable? base src tgt)
+  (equal? (list->set src) (list->set tgt)))
+(define (penv-reordering base src tgt)
+  (define (assoc-ref name tgt idx)
+    (if (eq? name (caar tgt)) idx (assoc-ref name (cdr tgt) (+ 1 idx))))
+  (if (equal? src tgt) (lambda (pb pt) pt)
+    (let loop ((src src))
+      (if (eq? base src) (lambda (pb pt) pb)
+        (let ((idx (assoc-ref (caar src) tgt 0))
+              (k (loop (cdr src))))
+          (lambda (pb pt) (cons (list-ref pt idx) (k pb pt))))))))
+
 (define (denote-qq qqterm senv)
   (match qqterm
     (`(,'unquote ,term) (denote-term term senv))
@@ -459,11 +472,15 @@
     (`(,pattern . ,pattern*)
       (let*-values (((penv0 d0) (denote-pattern pattern penv senv))
                     ((penv1 d*) (denote-pattern-or pattern* penv penv0 senv)))
-        (values (and (equal? penv0 penv1) penv0)
-                (lambda (k)
-                  (let ((k0 (d0 k)) (k* (d* k)))
-                    (lambda (env penv v)
-                      (or (k0 env penv v) (k* env penv v))))))))))
+        (let ((reorder0 (penv-reordering penv penv1 penv0)))
+          (values penv1
+                  (lambda (k)
+                    (let ((k0 (d0 denote-pattern-identity))
+                          (k* (d* k)))
+                      (lambda (env penv v)
+                        (let ((p0 (k0 env penv v)))
+                          (if p0 (k env (reorder0 penv p0) v)
+                            (k* env penv v))))))))))))
 (define (denote-pattern* pattern* penv senv)
   (match pattern*
     ('() (values penv (lambda (k) k)))
@@ -481,8 +498,8 @@
     (`(quote ,(? quotable? datum)) (denote-pattern-literal datum penv))
     (`(quasiquote ,qqpat) (denote-pattern-qq qqpat penv senv))
     (`(not . ,pat*)
-      (let-values (((penv-not dp) (denote-pattern* pat* penv senv)))
-        (values (and penv-not penv)
+      (let-values (((_ dp) (denote-pattern* pat* penv senv)))
+        (values penv
                 (lambda (k)
                   (let ((k-not (dp k)))
                     (lambda (env penv v)
@@ -618,7 +635,7 @@
     (`(,pattern . ,pattern*)
       (let* ((ps0 (pattern? pattern ps env))
              (ps* (pattern-or? pattern* ps ps0 env)))
-        (and (equal? ps0 ps*) ps0)))))
+        (and (penv-reorderable? ps ps0 ps*) ps0)))))
 (define (pattern*? pattern* ps env)
   (match pattern*
     ('() ps)
@@ -768,6 +785,12 @@
        ((or `(0 ,x ,y) `(1 ,x ,y)) (list x y))
        (_ 'fail))
     '(b 3))
+
+  (test-eval
+    '(match '(1 b 3)
+       ((or `(0 ,x ,y) `(1 ,y ,x)) (list x y))
+       (_ 'fail))
+    '(3 b))
 
   (define ex-match
     '(match '(1 2 1)
