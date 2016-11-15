@@ -719,20 +719,26 @@
                       . ,empty-env))
 
 (module+ test
-  (check-equal? (eval-term 3 initial-env) 3)
-  (check-equal? (eval-term '3 initial-env) 3)
-  (check-equal? (eval-term ''x initial-env) 'x)
-  (check-equal? (eval-term ''(1 (2) 3) initial-env) '(1 (2) 3))
-  (check-equal? (eval-term '(car '(1 (2) 3)) initial-env) 1)
-  (check-equal? (eval-term '(cdr '(1 (2) 3)) initial-env) '((2) 3))
-  (check-equal? (eval-term '(cons 'x 4) initial-env) '(x . 4))
-  (check-equal? (eval-term '(null? '()) initial-env) #t)
-  (check-equal? (eval-term '(null? '(0)) initial-env) #f)
-  (check-equal? (eval-term '(list 5 6) initial-env) '(5 6))
-  (check-equal? (eval-term '(and #f 9 10) initial-env) #f)
-  (check-equal? (eval-term '(and 8 9 10) initial-env) 10)
-  (check-equal? (eval-term '(or #f 11 12) initial-env) 11)
-  (check-equal? (eval-term '(let ((p (cons 8 9))) (cdr p)) initial-env) 9)
+  (define-syntax test-eval
+    (syntax-rules ()
+     ((_ tm result)
+      (let ((tm0 tm))
+        (check-true (term? tm0 initial-env))
+        (check-equal? (eval-term tm0 initial-env) result)))))
+  (test-eval 3 3)
+  (test-eval '3 3)
+  (test-eval ''x 'x)
+  (test-eval ''(1 (2) 3) '(1 (2) 3))
+  (test-eval '(car '(1 (2) 3)) 1)
+  (test-eval '(cdr '(1 (2) 3)) '((2) 3))
+  (test-eval '(cons 'x 4) '(x . 4))
+  (test-eval '(null? '()) #t)
+  (test-eval '(null? '(0)) #f)
+  (test-eval '(list 5 6) '(5 6))
+  (test-eval '(and #f 9 10) #f)
+  (test-eval '(and 8 9 10) 10)
+  (test-eval '(or #f 11 12) 11)
+  (test-eval '(let ((p (cons 8 9))) (cdr p)) 9)
 
   (define ex-append
     '(letrec ((append
@@ -740,26 +746,20 @@
                   (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
        (list (append '() '()) (append '(foo) '(bar)) (append '(1 2) '(3 4)))) )
   (define ex-append-answer '(() (foo bar) (1 2 3 4)))
-  (check-true (term? ex-append initial-env))
-  (check-equal? (eval-term ex-append initial-env) ex-append-answer)
-  (check-equal? (eval-term '`(1 ,(car `(,(cdr '(b 2)) 3)) ,'a) initial-env)
-    '(1 (2) a))
+  (test-eval ex-append ex-append-answer)
+  (test-eval '`(1 ,(car `(,(cdr '(b 2)) 3)) ,'a) '(1 (2) a))
 
-  (check-equal?
-    (eval-term
-      '(match '(1 (b 2))
-         (`(1 (a ,x)) 3)
-         (`(1 (b ,x)) x)
-         (_ 4))
-      initial-env)
+  (test-eval
+    '(match '(1 (b 2))
+       (`(1 (a ,x)) 3)
+       (`(1 (b ,x)) x)
+       (_ 4))
     2)
-  (check-equal?
-    (eval-term
-      '(match '(1 1 2)
-         (`(,a ,b ,a) `(first ,a ,b))
-         (`(,a ,a ,b) `(second ,a ,b))
-         (_ 4))
-      initial-env)
+  (test-eval
+    '(match '(1 1 2)
+       (`(,a ,b ,a) `(first ,a ,b))
+       (`(,a ,a ,b) `(second ,a ,b))
+       (_ 4))
     '(second 1 2))
 
   (define ex-match
@@ -767,10 +767,7 @@
        (`(,a ,b ,a) `(first ,a ,b))
        (`(,a ,a ,b) `(second ,a ,b))
        (_ 4)))
-  (check-true (term? ex-match initial-env))
-  (check-equal?
-    (eval-term ex-match initial-env)
-    '(first 1 2))
+  (test-eval ex-match '(first 1 2))
 
   (define ex-eval-expr
     '(letrec
@@ -793,10 +790,7 @@
          (eval-expr '(((lambda (c) (lambda (d) c)) 'g4) 'g5) 'initial-env)
          (eval-expr '(((lambda (f) (lambda (v1) (f (f v1)))) (lambda (e) e)) 'g6) 'initial-env)
          (eval-expr '((lambda (g) ((g g) g)) (lambda (i) (lambda (j) 'g7))) 'initial-env))))
-  (check-true (term? ex-eval-expr initial-env))
-  (check-equal?
-    (eval-term ex-eval-expr initial-env)
-    '(g1 g2 g3 g4 g6 g7))
+  (test-eval ex-eval-expr '(g1 g2 g3 g4 g6 g7))
 
   ; the goal is to support something like this interpreter
   (define ex-eval-complex
@@ -957,6 +951,5 @@
         (let ((program ',ex-append))
           (and (term? program initial-env)
                (eval-term program initial-env)))))))
-  (check-true (term? ex-eval-complex initial-env))
-  (check-equal? (eval-term ex-eval-complex initial-env) ex-append-answer)
+  (test-eval ex-eval-complex ex-append-answer)
   )
