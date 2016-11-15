@@ -470,6 +470,12 @@
        (_ 'fail))
     '(3 b))
 
+  (test-eval
+    '(match '(0 b 3)
+       ((or `(0 ,x ,y) `(1 ,y ,x)) (list x y))
+       (_ 'fail))
+    '(b 3))
+
   (define ex-match
     '(match '(1 2 1)
        (`(,a ,b ,a) `(first ,a ,b))
