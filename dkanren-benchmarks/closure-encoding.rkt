@@ -8,6 +8,7 @@
 (require
   racket/list
   racket/match
+  racket/set
   )
 
 (module+ test
@@ -51,6 +52,18 @@
                 (lambda (env)
                   ((list-ref (list-ref env idx) ridx) (drop env idx)))
                 (loop-rec (+ ridx 1) binding*)))))))))
+
+(define (penv-reorderable? base src tgt)
+  (equal? (list->set src) (list->set tgt)))
+(define (penv-reordering base src tgt)
+  (define (assoc-ref name tgt idx)
+    (if (eq? name (caar tgt)) idx (assoc-ref name (cdr tgt) (+ 1 idx))))
+  (if (equal? src tgt) (lambda (pb pt) pt)
+    (let loop ((src src))
+      (if (eq? base src) (lambda (pb pt) pb)
+        (let ((idx (assoc-ref (caar src) tgt 0))
+              (k (loop (cdr src))))
+          (lambda (pb pt) (cons (list-ref pt idx) (k pb pt))))))))
 
 (define (denote-qq qqterm senv)
   (match qqterm
@@ -100,55 +113,73 @@
   (match qqpattern
     (`(,'unquote ,pat) (denote-pattern pat penv senv))
     (`(,a . ,d)
-      (let-values (((penv da) (denote-pattern-qq a penv senv)))
-        (let-values (((penv dd) (denote-pattern-qq d penv senv)))
-          (values penv
-                  (lambda (k)
-                    (let* ((kd (dd k))
-                           (k (lambda (env penv v)
-                                ((da (lambda (_env penv _v)
-                                       (kd env penv (cdr v))))
-                                 env penv (car v)))))
-                      (lambda (env penv v)
-                        (and (pair? v) (k env penv v)))))))))
+      (let*-values (((penv da) (denote-pattern-qq a penv senv))
+                    ((penv dd) (denote-pattern-qq d penv senv)))
+        (values penv
+                (lambda (k)
+                  (let* ((kd (dd k))
+                         (k (lambda (env penv v)
+                              ((da (lambda (_env penv _v)
+                                     (kd env penv (cdr v))))
+                               env penv (car v)))))
+                    (lambda (env penv v)
+                      (and (pair? v) (k env penv v))))))))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
 (define (denote-pattern-fail k) (lambda (env penv v) #f))
-(define (denote-pattern-or pattern* penv senv)
+(define (denote-pattern-or pattern* penv penv-or senv)
   (match pattern*
-    ('() (values penv denote-pattern-fail))
+    ('() (values penv-or denote-pattern-fail))
     (`(,pattern . ,pattern*)
-      (let-values (((penv0 d0) (denote-pattern pattern penv senv))
-                   ((penv1 d*) (denote-pattern-or pattern* penv senv)))
-        (values (and (equal? penv0 penv1) penv0)
-                (lambda (k)
-                  (let ((k0 (d0 k)) (k* (d* k)))
-                    (lambda (env penv v)
-                      (or (k0 env penv v) (k* env penv v))))))))))
+      (let*-values (((penv0 d0) (denote-pattern pattern penv senv))
+                    ((penv1 d*) (denote-pattern-or pattern* penv penv0 senv)))
+        (let ((reorder0 (penv-reordering penv penv1 penv0)))
+          (values penv1
+                  (lambda (k)
+                    (let ((k0 (d0 denote-pattern-identity))
+                          (k* (d* k)))
+                      (lambda (env penv v)
+                        (let ((p0 (k0 env penv v)))
+                          (if p0 (k env (reorder0 penv p0) v)
+                            (k* env penv v))))))))))))
 (define (denote-pattern* pattern* penv senv)
   (match pattern*
     ('() (values penv (lambda (k) k)))
     (`(,pattern . ,pattern*)
-      (let-values (((penv d0) (denote-pattern pattern penv senv)))
-        (let-values (((penv d*) (denote-pattern* pattern* penv senv)))
-          (values penv
-                  (lambda (k)
-                    (let* ((k* (d* k)))
-                      (lambda (env penv v)
-                        ((d0 (lambda (_env penv _v) (k* env penv v)))
-                         env penv v))))))))))
+      (let*-values (((penv d0) (denote-pattern pattern penv senv))
+                    ((penv d*) (denote-pattern* pattern* penv senv)))
+        (values penv
+                (lambda (k)
+                  (let* ((k* (d* k)))
+                    (lambda (env penv v)
+                      ((d0 (lambda (_env penv _v) (k* env penv v)))
+                       env penv v)))))))))
 (define (denote-pattern pattern penv senv)
   (match pattern
     (`(quote ,(? quotable? datum)) (denote-pattern-literal datum penv))
     (`(quasiquote ,qqpat) (denote-pattern-qq qqpat penv senv))
     (`(not . ,pat*)
-      (let-values (((penv-not dp) (denote-pattern* pat* penv senv)))
-        (values (and penv-not penv)
+      (let-values (((_ dp) (denote-pattern* pat* penv senv)))
+        (values penv
                 (lambda (k)
                   (let ((k-not (dp k)))
                     (lambda (env penv v)
                       (and (not (k-not env penv v)) (k env penv v))))))))
     (`(and . ,pat*) (denote-pattern* pat* penv senv))
-    (`(or . ,pat*) (denote-pattern-or pat* penv senv))
+    (`(or . ,pat*) (denote-pattern-or pat* penv penv senv))
+    (`(symbol . ,pat*)
+      (let-values (((penv dp*) (denote-pattern* pat* penv senv)))
+        (values penv
+                (lambda (k)
+                  (let ((k* (dp* k)))
+                    (lambda (env penv v)
+                      (and (symbol? v) (k* env penv v))))))))
+    (`(number . ,pat*)
+      (let-values (((penv dp*) (denote-pattern* pat* penv senv)))
+        (values penv
+                (lambda (k)
+                  (let ((k* (dp* k)))
+                    (lambda (env penv v)
+                      (and (number? v) (k* env penv v))))))))
     (`(? ,predicate . ,pat*)
       (let ((dpred (denote-term predicate senv)))
         (let-values (((penv dp*) (denote-pattern* pat* penv senv)))
@@ -168,18 +199,18 @@
                 ('() (lambda (env v)
                        (error (format "~s" `(match-failure ,v ,pt*-all)))))
                 (`((,pat ,rhs) . ,pt*)
-                  (let-values (((penv dpat) (denote-pattern pat '() senv)))
-                    (let-values (((ps vs) (split-bindings penv)))
-                      (let ((drhs (denote-term
-                                    rhs (extend-env*
-                                          (reverse ps) (reverse vs) senv)))
-                            (k (dpat denote-pattern-identity))
-                            (km (loop pt*)))
-                        (lambda (env v)
-                          (let ((penv (k env '() v)))
-                            (if penv
-                              (drhs (append penv env))
-                              (km env v))))))))))))
+                  (let*-values (((penv dpat) (denote-pattern pat '() senv))
+                                ((ps vs) (split-bindings penv)))
+                    (let ((drhs (denote-term
+                                  rhs (extend-env*
+                                        (reverse ps) (reverse vs) senv)))
+                          (k (dpat denote-pattern-identity))
+                          (km (loop pt*)))
+                      (lambda (env v)
+                        (let ((penv (k env '() v)))
+                          (if penv
+                            (drhs (append penv env))
+                            (km env v)))))))))))
     (lambda (env) (km env (dv env)))))
 
 (define (denote-term term senv)
@@ -219,19 +250,6 @@
          (`(and . ,t*) (denote-and t* senv))
          (`(or . ,t*) (denote-or t* senv))
          (`(match ,scrutinee . ,pt*) (denote-match pt* scrutinee senv)))))))
-
-(define empty-env '())
-(define initial-env `((val . (cons . ,cons))
-                      (val . (car . ,car))
-                      (val . (cdr . ,cdr))
-                      (val . (null? . ,null?))
-                      (val . (pair? . ,pair?))
-                      (val . (symbol? . ,symbol?))
-                      (val . (number? . ,number?))
-                      (val . (not . ,not))
-                      (val . (equal? . ,equal?))
-                      (val . (list . ,(lambda x x)))
-                      . ,empty-env))
 
 (define (in-env? env sym)
   (match env
@@ -285,12 +303,13 @@
     (`(,a . ,d) (let ((ps (pattern-qq? a ps env)))
                   (and ps (pattern-qq? d ps env))))
     ((? quotable?) ps)))
-(define (pattern-or? pattern* ps env)
+(define (pattern-or? pattern* ps ps-or env)
   (match pattern*
-    ('() ps)
+    ('() ps-or)
     (`(,pattern . ,pattern*)
-      (let ((ps0 (pattern? pattern ps env)))
-        (and (equal? ps0 (pattern-or? pattern* ps env)) ps0)))))
+      (let* ((ps0 (pattern? pattern ps env))
+             (ps* (pattern-or? pattern* ps ps0 env)))
+        (and (penv-reorderable? ps ps0 ps*) ps0)))))
 (define (pattern*? pattern* ps env)
   (match pattern*
     ('() ps)
@@ -303,7 +322,7 @@
     (`(quasiquote ,qqpat) (pattern-qq? qqpat ps env))
     (`(not . ,pat*) (pattern*? pat* ps env))
     (`(and . ,pat*) (pattern*? pat* ps env))
-    (`(or . ,pat*) (pattern-or? pat* ps env))
+    (`(or . ,pat*) (pattern-or? pat* ps ps env))
     (`(? ,predicate . ,pat*)
       (and (term? predicate env) (pattern*? pat* ps env)))
     ('_ ps)
@@ -365,21 +384,57 @@
 
 (define (eval-term term env) ((denote-term term env) (map cddr env)))
 
+(define (primitive params body)
+  ((denote-lambda params body '()) '()))
+
+(define empty-env '())
+(define initial-env `((val . (cons . ,(primitive '(a d) '`(,a . ,d))))
+                      (val . (car . ,(primitive '(x) '(match x
+                                                        (`(,a . ,d) a)))))
+                      (val . (cdr . ,(primitive '(x) '(match x
+                                                        (`(,a . ,d) d)))))
+                      (val . (null? . ,(primitive '(x) '(match x
+                                                          ('() #t)
+                                                          (_ #f)))))
+                      (val . (pair? . ,(primitive '(x) '(match x
+                                                          (`(,a . ,d) #t)
+                                                          (_ #f)))))
+                      (val . (symbol? . ,(primitive '(x) '(match x
+                                                            ((symbol) #t)
+                                                            (_ #f)))))
+                      (val . (number? . ,(primitive '(x) '(match x
+                                                            ((number) #t)
+                                                            (_ #f)))))
+                      (val . (not . ,(primitive '(x) '(match x
+                                                        (#f #t)
+                                                        (_ #f)))))
+                      (val . (equal? . ,(primitive '(x y) '(match `(,x . ,y)
+                                                             (`(,a . ,a) #t)
+                                                             (_ #f)))))
+                      (val . (list . ,(primitive 'x 'x)))
+                      . ,empty-env))
+
 (module+ test
-  (check-equal? (eval-term 3 initial-env) 3)
-  (check-equal? (eval-term '3 initial-env) 3)
-  (check-equal? (eval-term ''x initial-env) 'x)
-  (check-equal? (eval-term ''(1 (2) 3) initial-env) '(1 (2) 3))
-  (check-equal? (eval-term '(car '(1 (2) 3)) initial-env) 1)
-  (check-equal? (eval-term '(cdr '(1 (2) 3)) initial-env) '((2) 3))
-  (check-equal? (eval-term '(cons 'x 4) initial-env) '(x . 4))
-  (check-equal? (eval-term '(null? '()) initial-env) #t)
-  (check-equal? (eval-term '(null? '(0)) initial-env) #f)
-  (check-equal? (eval-term '(list 5 6) initial-env) '(5 6))
-  (check-equal? (eval-term '(and #f 9 10) initial-env) #f)
-  (check-equal? (eval-term '(and 8 9 10) initial-env) 10)
-  (check-equal? (eval-term '(or #f 11 12) initial-env) 11)
-  (check-equal? (eval-term '(let ((p (cons 8 9))) (cdr p)) initial-env) 9)
+  (define-syntax test-eval
+    (syntax-rules ()
+     ((_ tm result)
+      (let ((tm0 tm))
+        (check-true (term? tm0 initial-env))
+        (check-equal? (eval-term tm0 initial-env) result)))))
+  (test-eval 3 3)
+  (test-eval '3 3)
+  (test-eval ''x 'x)
+  (test-eval ''(1 (2) 3) '(1 (2) 3))
+  (test-eval '(car '(1 (2) 3)) 1)
+  (test-eval '(cdr '(1 (2) 3)) '((2) 3))
+  (test-eval '(cons 'x 4) '(x . 4))
+  (test-eval '(null? '()) #t)
+  (test-eval '(null? '(0)) #f)
+  (test-eval '(list 5 6) '(5 6))
+  (test-eval '(and #f 9 10) #f)
+  (test-eval '(and 8 9 10) 10)
+  (test-eval '(or #f 11 12) 11)
+  (test-eval '(let ((p (cons 8 9))) (cdr p)) 9)
 
   (define ex-append
     '(letrec ((append
@@ -387,37 +442,40 @@
                   (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
        (list (append '() '()) (append '(foo) '(bar)) (append '(1 2) '(3 4)))) )
   (define ex-append-answer '(() (foo bar) (1 2 3 4)))
-  (check-true (term? ex-append initial-env))
-  (check-equal? (eval-term ex-append initial-env) ex-append-answer)
-  (check-equal? (eval-term '`(1 ,(car `(,(cdr '(b 2)) 3)) ,'a) initial-env)
-    '(1 (2) a))
+  (test-eval ex-append ex-append-answer)
+  (test-eval '`(1 ,(car `(,(cdr '(b 2)) 3)) ,'a) '(1 (2) a))
 
-  (check-equal?
-    (eval-term
-      '(match '(1 (b 2))
-         (`(1 (a ,x)) 3)
-         (`(1 (b ,x)) x)
-         (_ 4))
-      initial-env)
+  (test-eval
+    '(match '(1 (b 2))
+       (`(1 (a ,x)) 3)
+       (`(1 (b ,x)) x)
+       (_ 4))
     2)
-  (check-equal?
-    (eval-term
-      '(match '(1 1 2)
-         (`(,a ,b ,a) `(first ,a ,b))
-         (`(,a ,a ,b) `(second ,a ,b))
-         (_ 4))
-      initial-env)
+  (test-eval
+    '(match '(1 1 2)
+       (`(,a ,b ,a) `(first ,a ,b))
+       (`(,a ,a ,b) `(second ,a ,b))
+       (_ 4))
     '(second 1 2))
+
+  (test-eval
+    '(match '(1 b 3)
+       ((or `(0 ,x ,y) `(1 ,x ,y)) (list x y))
+       (_ 'fail))
+    '(b 3))
+
+  (test-eval
+    '(match '(1 b 3)
+       ((or `(0 ,x ,y) `(1 ,y ,x)) (list x y))
+       (_ 'fail))
+    '(3 b))
 
   (define ex-match
     '(match '(1 2 1)
        (`(,a ,b ,a) `(first ,a ,b))
        (`(,a ,a ,b) `(second ,a ,b))
        (_ 4)))
-  (check-true (term? ex-match initial-env))
-  (check-equal?
-    (eval-term ex-match initial-env)
-    '(first 1 2))
+  (test-eval ex-match '(first 1 2))
 
   (define ex-eval-expr
     '(letrec
@@ -440,10 +498,7 @@
          (eval-expr '(((lambda (c) (lambda (d) c)) 'g4) 'g5) 'initial-env)
          (eval-expr '(((lambda (f) (lambda (v1) (f (f v1)))) (lambda (e) e)) 'g6) 'initial-env)
          (eval-expr '((lambda (g) ((g g) g)) (lambda (i) (lambda (j) 'g7))) 'initial-env))))
-  (check-true (term? ex-eval-expr initial-env))
-  (check-equal?
-    (eval-term ex-eval-expr initial-env)
-    '(g1 g2 g3 g4 g6 g7))
+  (test-eval ex-eval-expr '(g1 g2 g3 g4 g6 g7))
 
   ; the goal is to support something like this interpreter
   (define ex-eval-complex
@@ -592,10 +647,10 @@
                          (if (eval-term condition env)
                            (eval-term alt-true env)
                            (eval-term alt-false env)))
-                       ((? term1? `(lambda ,params ,body))
+                       (`(lambda ,params ,body)
                         `(,closure-tag (lambda ,params ,body) ,env))
-                       ((? term1? `(letrec ((,p-name (lambda ,params ,body)))
-                                     ,letrec-body))
+                       (`(letrec ((,p-name (lambda ,params ,body)))
+                           ,letrec-body)
                         (eval-term
                           letrec-body
                           `((,p-name . (rec . (lambda ,params ,body)))
@@ -604,6 +659,5 @@
         (let ((program ',ex-append))
           (and (term? program initial-env)
                (eval-term program initial-env)))))))
-  (check-true (term? ex-eval-complex initial-env))
-  (check-equal? (eval-term ex-eval-complex initial-env) ex-append-answer)
+  (test-eval ex-eval-complex ex-append-answer)
   )
