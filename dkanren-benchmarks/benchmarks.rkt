@@ -1,6 +1,10 @@
 #lang racket/base
 
 (require
+  (rename-in "lifted-closure-encoding.rkt"
+             (term? term-lifted-closure?)
+             (eval-term eval-term-lifted-closure)
+             (initial-env initial-env-lifted-closure))
   (rename-in "closure-encoding.rkt"
              (term? term-closure-encoded?)
              (eval-term eval-term-closure-encoded)
@@ -22,10 +26,14 @@
 (define (run/scheme-eval term) (eval term))
 (define (run/raw-eval term) (eval-term-raw term initial-env-raw))
 (define (run/closure-eval term) (eval-term-closure-encoded term initial-env-closure-encoded))
+(define (run/lifted-closure-eval term)
+  (let-values (((st v) ((eval-term-lifted-closure term initial-env-lifted-closure) #t)))
+    v))
 
 (define (run/scheme-eval-eval term) (run/eval-eval run/scheme-eval term))
-(define (run/closure-eval-eval term) (run/eval-eval run/closure-eval term))
 (define (run/raw-eval-eval term) (run/eval-eval run/raw-eval term))
+(define (run/closure-eval-eval term) (run/eval-eval run/closure-eval term))
+(define (run/lifted-closure-eval-eval term) (run/eval-eval run/lifted-closure-eval term))
 
 (define (run/eval-eval run/eval term)
   (run/eval
@@ -216,10 +224,12 @@
                                                ,(cadr program))))
                                    (scheme-eval-runtime ,run/scheme-eval)
                                    (closure-eval ,run/closure-eval)
+                                   (lifted-closure-eval ,run/lifted-closure-eval)
                                    (raw-eval ,run/raw-eval)
                                    ;; TODO: this needs to require racket/match
                                    ;(scheme-eval-eval ,run/scheme-eval-eval)
                                    (closure-eval-eval ,run/closure-eval-eval)
+                                   (lifted-closure-eval-eval ,run/lifted-closure-eval-eval)
                                    (raw-eval-eval ,run/raw-eval-eval)
                                    )))
           (if (null? runners) (loop-prog programs)
