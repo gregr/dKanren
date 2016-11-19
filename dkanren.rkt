@@ -848,6 +848,29 @@
          (eval-expr '((lambda (g) ((g g) g)) (lambda (i) (lambda (j) 'g7))) 'initial-env))))
   (test-eval ex-eval-expr '(g1 g2 g3 g4 g6 g7))
 
+  (define ex-eval-expr-dneg
+    '(letrec
+       ((eval-expr
+          (lambda (expr env)
+            (match expr
+              (`(,(not (not 'quote)) ,datum) datum)
+              (`(lambda (,(? symbol? x)) ,body)
+                (lambda (a)
+                  (eval-expr body (lambda (y)
+                                    (if (equal? y x) a (env y))))))
+              ((symbol x) (env x))
+              (`(cons ,e1 ,e2) (cons (eval-expr e1 env) (eval-expr e2 env)))
+              (`(,rator ,rand) ((eval-expr rator env)
+                                (eval-expr rand env)))))))
+       (list
+         (eval-expr '((lambda (y) y) 'g1) 'initial-env)
+         (eval-expr '(((lambda (z) z) (lambda (v) v)) 'g2) 'initial-env)
+         (eval-expr '(((lambda (a) (a a)) (lambda (b) b)) 'g3) 'initial-env)
+         (eval-expr '(((lambda (c) (lambda (d) c)) 'g4) 'g5) 'initial-env)
+         (eval-expr '(((lambda (f) (lambda (v1) (f (f v1)))) (lambda (e) e)) 'g6) 'initial-env)
+         (eval-expr '((lambda (g) ((g g) g)) (lambda (i) (lambda (j) 'g7))) 'initial-env))))
+  (test-eval ex-eval-expr '(g1 g2 g3 g4 g6 g7))
+
   ; the goal is to support something like this interpreter
   (define ex-eval-complex
     `(let ((closure-tag ',(gensym "#%closure"))
