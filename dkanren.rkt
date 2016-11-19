@@ -663,6 +663,8 @@
     (`(not . ,pat*) (pattern*? pat* ps env))
     (`(and . ,pat*) (pattern*? pat* ps env))
     (`(or . ,pat*) (pattern-or? pat* ps ps env))
+    (`(symbol . ,pat*) (pattern*? pat* ps env))
+    (`(number . ,pat*) (pattern*? pat* ps env))
     (`(? ,predicate . ,pat*)
       (and (term? predicate env) (pattern*? pat* ps env)))
     ('_ ps)
