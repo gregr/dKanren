@@ -106,6 +106,10 @@
 ;     could be a useful alternative to closure-encoding for 1st order languages
 ;     try for both dkanren (for comparison) and relational interpreter (may improve perf)
 
+(define-syntax defrec
+  (syntax-rules ()
+    ((_ name fnames ...) (struct name (fnames ...) #:transparent))))
+
 (define store-empty (hasheq))
 (define store-set hash-set)
 (define (list-add-unique xs v) (if (memq v xs) xs (car v xs)))
@@ -115,7 +119,7 @@
           (x0 (car xs)))
       (if (memq x0 ys) zs (cons x0 zs)))))
 
-(struct var (name) #:transparent)
+(defrec var name)
 
 (define domain-full '(pair symbol number () #f #t))
 (define (domain-remove dmn type) (remove dmn type))
@@ -146,7 +150,7 @@
                     (if (null? di) #f (reverse di))
                     (loop d1d d2d di)))))))
 
-(struct vattr (domain =/=s goals-det goals-nondet) #:transparent)
+(defrec vattr domain =/=s goals-det goals-nondet)
 (define (vattrs-get vs vr) (hash-ref vs vr vattr-empty))
 (define vattrs-set hash-set)
 (define vattr-empty (vattr domain-full '() '() '()))
@@ -182,9 +186,9 @@
                    (append (vattr-goals-nondet va1)
                            (vattr-goals-nondet va2))))))
 
-(struct goal-suspended (tag result blocker resume) #:transparent)
+(defrec goal-suspended tag result blocker resume)
 
-(struct schedule (det det-deferred nondet) #:transparent)
+(defrec schedule det det-deferred nondet)
 (define schedule-empty (schedule '() '() '()))
 (define (schedule-activate sch det nondet)
   (schedule (cons det (schedule-det sch))
@@ -199,7 +203,7 @@
             '()
             (schedule-nondet sch)))
 
-(struct state (vs goals schedule) #:transparent)
+(defrec state vs goals schedule)
 (define state-empty (state store-empty store-empty schedule-empty))
 (define (state-var-get st vr) (vattrs-get (state-vs st) vr))
 (define (state-var-set st vr va)
