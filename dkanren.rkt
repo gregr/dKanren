@@ -626,6 +626,8 @@
     ((? symbol? vname) (denote-pattern-var penv vname penv))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
 
+(defrec match-chain scrutinee clauses)
+
 (define (denote-match pt*-all vt senv)
   (let ((dv (denote-term vt senv))
         (kc* (let loop ((pt* pt*-all))
@@ -648,39 +650,45 @@
       (let ((gv (dv env)))
         (lambda (st)
           (let*/state (((st v) (gv st)))
-            (let loop ((kc* kc*))
-              (if (null? kc*) (values #f #f)
-                (let* ((kpat (caaar kc*))
-                       (knpat (cdaar kc*))
-                       (drhs (cadar kc*))
-                       (drhspat (cddar kc*))
-                       (gpat (kpat env)))
-                  (let*-values (((st1 penv1) (gpat st '() v))
-                                ((commit) (lambda ()
-                                            ((drhs (append penv1 env)) st1))))
-                    ; TODO: two-phase handling
-                    ;   introduce result value to eliminate more patterns
-                    ;     walk this too, as necessary
-                    ;     if a pattern fails on its own, eliminate
-                    ;     if it succeeds
-                    ;       eliminate if result value fails
-                    ;       negate pattern for subsequent clauses
-                    ;     bookmark first ambiguous pattern
-                    ;       starting point for guessing
-                    ;     check if there is another ambiguous pattern
-                    ;       if not, immediately commit to the first
-                    (if st1
-                      (let-values (((st2 penv2) ((knpat env) st '() v)))
-                        (if st2
-                          (let ambiguous ((kc* (cdr kc*)))
-                            (if (null? kc*) (commit)
-                              (let* ((kpat (caaar kc*)) (gpat (kpat env)))
-                                (let-values (((st2 penv2) (gpat st '() v)))
-                                  (if st2
-                                    (error 'TODO-ambiguous)
-                                    (ambiguous (cdr kc*)))))))
-                          (commit)))
-                      (loop (cdr kc*)))))))))))))
+            (if (match-chain? v)
+              (values st (match-chain
+                           (match-chain-scrutinee v)
+                           (cons (cons env kc*) (match-chain-clauses v))))
+              (let loop ((kc* kc*))
+                (if (null? kc*) (values #f #f)
+                  (let* ((kpat (caaar kc*))
+                         (knpat (cdaar kc*))
+                         (drhs (cadar kc*))
+                         (drhspat (cddar kc*))
+                         (gpat (kpat env)))
+                    (let*-values (((st1 penv1) (gpat st '() v))
+                                  ((commit)
+                                   (lambda ()
+                                     ((drhs (append penv1 env)) st1))))
+                      ; TODO: two-phase handling
+                      ;   introduce result value to eliminate more patterns
+                      ;     walk this too, as necessary
+                      ;     if a pattern fails on its own, eliminate
+                      ;     if it succeeds
+                      ;       eliminate if result value fails
+                      ;       negate pattern for subsequent clauses
+                      ;     bookmark first ambiguous pattern
+                      ;       starting point for guessing
+                      ;     check if there is another ambiguous pattern
+                      ;       if not, immediately commit to the first
+                      (if st1
+                        (let-values (((st2 penv2) ((knpat env) st '() v)))
+                          (if st2
+                            (let ambiguous ((kc*1 (cdr kc*)))
+                              (if (null? kc*1) (commit)
+                                (let* ((kpat (caaar kc*1)) (gpat (kpat env)))
+                                  (let-values (((st2 penv2) (gpat st '() v)))
+                                    (if st2
+                                      (values st (match-chain
+                                                   v (list (cons env kc*))))
+                                      (ambiguous (cdr kc*1)))))))
+                            (commit)))
+                        (loop (cdr kc*))))))))))))))
 
 (define (denote-term term senv)
   (let ((bound? (lambda (sym) (in-env? senv sym))))
