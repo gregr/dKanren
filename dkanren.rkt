@@ -606,28 +606,31 @@
                (match pt*
                  ('() '())
                  (`((,pat ,rhs) . ,clause*)
-                   (let*-values (((penv dpat) (denote-pattern pat '() senv))
-                                 ((ps vs) (split-bindings penv)))
+                   (let*-values
+                     (((penv dpat) (denote-pattern pat '() senv))
+                      ((_ dnpat) (denote-pattern `(not ,pat) '() senv))
+                      ((ps vs) (split-bindings penv)))
                      (let ((drhs (denote-term
                                    rhs (extend-env*
                                          (reverse ps) (reverse vs) senv)))
                            (kpat (dpat denote-pattern-identity))
+                           (knpat (dnpat denote-pattern-identity))
                            (kc* (loop clause*)))
-                       (cons (cons kpat drhs) kc*))))))))
+                       (cons (cons (cons kpat knpat) drhs) kc*))))))))
     (lambda (env)
       (let ((gv (dv env)))
         (lambda (st)
           (let*/state (((st v) (gv st)))
             (let loop ((kc* kc*))
               (if (null? kc*) (values #f #f)
-                (let* ((kpat (caar kc*)) (drhs (cdar kc*)) (gpat (kpat env)))
-                  (let-values (((st1 penv) (gpat st '() v)))
+                (let* ((kpat (caaar kc*))
+                       (knpat (cdaar kc*))
+                       (drhs (cdar kc*))
+                       (gpat (kpat env)))
+                  (let*-values (((st1 penv1) (gpat st '() v))
+                                ((commit) (lambda ()
+                                            ((drhs (append penv1 env)) st1))))
                     ; TODO: two-phase handling
-                    ;   eliminate patterns deterministically via scrutinee
-                    ;     walk scrutinee (and its components, as necessary)
-                    ;     find first non-failing pattern
-                    ;     negate pattern for subsequent clauses
-                    ;       if negation fails, commit to this clause
                     ;   introduce result value to eliminate more patterns
                     ;     walk this too, as necessary
                     ;     if a pattern fails on its own, eliminate
@@ -639,8 +642,16 @@
                     ;     check if there is another ambiguous pattern
                     ;       if not, immediately commit to the first
                     (if st1
-                      ; TODO: check gpat negation to ensure determinism
-                      ((drhs (append penv env)) st1)
+                      (let-values (((st2 penv2) ((knpat env) st '() v)))
+                        (if st2
+                          (let ambiguous ((kc* (cdr kc*)))
+                            (if (null? kc*) (commit)
+                              (let* ((kpat (caaar kc*)) (gpat (kpat env)))
+                                (let-values (((st2 penv2) (gpat st '() v)))
+                                  (if st2
+                                    (error 'TODO-ambiguous)
+                                    (ambiguous (cdr kc*)))))))
+                          (commit)))
                       (loop (cdr kc*)))))))))))))
 
 (define (denote-term term senv)
