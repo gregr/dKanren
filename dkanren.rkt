@@ -1005,7 +1005,7 @@
          (eval-expr '(((lambda (c) (lambda (d) c)) 'g4) 'g5) 'initial-env)
          (eval-expr '(((lambda (f) (lambda (v1) (f (f v1)))) (lambda (e) e)) 'g6) 'initial-env)
          (eval-expr '((lambda (g) ((g g) g)) (lambda (i) (lambda (j) 'g7))) 'initial-env))))
-  (test-eval ex-eval-expr '(g1 g2 g3 g4 g6 g7))
+  (test-eval ex-eval-expr-dneg '(g1 g2 g3 g4 g6 g7))
 
   ; the goal is to support something like this interpreter
   (define ex-eval-complex
