@@ -936,30 +936,30 @@
        (_ 4))
     '(second 1 2))
 
-  (test-eval
-    '(match '(1 b 3)
-       ((or `(0 ,x ,y) `(1 ,x ,y)) (list x y))
-       (_ 'fail))
-    '(b 3))
-
-  (test-eval
-    '(match '(1 b 3)
-       ((or `(0 ,x ,y) `(1 ,y ,x)) (list x y))
-       (_ 'fail))
-    '(3 b))
-
-  (test-eval
-    '(match '(0 b 3)
-       ((or `(0 ,x ,y) `(1 ,y ,x)) (list x y))
-       (_ 'fail))
-    '(b 3))
-
   (define ex-match
     '(match '(1 2 1)
        (`(,a ,b ,a) `(first ,a ,b))
        (`(,a ,a ,b) `(second ,a ,b))
        (_ 4)))
   (test-eval ex-match '(first 1 2))
+
+  (test-eval
+    '(match '(1 b 3)
+       ((or `(0 ,x ,y) `(1 ,x ,y)) 'success)
+       (_ 'fail))
+    'success)
+
+  (test-eval
+    '(match '(1 b 3)
+       ((or `(0 ,x ,y) `(1 ,y ,x)) 'success)
+       (_ 'fail))
+    'success)
+
+  (test-eval
+    '(match '(0 b 3)
+       ((or `(0 ,x ,y) `(1 ,y ,x)) 'success)
+       (_ 'fail))
+    'success)
 
   (define ex-eval-expr
     '(letrec
