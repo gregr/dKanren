@@ -405,18 +405,6 @@
                   ((list-ref (list-ref env idx) ridx) (drop env idx)))
                 (loop-rec (+ ridx 1) binding*)))))))))
 
-(define (penv-reorderable? base src tgt)
-  (equal? (list->set src) (list->set tgt)))
-(define (penv-reordering base src tgt)
-  (define (assoc-ref name tgt idx)
-    (if (eq? name (caar tgt)) idx (assoc-ref name (cdr tgt) (+ 1 idx))))
-  (if (equal? src tgt) (lambda (pb pt) pt)
-    (let loop ((src src))
-      (if (eq? base src) (lambda (pb pt) pb)
-        (let ((idx (assoc-ref (caar src) tgt 0))
-              (k (loop (cdr src))))
-          (lambda (pb pt) (cons (list-ref pt idx) (k pb pt))))))))
-
 (define (denote-qq qqterm senv)
   (match qqterm
     (`(,'unquote ,term) (denote-term term senv))
@@ -879,13 +867,11 @@
       (`(,a . ,d) (let ((ps (pattern-qq? a ps env)))
                     (and ps (pattern-qq? d ps env))))
       ((? quotable?) ps)))
-  (define (pattern-or? pattern* ps ps-or env)
+  (define (pattern-or? pattern* ps env)
     (match pattern*
-      ('() ps-or)
+      ('() ps)
       (`(,pattern . ,pattern*)
-        (let* ((ps0 (pattern? pattern ps env))
-              (ps* (pattern-or? pattern* ps ps0 env)))
-          (and (penv-reorderable? ps ps0 ps*) ps0)))))
+        (and (pattern? pattern ps env) (pattern-or? pattern* ps env)))))
   (define (pattern*? pattern* ps env)
     (match pattern*
       ('() ps)
@@ -896,9 +882,9 @@
     (match pattern
       (`(quote ,(? quotable?)) ps)
       (`(quasiquote ,qqpat) (pattern-qq? qqpat ps env))
-      (`(not . ,pat*) (pattern*? pat* ps env))
+      (`(not . ,pat*) (and (pattern*? pat* ps env) ps))
       (`(and . ,pat*) (pattern*? pat* ps env))
-      (`(or . ,pat*) (pattern-or? pat* ps ps env))
+      (`(or . ,pat*) (pattern-or? pat* ps env))
       (`(symbol . ,pat*) (pattern*? pat* ps env))
       (`(number . ,pat*) (pattern*? pat* ps env))
       (`(? ,predicate . ,pat*)
