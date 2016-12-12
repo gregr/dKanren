@@ -96,6 +96,11 @@
     ((_ ((name expr) ...) rest ...)
      (let* ((name expr) ...) (and name ... rest ...)))))
 
+(define-syntax let/if
+  (syntax-rules ()
+    ((_ (name expr) true-alt false-alt)
+     (let ((name expr)) (if name true-alt false-alt)))))
+
 (define store-empty (hasheq))
 (define store-ref hash-ref)
 (define store-set hash-set)
