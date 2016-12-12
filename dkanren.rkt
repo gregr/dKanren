@@ -91,6 +91,11 @@
   (syntax-rules ()
     ((_ name fnames ...) (struct name (fnames ...) #:transparent))))
 
+(define-syntax let*/and
+  (syntax-rules ()
+    ((_ ((name expr) ...) rest ...)
+     (let* ((name expr) ...) (and name ... rest ...)))))
+
 (define store-empty (hasheq))
 (define store-ref hash-ref)
 (define store-set hash-set)
@@ -163,12 +168,12 @@
 (define (vattr-overlap? va1 va2)
   (domain-overlap? (vattr-domain va1) (vattr-domain va2)))
 (define (vattr-intersect va1 va2)
-  (let ((di (domain-intersect (vattr-domain va1) (vattr-domain va2))))
-    (and di (vattr di
-                   (list-append-unique (vattr-=/=s va1) (vattr-=/=s va2))
-                   (append (vattr-goals va1) (vattr-goals va2))
-                   (append (vattr-dependencies va1)
-                           (vattr-dependencies va2))))))
+  (let*/and ((di (domain-intersect (vattr-domain va1) (vattr-domain va2))))
+    (vattr di
+           (list-append-unique (vattr-=/=s va1) (vattr-=/=s va2))
+           (append (vattr-goals va1) (vattr-goals va2))
+           (append (vattr-dependencies va1)
+                   (vattr-dependencies va2)))))
 
 (defrec goal-suspended tag result blocker retry guess)
 (define (goal-ref-new) (gensym))
@@ -248,11 +253,11 @@
     (state-var-type-=/= st vr va val)
     (state-var-set st vr (vattr-=/=s-add va val))))
 (define (state-var-==-var st vr1 va1 vr2 va2)
-  (let ((va (vattr-intersect va1 va2)))
-    (and va (let ((=/=s (vattr-=/=s va))
-                  (va (vattr-=/=s-clear va))
-                  (st (state-var-set st vr1 vr2)))
-              (disunify* (state-var-set st vr2 va) vr2 =/=s)))))
+  (let*/and ((va (vattr-intersect va1 va2)))
+    (let ((=/=s (vattr-=/=s va))
+          (va (vattr-=/=s-clear va))
+          (st (state-var-set st vr1 vr2)))
+      (disunify* (state-var-set st vr2 va) vr2 =/=s))))
 (define (state-var-=/=-var st vr1 va1 vr2 va2)
   (if (vattr-overlap? va1 va2)
     (state-var-set (state-var-set st vr1 (vattr-=/=s-add va1 vr2))
@@ -277,9 +282,9 @@
     (values tm #f)))
 (define (not-occurs? st vr tm)
   (if (pair? tm) (let-values (((ht _) (walk st (car tm))))
-                   (let ((st (not-occurs? st vr ht)))
-                     (and st (let-values (((tt _) (walk st (cdr tm))))
-                               (not-occurs? st vr tt)))))
+                   (let*/and ((st (not-occurs? st vr ht)))
+                     (let-values (((tt _) (walk st (cdr tm))))
+                               (not-occurs? st vr tt))))
     (if (eq? vr tm) #f st)))
 (define (unify st v1 v2)
   (let-values (((v1 va1) (walk st v1))
@@ -292,12 +297,12 @@
           ((var? v2) (and (not-occurs? st v2 v1)
                           (state-var-== st v2 va2 v1)))
           ((and (pair? v1) (pair? v2))
-           (let ((st (unify st (car v1) (car v2))))
-             (and st (unify st (cdr v1) (cdr v2)))))
+           (let*/and ((st (unify st (car v1) (car v2))))
+             (unify st (cdr v1) (cdr v2))))
           (else #f))))
 (define (disunify* st v1 vs)
-  (if (null? vs) st (let ((st (disunify st v1 (car vs))))
-                      (and st (disunify* st v1 (cdr vs))))))
+  (if (null? vs) st (let*/and ((st (disunify st v1 (car vs))))
+                      (disunify* st v1 (cdr vs)))))
 (define (disunify st v1 v2) (disunify-or st v1 v2 '()))
 
 (define (disunify-or-suspend st v1 va1 v2 pairings)
@@ -849,8 +854,8 @@
   (define (pattern-qq? qqpattern ps env)
     (match qqpattern
       (`(,'unquote ,pat) (pattern? pat ps env))
-      (`(,a . ,d) (let ((ps (pattern-qq? a ps env)))
-                    (and ps (pattern-qq? d ps env))))
+      (`(,a . ,d) (let*/and ((ps (pattern-qq? a ps env)))
+                    (pattern-qq? d ps env)))
       ((? quotable?) ps)))
   (define (pattern-or? pattern* ps env)
     (match pattern*
@@ -861,8 +866,8 @@
     (match pattern*
       ('() ps)
       (`(,pattern . ,pattern*)
-        (let ((ps (pattern? pattern ps env)))
-          (and ps (pattern*? pattern* ps env))))))
+        (let*/and ((ps (pattern? pattern ps env)))
+          (pattern*? pattern* ps env)))))
   (define (pattern? pattern ps env)
     (match pattern
       (`(quote ,(? quotable?)) ps)
@@ -880,9 +885,8 @@
   (match pt*
     ('() #t)
     (`((,pat ,rhs) . ,pt*)
-      (let ((ps (pattern? pat '() env)))
-        (and
-          ps (term? rhs (extend-env* ps ps env)) (match-clauses? pt* env))))))
+      (let*/and ((ps (pattern? pat '() env)))
+        (term? rhs (extend-env* ps ps env)) (match-clauses? pt* env)))))
 
 (define (term-qq? qqterm env)
   (match qqterm
