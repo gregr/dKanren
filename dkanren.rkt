@@ -27,15 +27,13 @@
 
 ; TODO:
 ; basic mk variant
-;   primitive goals for unify/cxs
-;   goal scheduling
-;   simple reify for debugging
+;   ==, =/=, type-based versions of these
 ;   bind, mplus w/ costs
 ;     dfs, ws, quota/cost?
 ;     cost must be able to express size-incrementing search
 ;       goal scoped or leaky costs?
 ;       quota wrapper?
-;   simple take, run, for debugging
+;   simple take, reify, run, for debugging
 ; extended mk variant, mixing in deterministic computation where possible
 ;   match/pattern compiler
 ;     backwards result value information flow
@@ -48,10 +46,6 @@
 ;         no value, no existing var: #t, cxs/#f
 ;           if goal doesn't produce a result, create and bind to a fresh logic var
 ;           is there really ever a cxs in this case?
-;     goal suspension
-;       incomplete goals (due to nondeterminism) bind themselves to blocking logic vars
-;         match scrutinees are the blocking vars
-;       unifying such a logic var w/ value resumes the goal, at least until the next blocker
 ;   non-root-deterministic-only quotas
 ;   tagging and pluggable solvers (one in particular)
 ;     aggressive, parallel term guesser
