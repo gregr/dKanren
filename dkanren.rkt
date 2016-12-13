@@ -409,8 +409,16 @@
                   (_ (eq? type val))))
            st))))
 
-(define (succeed st val) (values st val))
-(define (fail st) (values #f #f))
+(define (succeed st) st)
+(define (fail st) #f)
+
+(define (== t0 t1) (lambda (st) (unify st t0 t1)))
+(define (=/= t0 t1) (lambda (st) (disunify st t0 t1)))
+(define (symbolo tm) (lambda (st) (typify st 'symbol tm)))
+(define (numbero tm) (lambda (st) (typify st 'number tm)))
+(define (not-symbolo tm) (lambda (st) (distypify st 'symbol tm)))
+(define (not-numbero tm) (lambda (st) (distypify st 'number tm)))
+(define (not-pairo tm) (lambda (st) (distypify st 'pair tm)))
 
 
 (define (quotable? v)
