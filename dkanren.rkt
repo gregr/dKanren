@@ -454,7 +454,25 @@
   (syntax-rules ()
     ((_ (vname ...) goal ...) (let/vars (vname ...) (bind goal ...)))))
 
-(define ((reify vr) st) st)
+(define (reify-var ix) (string->symbol (string-append "_." (number->string ix))))
+(define (reify tm)
+  (lambda (st)
+    (let-values
+      (((st ixs tm)
+        (let loop ((st st) (ixs store-empty) (tm tm))
+          (let-values (((tm va) (walk st tm)))
+            (cond
+              ((var? tm)
+               (let/if (ix (store-ref ixs tm #f))
+                 (values st ixs (reify-var ix))
+                 (let ((ix (hash-count ixs)))
+                   (values st (store-set ixs tm ix) (reify-var ix)))))
+              ((pair? tm)
+               (let*-values (((st ixs thd) (loop st ixs (car tm)))
+                             ((st ixs ttl) (loop st ixs (cdr tm))))
+                 (values st ixs (cons thd ttl))))
+              (else (values st ixs tm)))))))
+      tm)))
 
 (define-syntax run
   (syntax-rules ()
