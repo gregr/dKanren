@@ -390,6 +390,24 @@
          st (car v1) (car v2) (cons (cons (cdr v1) (cdr v2)) pairings)))
       (else st))))
 
+(define (typify st type val)
+  (let-values (((val va) (walk st val)))
+    (if (var? val) (state-var-type-== st val va type)
+      (and (match type
+             ('symbol (symbol? val))
+             ('number (number? val))
+             ('pair (pair? val))
+             (_ (eq? type val)))
+           st))))
+(define (distypify st type val)
+  (let-values (((val va) (walk st val)))
+    (if (var? val) (state-var-type-=/= st val va type)
+      (and (not (match type
+                  ('symbol (symbol? val))
+                  ('number (number? val))
+                  ('pair (pair? val))
+                  (_ (eq? type val))))
+           st))))
 
 (define (succeed st val) (values st val))
 (define (fail st) (values #f #f))
