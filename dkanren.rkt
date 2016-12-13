@@ -120,7 +120,7 @@
 (define var-0 (var 'initial))
 
 (define domain-full '(pair symbol number () #f #t))
-(define (domain-remove dmn type) (remove dmn type))
+(define (domain-remove dmn type) (remove type dmn))
 (define (domain-has-type? dmn type)
   (or (eq? domain-full dmn) (memq type dmn)))
 (define (domain-has-val? dmn val)
