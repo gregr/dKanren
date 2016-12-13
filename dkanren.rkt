@@ -1103,6 +1103,573 @@
                       . ,empty-env))
 
 (module+ test
+  (require racket/pretty)
+  (define-syntax test
+    (syntax-rules ()
+     ((_ name expr expected)
+      (let ((actual expr))
+        (when (not (equal? actual expected))
+          (display name)
+          (newline)
+          (pretty-print actual)
+          (newline))
+        (check-equal? actual expected)))))
+
+  (test "basic-0"
+    (run* (x y))
+    '((_.0 _.1)))
+  (test "basic-1"
+    (run* (q) (== q 3))
+    '((3)))
+  (test "basic-2"
+    (run* (q) (== q 4) (== q 4))
+    '((4)))
+  (test "basic-3"
+    (run* (q) (== q 4) (== q 5))
+    '())
+  (test "basic-4"
+    (run* (q) (== '(1 2) q))
+    '(((1 2))))
+
+  (test "basic-5"
+    (run* (q) (not-numbero q) (== q 3))
+    '())
+  (test "basic-6"
+    (run* (q) (== q 3) (not-numbero q))
+    '())
+  (test "basic-7"
+    (run* (q) (not-numbero q) (== q 'ok))
+    '((ok)))
+  (test "basic-8"
+    (run* (q) (== q 'ok) (not-numbero q))
+    '((ok)))
+  (test "basic-9"
+    (run* (q) (not-symbolo q) (== q 'ok))
+    '())
+  (test "basic-10"
+    (run* (q) (== q 'ok) (not-symbolo q))
+    '())
+  (test "basic-11"
+    (run* (q) (not-symbolo q) (== q 3))
+    '((3)))
+  (test "basic-12"
+    (run* (q) (== q 3) (not-symbolo q))
+    '((3)))
+  (test "basic-13"
+    (run* (q) (not-pairo q) (== '(1 2) q))
+    '())
+  (test "basic-14"
+    (run* (q) (== '(1 2) q) (not-pairo q))
+    '())
+  (test "basic-15"
+    (run* (q) (not-numbero q) (== '(1 2) q))
+    '(((1 2))))
+  (test "basic-16"
+    (run* (q) (== '(1 2) q) (not-numbero q))
+    '(((1 2))))
+  (test "basic-17"
+    (run* (q) (=/= #f q) (== #f q))
+    '())
+  (test "basic-18"
+    (run* (q) (== #f q) (=/= #f q))
+    '())
+  (test "basic-19"
+    (run* (q) (=/= #t q) (== #f q))
+    '((#f)))
+  (test "basic-20"
+    (run* (q) (== #f q) (=/= #t q))
+    '((#f)))
+  (test "closed-world-1"
+    (run* (q) (=/= '() q) (=/= #f q) (not-pairo q) (not-numbero q) (not-symbolo q))
+    '((#t)))
+  (test "closed-world-2"
+    (run* (q) (=/= '() q) (=/= #t q) (=/= #f q) (not-numbero q) (not-symbolo q))
+    '(((_.0 . _.1))))
+
+  (test "=/=-1"
+    (run* (q)
+      (=/= 3 q)
+      (== q 3))
+    '())
+  (test "=/=-2"
+    (run* (q)
+      (== q 3)
+      (=/= 3 q))
+    '())
+  (test "=/=-3"
+    (run* (q)
+      (fresh (x y)
+        (=/= x y)
+        (== x y)))
+    '())
+  (test "=/=-4"
+    (run* (q)
+      (fresh (x y)
+        (== x y)
+        (=/= x y)))
+    '())
+  (test "=/=-5"
+    (run* (q)
+      (fresh (x y)
+        (=/= x y)
+        (== 3 x)
+        (== 3 y)))
+    '())
+  (test "=/=-6"
+    (run* (q)
+      (fresh (x y)
+        (== 3 x)
+        (=/= x y)
+        (== 3 y)))
+    '())
+  (test "=/=-7"
+    (run* (q)
+      (fresh (x y)
+        (== 3 x)
+        (== 3 y)
+        (=/= x y)))
+    '())
+  (test "=/=-8"
+    (run* (q)
+      (fresh (x y)
+        (== 3 x)
+        (== 3 y)
+        (=/= y x)))
+    '())
+  (test "=/=-9"
+    (run* (q)
+      (fresh (x y z)
+        (== x y)
+        (== y z)
+        (=/= x 4)
+        (== z (+ 2 2))))
+    '())
+  (test "=/=-10"
+    (run* (q)
+      (fresh (x y z)
+        (== x y)
+        (== y z)
+        (== z (+ 2 2))
+        (=/= x 4)))
+    '())
+
+  (test "=/=-11"
+    (run* (q)
+      (fresh (x y z)
+        (=/= x 4)
+        (== y z)
+        (== x y)
+        (== z (+ 2 2))))
+    '())
+  (test "=/=-12"
+    (run* (q)
+      (fresh (x y z)
+        (=/= x y)
+        (== x `(0 ,z 1))
+        (== y `(0 1 1))))
+    '((_.0)))
+  (test "=/=-13"
+    (run* (q)
+      (fresh (x y z)
+        (=/= x y)
+        (== x `(0 ,z 1))
+        (== y `(0 1 1))
+        (== z 1)
+        (== `(,x ,y) q)))
+    '())
+  (test "=/=-14"
+    (run* (q)
+      (fresh (x y z)
+        (=/= x y)
+        (== x `(0 ,z 1))
+        (== y `(0 1 1))
+        (== z 0)))
+    '((_.0)))
+  (test "=/=-15"
+    (run* (q)
+      (fresh (x y z)
+        (== z 0)
+        (=/= x y)
+        (== x `(0 ,z 1))
+        (== y `(0 1 1))))
+    '((_.0)))
+  (test "=/=-16"
+    (run* (q)
+      (fresh (x y z)
+        (== x `(0 ,z 1))
+        (== y `(0 1 1))
+        (=/= x y)))
+    '((_.0)))
+  (test "=/=-17"
+    (run* (q)
+      (fresh (x y z)
+        (== z 1)
+        (=/= x y)
+        (== x `(0 ,z 1))
+        (== y `(0 1 1))))
+    '())
+  (test "=/=-18"
+    (run* (q)
+      (fresh (x y z)
+        (== z 1)
+        (== x `(0 ,z 1))
+        (== y `(0 1 1))
+        (=/= x y)))
+    '())
+  (test "=/=-19"
+    (run* (q)
+      (fresh (x y)
+        (=/= `(,x 1) `(2 ,y))
+        (== x 2)))
+    '((_.0)))
+  (test "=/=-20"
+    (run* (q)
+      (fresh (x y)
+        (=/= `(,x 1) `(2 ,y))
+        (== y 1)))
+    '((_.0)))
+
+  (test "=/=-21"
+    (run* (q)
+      (fresh (x y)
+        (=/= `(,x 1) `(2 ,y))
+        (== x 2)
+        (== y 1)))
+    '())
+  (test "=/=-24"
+    (run* (q)
+      (fresh (x y)
+        (=/= `(,x 1) `(2 ,y))
+        (== x 2)
+        (== y 9)
+        (== `(,x ,y) q)))
+    '(((2 9))))
+  (test "=/=-24b"
+    (run* (q)
+      (fresh (a d)
+        (== `(,a . ,d) q)
+        (=/= q `(5 . 6))
+        (== a 5)
+        (== d 6)))
+    '())
+  (test "=/=-25"
+    (run* (q)
+      (fresh (x y)
+        (=/= `(,x 1) `(2 ,y))
+        (== x 2)
+        (== y 1)
+        (== `(,x ,y) q)))
+    '())
+  ;(test0 "=/=-26"
+    ;(run* (q)
+      ;(fresh (a x z)
+        ;(=/= a `(,x 1))
+        ;(== a `(,z 1))
+        ;(== x z)))
+    ;'())
+  (test "=/=-28"
+    (run* (q)
+      (=/= 3 4))
+    '((_.0)))
+  (test "=/=-29"
+    (run* (q)
+      (=/= 3 3))
+    '())
+  (test "=/=-30"
+    (run* (q) (=/= 5 q)
+      (=/= 6 q)
+      (== q 5))
+    '())
+
+  (test "=/=-32"
+    (run* (q)
+      (fresh (a)
+        (== 3 a)
+        (=/= a 4)))
+    '((_.0)))
+  (test "=/=-35"
+    (let ((foo (lambda (x)
+                (fresh (a)
+                  (=/= x a)))))
+      (run* (q) (fresh (a) (foo a))))
+    '((_.0)))
+  (test "=/=-36"
+    (let ((foo (lambda (x)
+                (fresh (a)
+                  (=/= x a)))))
+      (run* (q) (fresh (b) (foo b))))
+    '((_.0)))
+  (test "=/=-37c"
+    (run* (q)
+    (fresh (a d)
+      (== `(,a . ,d) q)
+      (=/= q `(5 . 6))
+      (== a 3)))
+    '(((3 . _.0))))
+  (test "=/=-47"
+    (run* (x)
+      (fresh (y z)
+        (=/= x `(,y 2))
+        (== x `(,z 2))))
+    '(((_.0 2))))
+  (test "=/=-48"
+    (run* (x)
+      (fresh (y z)
+        (=/= x `(,y 2))
+        (== x `((,z) 2))))
+    '((((_.0) 2))))
+  (test "=/=-49"
+    (run* (x)
+      (fresh (y z)
+        (=/= x `((,y) 2))
+        (== x `(,z 2))))
+    '(((_.0 2))))
+
+  (test "numbero-2"
+    (run* (q) (numbero q) (== 5 q))
+    '((5)))
+  (test "numbero-3"
+    (run* (q) (== 5 q) (numbero q))
+    '((5)))
+  (test "numbero-4"
+    (run* (q) (== 'x q) (numbero q))
+    '())
+  (test "numbero-5"
+    (run* (q) (numbero q) (== 'x q))
+    '())
+  (test "numbero-6"
+    (run* (q) (numbero q) (== `(1 . 2) q))
+    '())
+  (test "numbero-7"
+    (run* (q) (== `(1 . 2) q) (numbero q))
+    '())
+  (test "numbero-8"
+    (run* (q) (fresh (x) (numbero x)))
+    '((_.0)))
+  (test "numbero-9"
+    (run* (q) (fresh (x) (numbero x)))
+    '((_.0)))
+  (test "numbero-14-b"
+    (run* (q) (fresh (x) (numbero q) (== 5 x) (== x q)))
+    '((5)))
+  (test "numbero-15"
+    (run* (q) (fresh (x) (== q x) (numbero q) (== 'y x)))
+    '())
+  (test "numbero-24-a"
+    (run* (q)
+      (fresh (w x y z)
+        (=/= `(,w . ,x) `(,y . ,z))
+        (numbero w)
+        (numbero z)))
+    '((_.0)))
+
+  (test "symbolo-2"
+    (run* (q) (symbolo q) (== 'x q))
+    '((x)))
+  (test "symbolo-3"
+    (run* (q) (== 'x q) (symbolo q))
+    '((x)))
+  (test "symbolo-4"
+    (run* (q) (== 5 q) (symbolo q))
+    '())
+  (test "symbolo-5"
+    (run* (q) (symbolo q) (== 5 q))
+    '())
+  (test "symbolo-6"
+    (run* (q) (symbolo q) (== `(1 . 2) q))
+    '())
+  (test "symbolo-7"
+    (run* (q) (== `(1 . 2) q) (symbolo q))
+    '())
+  (test "symbolo-8"
+    (run* (q) (fresh (x) (symbolo x)))
+    '((_.0)))
+  (test "symbolo-9"
+    (run* (q) (fresh (x) (symbolo x)))
+    '((_.0)))
+  (test "symbolo-14-b"
+    (run* (q) (fresh (x) (symbolo q) (== 'y x) (== x q)))
+    '((y)))
+  (test "symbolo-15"
+    (run* (q) (fresh (x) (== q x) (symbolo q) (== 5 x)))
+    '())
+  (test "symbolo-24-a"
+    (run* (q)
+      (fresh (w x y z)
+        (=/= `(,w . ,x) `(,y . ,z))
+        (symbolo w)
+        (symbolo z)))
+    '((_.0)))
+
+  (test "symbolo-numbero-1"
+    (run* (q) (symbolo q) (numbero q))
+    '())
+  (test "symbolo-numbero-2"
+    (run* (q) (numbero q) (symbolo q))
+    '())
+  (test "symbolo-numbero-3"
+    (run* (q)
+      (fresh (x)
+        (numbero x)
+        (symbolo x)))
+    '())
+  (test "symbolo-numbero-4"
+    (run* (q)
+      (fresh (x)
+        (symbolo x)
+        (numbero x)))
+    '())
+  (test "symbolo-numbero-5"
+    (run* (q)
+      (numbero q)
+      (fresh (x)
+        (symbolo x)
+        (== x q)))
+    '())
+  (test "symbolo-numbero-6"
+    (run* (q)
+      (symbolo q)
+      (fresh (x)
+        (numbero x)
+        (== x q)))
+    '())
+  (test "symbolo-numbero-7"
+    (run* (q)
+      (fresh (x)
+        (numbero x)
+        (== x q))
+      (symbolo q))
+    '())
+  (test "symbolo-numbero-7"
+    (run* (q)
+      (fresh (x)
+        (symbolo x)
+        (== x q))
+      (numbero q))
+    '())
+  (test "symbolo-numbero-8"
+    (run* (q)
+      (fresh (x)
+        (== x q)
+        (symbolo x))
+      (numbero q))
+    '())
+  (test "symbolo-numbero-9"
+    (run* (q)
+      (fresh (x)
+        (== x q)
+        (numbero x))
+      (symbolo q))
+    '())
+
+  (test "symbolo-numbero-32"
+    (run* (q)
+      (fresh (x y)
+        (=/= `(,x ,y) q)
+        (numbero x)
+        (symbolo y)))
+    '((_.0)))
+  (test "symbolo-numbero-33"
+    (run* (q)
+      (fresh (x y)
+        (numbero x)
+        (=/= `(,x ,y) q)
+        (symbolo y)))
+    '((_.0)))
+  (test "symbolo-numbero-34"
+    (run* (q)
+      (fresh (x y)
+        (numbero x)
+        (symbolo y)
+        (=/= `(,x ,y) q)))
+    '((_.0)))
+
+  ;(test "test 24"
+    ;(run* (q) (== 5 q) (absento 5 q))
+    ;'())
+  ;(test "test 25"
+    ;(run* (q) (== q `(5 6)) (absento 5 q))
+    ;'())
+  ;(test "test 25b"
+    ;(run* (q) (absento 5 q) (== q `(5 6)))
+    ;'())
+  ;(test "test 26"
+    ;(run* (q) (absento 5 q) (== 5 q))
+    ;'())
+  (test "test 33"
+    (run* (q)
+      (fresh (a b c)
+        (== `(,a ,b) c)
+        (== `(,c ,c) q)
+        (symbolo b)
+        (numbero c)))
+    '())
+  (test "test 40"
+    (run* (q)
+      (fresh (d a c)
+        (== `(3 . ,d) q)
+        (=/= `(,c . ,a) q)
+        (== '(3 . 4) d)))
+    '(((3 3 . 4))))
+  (test "test 41"
+    (run* (q)
+      (fresh (a)
+        (== `(,a . ,a) q)))
+    '(((_.0 . _.0))))
+  (test "test 63"
+    (run* (q) (fresh (a b c) (=/= a b) (=/= b c) (=/= c q) (symbolo a)))
+    '((_.0)))
+  (test "test 64"
+    (run* (q) (symbolo q) (== 'tag q))
+    '((tag)))
+  ;(test "test 66"
+    ;(run* (q) (absento 6 5))
+    ;'((_.0)))
+
+  ;(test "absento 'closure-1a"
+    ;(run* (q) (absento 'closure q) (== q 'closure))
+    ;'())
+  ;(test "absento 'closure-1b"
+    ;(run* (q) (== q 'closure) (absento 'closure q))
+    ;'())
+  ;(test "absento 'closure-2a"
+    ;(run* (q) (fresh (a d) (== q 'closure) (absento 'closure q)))
+    ;'())
+  ;(test "absento 'closure-2b"
+    ;(run* (q) (fresh (a d) (absento 'closure q) (== q 'closure)))
+    ;'())
+  ;(test "absento 'closure-4a"
+    ;(run* (q) (fresh (a d) (absento 'closure q) (== `(,a . ,d) q) (== 'closure a)))
+    ;'())
+  ;(test "absento 'closure-4b"
+    ;(run* (q) (fresh (a d) (absento 'closure q) (== 'closure a) (== `(,a . ,d) q)))
+    ;'())
+  ;(test "absento 'closure-4c"
+    ;(run* (q) (fresh (a d) (== 'closure a) (absento 'closure q) (== `(,a . ,d) q)))
+    ;'())
+  ;(test "absento 'closure-4d"
+    ;(run* (q) (fresh (a d) (== 'closure a) (== `(,a . ,d) q) (absento 'closure q)))
+    ;'())
+  ;(test "absento 'closure-5a"
+    ;(run* (q) (fresh (a d) (absento 'closure q) (== `(,a . ,d) q) (== 'closure d)))
+    ;'())
+  ;(test "absento 'closure-5b"
+    ;(run* (q) (fresh (a d) (absento 'closure q) (== 'closure d) (== `(,a . ,d) q)))
+    ;'())
+  ;(test "absento 'closure-5c"
+    ;(run* (q) (fresh (a d) (== 'closure d) (absento 'closure q) (== `(,a . ,d) q)))
+    ;'())
+  ;(test "absento 'closure-5d"
+    ;(run* (q) (fresh (a d) (== 'closure d) (== `(,a . ,d) q) (absento 'closure q)))
+    ;'())
+  ;(test "absento 'closure-6"
+    ;(run* (q)
+      ;(== `(3 (closure x (x x) ((y . 7))) #t) q)
+      ;(absento 'closure q))
+    ;'())
+  )
+
+(module+ test
   (define-syntax test-eval
     (syntax-rules ()
      ((_ tm result)
