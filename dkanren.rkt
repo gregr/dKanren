@@ -117,6 +117,7 @@
       (if (memq x0 ys) zs (cons x0 zs)))))
 
 (defrec var name)
+(define var-0 (var 'initial))
 
 (define domain-full '(pair symbol number () #f #t))
 (define (domain-remove dmn type) (remove dmn type))
@@ -419,6 +420,50 @@
 (define (not-symbolo tm) (lambda (st) (distypify st 'symbol tm)))
 (define (not-numbero tm) (lambda (st) (distypify st 'number tm)))
 (define (not-pairo tm) (lambda (st) (distypify st 'pair tm)))
+
+(define-syntax zzz (syntax-rules () ((_ body ...) (lambda () body ...))))
+
+(define (mplus ss zss)
+  (match ss
+    (#f (zss))
+    ((? procedure?) (zzz (mplus (zss) ss)))
+    ((? state?) (cons ss zss))
+    (`(,result . ,zss1) (cons result (zzz (mplus (zss) zss1))))))
+
+(define (take n ss)
+  (if (and n (zero? n)) '()
+    (match ss
+      (#f '())
+      ((? procedure?) (take n (ss)))
+      ((? state?) (list ss))
+      (`(,result . ,ss) (cons result (take (and n (- n 1)) ss))))))
+
+(define-syntax bind
+  (syntax-rules ()
+    ((_) succeed)
+    ((_ goal) goal)
+    ((_ goal0 goal ...)
+     (lambda (st) (let*/and ((st (goal0 st))) ((bind goal ...) st))))))
+
+(define-syntax let/vars
+  (syntax-rules ()
+    ((_ (vname ...) body ...)
+     (let ((vname (var 'vname)) ...) body ...))))
+
+(define-syntax fresh
+  (syntax-rules ()
+    ((_ (vname ...) goal ...) (let/vars (vname ...) (bind goal ...)))))
+
+(define ((reify vr) st) st)
+
+(define-syntax run
+  (syntax-rules ()
+    ((_ n (qv ...) goal ...)
+     (map (reify var-0)
+          (take n (zzz ((fresh (qv ...)
+                          (== (list qv ...) var-0) goal ... state-resume)
+                        state-empty)))))))
+(define-syntax run* (syntax-rules () ((_ body ...) (run #f body ...))))
 
 
 (define (quotable? v)
