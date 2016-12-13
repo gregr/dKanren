@@ -109,7 +109,7 @@
 (define store-remove hash-remove)
 (define (store-key-top store)
   (let ((keys (hash-keys store))) (and (pair? keys) (car keys))))
-(define (list-add-unique xs v) (if (memq v xs) xs (car v xs)))
+(define (list-add-unique xs v) (if (memq v xs) xs (cons v xs)))
 (define (list-append-unique xs ys)
   (if (null? xs) ys
     (let ((zs (list-append-unique (cdr xs) ys))
