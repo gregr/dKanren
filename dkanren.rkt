@@ -634,35 +634,48 @@
 (define (pattern-assert-any st penv v) (values st penv))
 (define (pattern-assert-none st penv v) (values #f #f))
 (define denote-pattern-fail
-  (let ((pat (pattern (lambda (st penv v) (values #f #f))
-                      (lambda (st penv v) (values penv '()))
+  (let ((pat (pattern (lambda (st penv v) (values #f #f #f))
+                      (lambda (st penv v) (values st penv '()))
                       pattern-assert-none
                       pattern-assert-any)))
     (lambda (env) pat)))
 (define denote-pattern-succeed
-  (let ((pat (pattern (lambda (st penv v) (values penv '()))
-                      (lambda (st penv v) (values #f #f))
+  (let ((pat (pattern (lambda (st penv v) (values st penv '()))
+                      (lambda (st penv v) (values #f #f #f))
                       pattern-assert-any
                       pattern-assert-none)))
     (lambda (env) pat)))
 
+(define (extract-svs st v1 v2)
+  (let-values (((v1 va1) (walk st v1))
+               ((v2 va2) (walk st v2)))
+    (match* (v1 v2)
+      (((? var?) (? var?)) (list v1 v2))
+      (((? var?) _) (list v1))
+      ((_ (? var?)) (list v2))
+      ((`(,a1 . ,d1) `(,a2 . ,d2))
+       (list-append-unique (extract-svs st a1 a2) (extract-svs st d1 d2)))
+      ((_ _) '()))))
+
 (define (denote-pattern-literal literal penv)
   (values penv (let ((pat (pattern
-                            (lambda (st penv v) (if (equal? literal v)
-                                                  (values penv '())
-                                                  (values #f #f)))
-                            (lambda (st penv v) (if (equal? literal v)
-                                                  (values #f #f)
-                                                  (values penv '())))
-                            ; TODO:
-                            (lambda (st penv v) (values st penv))
-                            ; TODO:
-                            (lambda (st penv v) (values st penv)))))
+                            (lambda (st penv v)
+                              (let/if (st1 (unify st literal v))
+                                (values st1 penv (extract-svs st literal v))
+                                (values #f #f #f)))
+                            (lambda (st penv v)
+                              (let/if (st1 (disunify st literal v))
+                                (values st1 penv (extract-svs st literal v))
+                                (values #f #f #f)))
+                            (lambda (st penv v)
+                              (values (unify st literal v) penv))
+                            (lambda (st penv v)
+                              (values (disunify st literal v) penv)))))
                  (lambda (env) pat))))
 
 (define pattern-var-extend
-  (pattern (lambda (st penv v) (values (cons v penv) '()))
-           (lambda (st penv v) (values #f #f))
+  (pattern (lambda (st penv v) (values st (cons v penv) '()))
+           (lambda (st penv v) (values #f #f #f))
            (lambda (st penv v) (values st (cons v penv)))
            (lambda (st penv v) (values #f #f))))
 (define (denote-pattern-var-extend env) pattern-var-extend)
@@ -675,18 +688,21 @@
           (values penv
                   (let ((pat (pattern
                                (lambda (st penv v)
-                                 (if (equal? (list-ref penv idx) v)
-                                   (values penv '())
-                                   ; TODO: var?
-                                   (values #f #f)))
+                                 (let ((vv (list-ref penv idx)))
+                                   (let/if (st1 (unify st vv v))
+                                     (values st1 penv (extract-svs st vv v))
+                                     (values #f #f #f))))
                                (lambda (st penv v)
-                                 (if (equal? (list-ref penv idx) v)
-                                   (values #f #f)
-                                   ; TODO: var?
-                                   (values penv '())))
-                               ; TODO:
-                               (lambda (st penv v) (values st penv))
-                               (lambda (st penv v) (values st penv)))))
+                                 (let ((vv (list-ref penv idx)))
+                                   (let/if (st1 (disunify st vv v))
+                                     (values st1 penv (extract-svs st vv v))
+                                     (values #f #f #f))))
+                               (lambda (st penv v)
+                                 (values (unify st (list-ref penv idx) v)
+                                         penv))
+                               (lambda (st penv v)
+                                 (values (disunify st (list-ref penv idx) v)
+                                         penv)))))
                     (lambda (env) pat)))
           (loop (+ idx 1) b*))))))
 
@@ -701,25 +717,29 @@
                   (let ((pa (da env)) (pd (dd env)))
                     (pattern
                       (lambda (st penv v)
+                        ; TODO: var?
                         (if (pair? v)
                           (let-values
-                            (((pea svsa) ((pattern-sat pa) st penv (car v))))
+                            (((st pea svsa) ((pattern-sat pa)
+                                             st penv (walk1 st (car v)))))
                             (if svsa
                               ; TODO: union svsa
-                              ((pattern-sat pd) st pea (cdr v))
-                              (values #f #f)))
+                              ((pattern-sat pd) st pea (walk1 st (cdr v)))
+                              (values #f #f #f)))
                           ; TODO: var?
-                          (values #f #f)))
+                          (values #f #f #f)))
                       (lambda (st penv v)
+                        ; TODO: var?
                         (if (pair? v)
                           (let-values
-                            (((pea svsa) ((pattern-nsat pa) st penv (car v))))
+                            (((st pea svsa) ((pattern-nsat pa)
+                                             st penv (walk1 st (car v)))))
                             (if svsa
                               ; TODO: union svsa
-                              ((pattern-nsat pd) st pea (cdr v))
-                              (values penv '())))
+                              ((pattern-nsat pd) st pea (walk1 st (cdr v)))
+                              (values st penv '())))
                           ; TODO: var?
-                          (values penv '())))
+                          (values st penv '())))
                       (lambda (st penv v)
                         ; TODO:
                         (values st penv))
@@ -739,17 +759,17 @@
                     (pattern
                       (lambda (st penv v)
                         (let-values
-                          (((pe0 svs0) ((pattern-sat p0) st penv v)))
+                          (((_ pe0 svs0) ((pattern-sat p0) st penv v)))
                           (if svs0
-                            (values penv svs0)
+                            (values st penv svs0)
                             ((pattern-sat p*) st penv v))))
                       (lambda (st penv v)
                         (let-values
-                          (((pe0 svs0) ((pattern-nsat p0) st penv v)))
+                          (((_ pe0 svs0) ((pattern-nsat p0) st penv v)))
                           (if svs0
                             ; TODO: union svs0
                             ((pattern-nsat p*) st penv v)
-                            (values #f #f))))
+                            (values #f #f #f))))
                       (lambda (st penv v)
                         ; TODO:
                         (values st penv))
@@ -769,16 +789,16 @@
                     (pattern
                       (lambda (st penv v)
                         (let-values
-                          (((pe0 svs0) ((pattern-sat p0) st penv v)))
+                          (((st pe0 svs0) ((pattern-sat p0) st penv v)))
                           (if svs0
                             ; TODO: union svs0
                             ((pattern-sat p*) st pe0 v)
-                            (values #f #f))))
+                            (values #f #f #f))))
                       (lambda (st penv v)
                         (let-values
-                          (((pe0 svs0) ((pattern-nsat p0) st penv v)))
+                          (((st pe0 svs0) ((pattern-nsat p0) st penv v)))
                           (if svs0
-                            (values penv svs0)
+                            (values st penv svs0)
                             ((pattern-nsat p*) st penv v))))
                       ; TODO:
                       (lambda (st penv v) (values st penv))
@@ -795,12 +815,12 @@
                     (if (type? v)
                       ((pattern-sat p*) st penv v)
                       ; TODO: var?
-                      (values #f #f)))
+                      (values #f #f #f)))
                   (lambda (st penv v)
                     (if (type? v)
                       ((pattern-nsat p*) st penv v)
                       ; TODO: var?
-                      (values penv '())))
+                      (values st penv '())))
                   ; TODO:
                   (lambda (st penv v) (values st penv))
                   ; TODO:
@@ -818,10 +838,10 @@
                     (pattern
                       (pattern-nsat pp)
                       (lambda (st penv v)
-                        (let-values (((_ svs) ((pattern-sat pp) st penv v)))
+                        (let-values (((st _ svs) ((pattern-sat pp) st penv v)))
                           (if svs
-                            (values penv svs)
-                            (values #f #f))))
+                            (values st penv svs)
+                            (values #f #f #f))))
                       (pattern-nassert pp)
                       (lambda (st penv v)
                         (let-values (((st _) ((pattern-assert pp) st penv v)))
@@ -849,16 +869,17 @@
                           (pattern
                             (lambda (st penv v)
                               (let-values (((st result) (pred st v)))
+                                ; TODO: result could be a match-chain, extract its svs
                                 (if result
                                   ; TODO: var?
                                   ((pattern-sat p*) st penv v)
-                                  (values #f #f))))
+                                  (values #f #f #f))))
                             (lambda (st penv v)
                               (let-values (((st result) (pred st v)))
                                 (if result
                                   ; TODO: var?
                                   ((pattern-nsat p*) st penv v)
-                                  (values penv '()))))
+                                  (values st penv '()))))
                             ; TODO:
                             (lambda (st penv v) (values st penv))
                             ; TODO:
@@ -867,7 +888,7 @@
     ((? symbol? vname) (denote-pattern-var penv vname penv))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
 
-(defrec match-chain scrutinee clauses)
+(defrec match-chain svs scrutinee clauses)
 
 ; TODO: factor out loops?
 
@@ -900,25 +921,26 @@
                     (let* ((dpat (caar pc*))
                            (drhs (cadar pc*))
                            (drhspat (cddar pc*))
-                           (pat (dpat env)))
-                      (let-values
-                        (((penv svs) ((pattern-sat pat) st '() v))
-                         ((commit)
-                          (lambda ()
-                            (let*/state
-                              (((st penv) ((pattern-assert pat) st '() v)))
-                              ((drhs (append penv env)) st)))))
-                        (if svs
-                          (if (null? svs)
-                            ((drhs (append penv env)) st)
-                            (let-values
-                              (((nst penv) ((pattern-nassert pat) st '() v)))
-                              (if nst
-                                (let ambiguous ((pc*1 (cdr pc*)))
-                                  (if (null? pc*1)
-                                    (commit)
+                           (pat (dpat env))
+                           (commit
+                             (lambda ()
+                               (let*/state
+                                 (((st penv) ((pattern-assert pat) st '() v)))
+                                 ((drhs (append penv env)) st)))))
+                      ;; This early check can save a lot.
+                      (if #f ;(null? (cdr pc*))  ; TODO
+                        (commit)
+                        (let-values
+                          (((_ penv svs) ((pattern-sat pat) st '() v)))
+                          (if svs
+                            (if (null? svs)
+                              ((drhs (append penv env)) st)
+                              (let-values
+                                (((nst penv) ((pattern-nassert pat) st '() v)))
+                                (if nst
+                                  (let ambiguous ((pc*1 (cdr pc*)))
                                     (let-values
-                                      (((penv1 svs1)
+                                      (((_ penv1 svs1)
                                         ((pattern-sat ((caar pc*1) env))
                                          nst '() v)))
                                       (if svs1
@@ -928,9 +950,11 @@
                                             (append svs1 svs)
                                             v (list (cons env (cons (car pc*)
                                                                     pc*1)))))
-                                        (ambiguous (cdr pc*1))))))
-                                (commit))))
-                          (loop (cdr pc*)))))))))))))))
+                                        (if (null? (cdr pc*1))
+                                          (commit)
+                                          (ambiguous (cdr pc*1))))))
+                                  (commit))))
+                            (loop (cdr pc*))))))))))))))))
 
 
 (define (denote-term term senv)
