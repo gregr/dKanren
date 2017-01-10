@@ -608,17 +608,18 @@
 
 (define (denote-rhs-pattern-unknown env st v) #t)
 (define (denote-rhs-pattern-literal literal)
-  (lambda (env st v) (equal? literal v)))
+  (lambda (env st v) (unify st literal v)))
 (define (denote-rhs-pattern-var vname senv)
   (let ((dv (denote-term vname senv)))
-    (lambda (env st v) (equal? ((dv env) st) v))))
+    (lambda (env st v) (unify st ((dv env) st) v))))
 (define (denote-rhs-pattern-qq qq senv)
   (match qq
     (`(,'unquote ,pat) (denote-rhs-pattern pat senv))
     (`(,a . ,d)
       (let ((da (denote-rhs-pattern-qq a senv))
             (dd (denote-rhs-pattern-qq d senv)))
-        (lambda (env st v) (and (da env st v) (dd env st v)))))
+        (lambda (env st v)
+          (let*/and ((st (da env st v))) (dd env st v)))))
     ((? quotable? datum) (denote-rhs-pattern-literal datum))))
 (define (denote-rhs-pattern pat senv)
   (match pat
