@@ -285,6 +285,9 @@
     ('() #f)
     (dmn (state-var-set st vr (vattr-domain-set va dmn)))))
 
+;; Ideally we would notify any vars in =/=s that they can drop 'vr' from their
+;; own =/=s, but not doing so shouldn't be a big deal.  Same story when
+;; handling state-var-==-var.
 (define (state-var-== st vr va val)
   (cond
     ((eq? vattr-empty va) (state-var-set st vr val))
