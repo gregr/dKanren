@@ -442,9 +442,9 @@
                 (lambda (tm)
                   (match tm
                     (`(,ta . ,td) (and (absent? ta) (absent? td)))
-                    (,atom #f)
+                    (',atom #f)
                     (_ #t)))))
-       (absent? ,tm))
+       (absent? ',tm))
     #t))
 
 (define-syntax zzz (syntax-rules () ((_ body ...) (lambda () body ...))))
@@ -1215,6 +1215,13 @@
   (test "basic-20"
     (run* (q) (== #f q) (=/= #t q))
     '((#f)))
+  (test "basic-21"
+    (run* (q) (== q 'ok) (absento 5 '(4 ((3 2) 4))))
+    '((ok)))
+  (test "basic-22"
+    (run* (q) (== q 'ok) (absento 5 '(4 ((3 5) 4))))
+    '())
+
   (test "closed-world-1"
     (run* (q) (=/= '() q) (=/= #f q) (not-pairo q) (not-numbero q) (not-symbolo q))
     '((#t)))
