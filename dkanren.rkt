@@ -436,6 +436,17 @@
 (define (not-numbero tm) (lambda (st) (distypify st 'number tm)))
 (define (not-pairo tm) (lambda (st) (distypify st 'pair tm)))
 
+(define (absento atom tm)
+  (dk-evalo
+    `(letrec ((absent?
+                (lambda (tm)
+                  (match tm
+                    (`(,ta . ,td) (and (absent? ta) (absent? td)))
+                    (,atom #f)
+                    (_ #t)))))
+       (absent? ,tm))
+    #t))
+
 (define-syntax zzz (syntax-rules () ((_ body ...) (lambda () body ...))))
 
 (define (mplus ss zss)
