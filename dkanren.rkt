@@ -1083,7 +1083,17 @@
       (`(match ,s . ,pt*) (and (term1? s) (match-clauses? pt* env)))
       (_ #f))))
 
-(define (eval-term term env) ((denote-term term env) (map cddr env)))
+(define (eval-denoted-term dterm env) (dterm (map cddr env)))
+(define (eval-term term env) (eval-denoted-term (denote-term term env) env))
+
+;; 'dk-term' must be a valid dKanren program, *not* just any miniKanren term.
+;; 'result' is a miniKanren term.
+(define (dk-evalo dk-term result)
+  (let ((dterm (denote-term dk-term initial-env)))
+    (lambda (st)
+      ; TODO: check for, and handle, match-chain vals
+      (let-values (((st val) ((eval-denoted-term dterm initial-env) st)))
+        (and st (unify st result val))))))
 
 (define (primitive params body)
   (let-values (((st v) (((denote-lambda params body '()) '()) #t)))
