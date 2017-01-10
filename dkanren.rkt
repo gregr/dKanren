@@ -341,6 +341,7 @@
   (if (var? tm)
     (walk-vs (state-vs st) tm)
     (values tm #f)))
+(define (walk1 st tm) (let-values (((val va) (walk st tm))) val))
 (define (not-occurs? st vr tm)
   (if (pair? tm) (let-values (((ht _) (walk st (car tm))))
                    (let*/and ((st (not-occurs? st vr ht)))
@@ -644,7 +645,6 @@
                       pattern-assert-none)))
     (lambda (env) pat)))
 
-; TODO: walk v
 (define (denote-pattern-literal literal penv)
   (values penv (let ((pat (pattern
                             (lambda (st penv v) (if (equal? literal v)
@@ -893,41 +893,43 @@
               (values st (match-chain
                            (match-chain-scrutinee v)
                            (cons (cons env pc*) (match-chain-clauses v))))
-              (let loop ((pc* pc*))
-                (if (null? pc*) (values #f #f)
-                  (let* ((dpat (caar pc*))
-                         (drhs (cadar pc*))
-                         (drhspat (cddar pc*))
-                         (pat (dpat env)))
-                    (let-values
-                      (((penv svs) ((pattern-sat pat) st '() v))
-                       ((commit)
-                        (lambda ()
-                          (let*/state
-                            (((st penv) ((pattern-assert pat) st '() v)))
-                            ((drhs (append penv env)) st)))))
-                      (if svs
-                        (if (null? svs)
-                          ((drhs (append penv env)) st)
-                          (let-values
-                            (((nst penv) ((pattern-nassert pat) st '() v)))
-                            (if nst
-                              (let ambiguous ((pc*1 (cdr pc*)))
-                                (if (null? pc*1)
-                                  (commit)
-                                  (let-values
-                                    (((penv1 svs1)
-                                      ((pattern-sat ((caar pc*1) env))
-                                       nst '() v)))
-                                    (if svs1
-                                      (values
-                                        st (match-chain
-                                             (append svs1 svs)
-                                             v (list (cons env (cons (car pc*)
-                                                                     pc*1)))))
-                                      (ambiguous (cdr pc*1))))))
-                              (commit))))
-                        (loop (cdr pc*))))))))))))))
+              (let ((v (walk1 st v)))
+                (let loop ((pc* pc*))
+                  (if (null? pc*) (values #f #f)
+                    (let* ((dpat (caar pc*))
+                           (drhs (cadar pc*))
+                           (drhspat (cddar pc*))
+                           (pat (dpat env)))
+                      (let-values
+                        (((penv svs) ((pattern-sat pat) st '() v))
+                         ((commit)
+                          (lambda ()
+                            (let*/state
+                              (((st penv) ((pattern-assert pat) st '() v)))
+                              ((drhs (append penv env)) st)))))
+                        (if svs
+                          (if (null? svs)
+                            ((drhs (append penv env)) st)
+                            (let-values
+                              (((nst penv) ((pattern-nassert pat) st '() v)))
+                              (if nst
+                                (let ambiguous ((pc*1 (cdr pc*)))
+                                  (if (null? pc*1)
+                                    (commit)
+                                    (let-values
+                                      (((penv1 svs1)
+                                        ((pattern-sat ((caar pc*1) env))
+                                         nst '() v)))
+                                      (if svs1
+                                        (values
+                                          st
+                                          (match-chain
+                                            (append svs1 svs)
+                                            v (list (cons env (cons (car pc*)
+                                                                    pc*1)))))
+                                        (ambiguous (cdr pc*1))))))
+                                (commit))))
+                          (loop (cdr pc*)))))))))))))))
 
 
 (define (denote-term term senv)
@@ -1100,10 +1102,10 @@
 ;; 'dk-term' must be a valid dKanren program, *not* just any miniKanren term.
 ;; 'result' is a miniKanren term.
 (define (dk-evalo dk-term result)
-  (let ((dterm (denote-term dk-term initial-env)))
+  (let ((dk-goal (eval-term dk-term initial-env)))
     (lambda (st)
       ; TODO: check for, and handle, match-chain vals
-      (let-values (((st val) ((eval-denoted-term dterm initial-env) st)))
+      (let-values (((st val) (dk-goal st)))
         (and st (unify st result val))))))
 
 (define (primitive params body)
@@ -1215,12 +1217,6 @@
   (test "basic-20"
     (run* (q) (== #f q) (=/= #t q))
     '((#f)))
-  (test "basic-21"
-    (run* (q) (== q 'ok) (absento 5 '(4 ((3 2) 4))))
-    '((ok)))
-  (test "basic-22"
-    (run* (q) (== q 'ok) (absento 5 '(4 ((3 5) 4))))
-    '())
 
   (test "closed-world-1"
     (run* (q) (=/= '() q) (=/= #f q) (not-pairo q) (not-numbero q) (not-symbolo q))
@@ -1228,6 +1224,55 @@
   (test "closed-world-2"
     (run* (q) (=/= '() q) (=/= #t q) (=/= #f q) (not-numbero q) (not-symbolo q))
     '(((_.0 . _.1))))
+
+  (test "absento-ground-1"
+    (run* (q) (== q 'ok) (absento 5 '(4 ((3 2) 4))))
+    '((ok)))
+  (test "absento-ground-2"
+    (run* (q) (== q 'ok) (absento 5 '(4 ((3 5) 4))))
+    '())
+  (test "absento-var-1"
+    (run* (q) (== q 'ok) (fresh (r) (== r '(4 ((3 2) 4))) (absento 5 r)))
+    '((ok)))
+  (test "absento-var-2"
+    (run* (q) (== q 'ok) (fresh (r) (== r '(4 ((3 5) 4))) (absento 5 r)))
+    '())
+  (test "absento-partial-1"
+    (run* (q) (== q 2) (absento 5 `(4 ((3 ,q) 4))))
+    '((2)))
+  (test "absento-partial-2"
+    (run* (q) (== q 5) (absento 5 `(4 ((3 ,q) 4))))
+    '())
+  (test "absento-partial-nested-1"
+    (run* (q r) (== q `(1 ,r)) (== r 2) (absento 5 `(4 ((3 ,q) 4))))
+    '(((1 2) 2)))
+  (test "absento-partial-nested-2"
+    (run* (q r) (== q `(1 ,r)) (== r 5) (absento 5 `(4 ((3 ,q) 4))))
+    '())
+  ;(test "absento-delayed-var-1"
+    ;(run* (q) (== q 'ok) (fresh (r) (absento 5 r) (== r '(4 ((3 2) 4)))))
+    ;'(ok))
+  ;(test "absento-delayed-var-2"
+    ;(run* (q) (== q 'ok) (fresh (r) (absento 5 r) (== r '(4 ((3 5) 4)))))
+    ;'(2))
+  ;(test "absento-delayed-partial-1"
+    ;(run* (q) (absento 5 `(4 ((3 ,q) 4))) (== q 2))
+    ;'((ok)))
+  ;(test "absento-delayed-partial-2"
+    ;(run* (q) (absento 5 `(4 ((3 ,q) 4))) (== q 5))
+    ;'((2)))
+  ;(test "absento-unknown-1"
+    ;(run* (q) (absento 5 q))
+    ;'((ok)))
+  ;(test "absento-unknown-2"
+    ;(run* (q) (absento 5 `(4 ((3 ,q) 4))))
+    ;'((ok)))
+  ;(test "absento-=/=-1"
+    ;(run* (q) (=/= q 5) (absento 5 q))
+    ;'((ok)))
+  ;(test "absento-=/=-2"
+    ;(run* (q) (=/= q 5) (absento 5 `(4 ((3 ,q) 4))))
+    ;'((ok)))
 
   (test "=/=-1"
     (run* (q)
@@ -1627,12 +1672,12 @@
         (=/= `(,x ,y) q)))
     '((_.0)))
 
-  ;(test "test 24"
-    ;(run* (q) (== 5 q) (absento 5 q))
-    ;'())
-  ;(test "test 25"
-    ;(run* (q) (== q `(5 6)) (absento 5 q))
-    ;'())
+  (test "test 24"
+    (run* (q) (== 5 q) (absento 5 q))
+    '())
+  (test "test 25"
+    (run* (q) (== q `(5 6)) (absento 5 q))
+    '())
   ;(test "test 25b"
     ;(run* (q) (absento 5 q) (== q `(5 6)))
     ;'())
@@ -1665,19 +1710,19 @@
   (test "test 64"
     (run* (q) (symbolo q) (== 'tag q))
     '((tag)))
-  ;(test "test 66"
-    ;(run* (q) (absento 6 5))
-    ;'((_.0)))
+  (test "test 66"
+    (run* (q) (absento 6 5))
+    '((_.0)))
 
   ;(test "absento 'closure-1a"
     ;(run* (q) (absento 'closure q) (== q 'closure))
     ;'())
-  ;(test "absento 'closure-1b"
-    ;(run* (q) (== q 'closure) (absento 'closure q))
-    ;'())
-  ;(test "absento 'closure-2a"
-    ;(run* (q) (fresh (a d) (== q 'closure) (absento 'closure q)))
-    ;'())
+  (test "absento 'closure-1b"
+    (run* (q) (== q 'closure) (absento 'closure q))
+    '())
+  (test "absento 'closure-2a"
+    (run* (q) (fresh (a d) (== q 'closure) (absento 'closure q)))
+    '())
   ;(test "absento 'closure-2b"
     ;(run* (q) (fresh (a d) (absento 'closure q) (== q 'closure)))
     ;'())
@@ -1690,9 +1735,9 @@
   ;(test "absento 'closure-4c"
     ;(run* (q) (fresh (a d) (== 'closure a) (absento 'closure q) (== `(,a . ,d) q)))
     ;'())
-  ;(test "absento 'closure-4d"
-    ;(run* (q) (fresh (a d) (== 'closure a) (== `(,a . ,d) q) (absento 'closure q)))
-    ;'())
+  (test "absento 'closure-4d"
+    (run* (q) (fresh (a d) (== 'closure a) (== `(,a . ,d) q) (absento 'closure q)))
+    '())
   ;(test "absento 'closure-5a"
     ;(run* (q) (fresh (a d) (absento 'closure q) (== `(,a . ,d) q) (== 'closure d)))
     ;'())
@@ -1702,14 +1747,14 @@
   ;(test "absento 'closure-5c"
     ;(run* (q) (fresh (a d) (== 'closure d) (absento 'closure q) (== `(,a . ,d) q)))
     ;'())
-  ;(test "absento 'closure-5d"
-    ;(run* (q) (fresh (a d) (== 'closure d) (== `(,a . ,d) q) (absento 'closure q)))
-    ;'())
-  ;(test "absento 'closure-6"
-    ;(run* (q)
-      ;(== `(3 (closure x (x x) ((y . 7))) #t) q)
-      ;(absento 'closure q))
-    ;'())
+  (test "absento 'closure-5d"
+    (run* (q) (fresh (a d) (== 'closure d) (== `(,a . ,d) q) (absento 'closure q)))
+    '())
+  (test "absento 'closure-6"
+    (run* (q)
+      (== `(3 (closure x (x x) ((y . 7))) #t) q)
+      (absento 'closure q))
+    '())
   )
 
 (module+ test
