@@ -706,6 +706,15 @@
                     (lambda (env) pat)))
           (loop (+ idx 1) b*))))))
 
+(define (possible-pair? st val)
+  (let/vars (va vd) (unify st `(,va . ,vd) val)))
+(define (as-pair st val)
+  (if (pair? val) (values st (walk1 st (car val)) (walk1 st (cdr val)))
+    (if (var? val) (let/vars (va vd) (let/if (st (unify st `(,va . ,vd) val))
+                                       (values st va vd)
+                                       (values #f #f #f)))
+      (values #f #f #f))))
+
 (define (denote-pattern-qq qqpattern penv senv)
   (match qqpattern
     (`(,'unquote ,pat) (denote-pattern pat penv senv))
@@ -717,36 +726,61 @@
                   (let ((pa (da env)) (pd (dd env)))
                     (pattern
                       (lambda (st penv v)
-                        ; TODO: var?
                         (if (pair? v)
                           (let-values
                             (((st pea svsa) ((pattern-sat pa)
                                              st penv (walk1 st (car v)))))
                             (if svsa
-                              ; TODO: union svsa
-                              ((pattern-sat pd) st pea (walk1 st (cdr v)))
+                              (let-values
+                                (((st ped svsd) ((pattern-sat pd)
+                                                 st pea (walk1 st (cdr v)))))
+                                (values st ped (list-append-unique
+                                                 svsa svsd)))
                               (values #f #f #f)))
-                          ; TODO: var?
-                          (values #f #f #f)))
+                          (if (var? v)
+                            (let/if (st (possible-pair? st v))
+                              (values st penv (list v))
+                              (values #f #f #f))
+                            (values #f #f #f))))
                       (lambda (st penv v)
-                        ; TODO: var?
                         (if (pair? v)
                           (let-values
                             (((st pea svsa) ((pattern-nsat pa)
                                              st penv (walk1 st (car v)))))
                             (if svsa
-                              ; TODO: union svsa
-                              ((pattern-nsat pd) st pea (walk1 st (cdr v)))
-                              (values st penv '())))
-                          ; TODO: var?
-                          (values st penv '())))
+                              (if (null? svsa)
+                                (values st pea '())
+                                (let-values
+                                  (((st ped svsd) ((pattern-nsat pd)
+                                                   st pea (walk1 st (cdr v)))))
+                                  (if svsd
+                                    (if (null? svsd)
+                                      (values st ped '())
+                                      (values st ped (list-append-unique
+                                                       svsa svsd)))
+                                    (values #f #f #f))))
+                              (values #f #f #f)))
+                          (if (var? v)
+                            (let/if (st1 (possible-pair? st v))
+                              (values st penv (list v))
+                              (values st penv '()))
+                            (values st penv '()))))
                       (lambda (st penv v)
-                        ; TODO:
-                        (values st penv))
+                        (let-values (((st va vd) (as-pair st v)))
+                          (if st
+                            (let*/state
+                              (((st penv) ((pattern-assert pa) st penv va)))
+                              ((pattern-assert pd) st penv vd))
+                            (values #f #f))))
                       (lambda (st penv v)
-                        ; TODO:
+                        ; TODO: compile an or-pattern:
+                        ; not pair, or not car pattern, or not cdr pattern
                         (values st penv))))))))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
+
+;; TODO: compile or-patterns as (? pred?) patterns, where 'pred?' is a
+;; single-arg lambda matching on arg, with sub-patterns corresponding to
+;; clauses returning #t, with a final catch-all pattern returning #f.
 (define (denote-pattern-or pattern* penv senv)
   (match pattern*
     ('() (values penv denote-pattern-fail))
@@ -774,7 +808,7 @@
                         ; TODO:
                         (values st penv))
                       (lambda (st penv v)
-                        ; TODO:
+                        ; TODO: and-pattern
                         (values st penv))))))))))
 
 (define (denote-pattern* pattern* penv senv)
@@ -802,7 +836,7 @@
                             ((pattern-nsat p*) st penv v))))
                       ; TODO:
                       (lambda (st penv v) (values st penv))
-                      ; TODO:
+                      ; TODO: or-pattern
                       (lambda (st penv v) (values st penv))))))))))
 
 (define (denote-pattern-type type? pat* penv senv)
@@ -844,10 +878,8 @@
                             (values #f #f #f))))
                       (pattern-nassert pp)
                       (lambda (st penv v)
-                        (let-values (((st _) ((pattern-assert pp) st penv v)))
-                          (if st
-                            (values st penv)
-                            (values #f #f))))))))))
+                        (let*/state (((st _) ((pattern-assert pp) st penv v)))
+                                    (values st penv)))))))))
     (`(and . ,pat*) (denote-pattern* pat* penv senv))
     (`(or . ,pat*) (denote-pattern-or pat* penv senv))
     (`(symbol . ,pat*) (denote-pattern-type symbol? pat* penv senv))
