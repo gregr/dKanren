@@ -885,62 +885,66 @@
                   ; TODO:
                   (lambda (st penv v) (values st penv))))))))
 
+(define (denote-pattern-not pat* penv senv)
+  (let-values (((_ dp) (denote-pattern* pat* penv senv)))
+    (values penv
+            (lambda (env)
+              (let ((pp (dp env)))
+                (pattern
+                  (pattern-nsat pp)
+                  (lambda (st penv v)
+                    (let-values (((st _ svs) ((pattern-sat pp) st penv v)))
+                      (if svs
+                        (values st penv svs)
+                        (values #f #f #f))))
+                  (pattern-nassert pp)
+                  (lambda (st penv v)
+                    (let*/state (((st _) ((pattern-assert pp) st penv v)))
+                                (values st penv)))))))))
+
+(define (denote-pattern-? predicate pat* penv senv)
+  (let ((dpred (denote-term predicate senv)))
+    (let-values (((penv d*) (denote-pattern* pat* penv senv)))
+      (values penv
+              (lambda (env)
+                (let-values (((st0 vpred) ((dpred env) #t)))
+                  (if (not st0) (error `(invalid-predicate ,predicate))
+                    (let ((p* (d* env))
+                          (pred
+                            (lambda (st v)
+                              (let-values (((st result) ((vpred v) st)))
+                                (if (not st)
+                                  (error `(predicate-failed ,predicate))
+                                  (values st result))))))
+                      (pattern
+                        (lambda (st penv v)
+                          (let-values (((st result) (pred st v)))
+                            ; TODO: result could be a match-chain, extract its svs
+                            (if result
+                              ; TODO: var?
+                              ((pattern-sat p*) st penv v)
+                              (values #f #f #f))))
+                        (lambda (st penv v)
+                          (let-values (((st result) (pred st v)))
+                            (if result
+                              ; TODO: var?
+                              ((pattern-nsat p*) st penv v)
+                              (values st penv '()))))
+                        ; TODO:
+                        (lambda (st penv v) (values st penv))
+                        ; TODO:
+                        (lambda (st penv v) (values st penv)))))))))))
+
 (define (denote-pattern pat penv senv)
   (match pat
     (`(quote ,(? quotable? datum)) (denote-pattern-literal datum penv))
     (`(quasiquote ,qqpat) (denote-pattern-qq qqpat penv senv))
-    (`(not . ,pat*)
-      (let-values (((_ dp) (denote-pattern* pat* penv senv)))
-        (values penv
-                (lambda (env)
-                  (let ((pp (dp env)))
-                    (pattern
-                      (pattern-nsat pp)
-                      (lambda (st penv v)
-                        (let-values (((st _ svs) ((pattern-sat pp) st penv v)))
-                          (if svs
-                            (values st penv svs)
-                            (values #f #f #f))))
-                      (pattern-nassert pp)
-                      (lambda (st penv v)
-                        (let*/state (((st _) ((pattern-assert pp) st penv v)))
-                                    (values st penv)))))))))
+    (`(not . ,pat*) (denote-pattern-not pat* penv senv))
     (`(and . ,pat*) (denote-pattern* pat* penv senv))
     (`(or . ,pat*) (denote-pattern-or pat* penv senv))
     (`(symbol . ,pat*) (denote-pattern-type symbol? pat* penv senv))
     (`(number . ,pat*) (denote-pattern-type number? pat* penv senv))
-    (`(? ,predicate . ,pat*)
-      (let ((dpred (denote-term predicate senv)))
-        (let-values (((penv d*) (denote-pattern* pat* penv senv)))
-          (values penv
-                  (lambda (env)
-                    (let-values (((st0 vpred) ((dpred env) #t)))
-                      (if (not st0) (error `(invalid-predicate ,predicate))
-                        (let ((p* (d* env))
-                              (pred
-                                (lambda (st v)
-                                  (let-values (((st result) ((vpred v) st)))
-                                    (if (not st)
-                                      (error `(predicate-failed ,predicate))
-                                      (values st result))))))
-                          (pattern
-                            (lambda (st penv v)
-                              (let-values (((st result) (pred st v)))
-                                ; TODO: result could be a match-chain, extract its svs
-                                (if result
-                                  ; TODO: var?
-                                  ((pattern-sat p*) st penv v)
-                                  (values #f #f #f))))
-                            (lambda (st penv v)
-                              (let-values (((st result) (pred st v)))
-                                (if result
-                                  ; TODO: var?
-                                  ((pattern-nsat p*) st penv v)
-                                  (values st penv '()))))
-                            ; TODO:
-                            (lambda (st penv v) (values st penv))
-                            ; TODO:
-                            (lambda (st penv v) (values st penv)))))))))))
+    (`(? ,predicate . ,pat*) (denote-pattern-? predicate pat* penv senv))
     ('_ (values penv denote-pattern-succeed))
     ((? symbol? vname) (denote-pattern-var penv vname penv))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
