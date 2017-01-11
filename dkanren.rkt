@@ -26,14 +26,38 @@
 ;   last-of-this-value markers: if you have this value, it's the last case where it's possible, so commit to it
 
 ; TODO:
-; basic mk variant
-;   ==, =/=, type-based versions of these
+; schedule-resume-det
+;   det-deferred pausing must cooperate with nondeterministic search
+; pattern combinators
+;   comparator suppliers
+;     literal, penv-var-ref
+;       [dis]unify these with scrutinee
+;       extract (potentially nested) svs from scrutinee
+;     ?pred-result
+;       [dis]unify this with #f
+;       if it's a match-chain, extract its svs
+;   type assertion
+;     qq-pair, symbol, number
+;     scrutinee is a var, it's an sv
+;       for qq-pair, do not capture irrelevant svs when introducing hypothetical car/cdr
+;   scrutinee traversal
+;     qq-car, qq-cdr
+;   penv-var-extend
+;   basic patterns
+;     [dis]unify, type-assert, and, or, not, _
+;       these are flippable by negation
+;   or-patterns
+;     compile or-patterns as (? pred?) patterns, where 'pred?' is a
+;     single-arg lambda matching on arg, with sub-patterns corresponding to
+;     clauses returning #t, with a final catch-all pattern returning #f.
+; merge pattern sat and assert
+; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
+; cost-based nondeterminism and quota-based determinism
 ;   bind, mplus w/ costs
 ;     dfs, ws, quota/cost?
 ;     cost must be able to express size-incrementing search
 ;       goal scoped or leaky costs?
 ;       quota wrapper?
-;   simple take, reify, run, for debugging
 ; extended mk variant, mixing in deterministic computation where possible
 ;   match/pattern compiler
 ;     backwards result value information flow
@@ -68,6 +92,7 @@
 ;           if none of if/cond/match are available, and no closures are capable of conditional splitting,
 ;           could potentially refute this line of search early
 ;           if there are basic components useful as conditions, try those before general components
+; tagging and reification for =/=, absento
 ; faster-mk interface
 ;   port everything to chez
 ;   import/export substitution and constraint store, translating constraints
