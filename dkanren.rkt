@@ -662,6 +662,126 @@
 
 (define (pattern-assert-any st penv v) (values st penv))
 (define (pattern-assert-none st penv v) (values #f #f))
+
+;(define (pattern-assert-any parity st penv v)
+  ;(if parity
+    ;(values st penv v '())
+    ;(values #f #f #f #f)))
+;(define (pattern-assert-none parity st penv v)
+  ;(if parity
+    ;(values #f #f #f #f)
+    ;(values st penv v '())))
+
+(define (pattern-value-literal literal) (lambda (st penv) literal))
+(define (pattern-value-ref index)
+  (lambda (st penv) (walk1 st (list-ref penv index))))
+;(define (pattern-var-extend name)
+  ;(lambda (parity st penv v)
+    ;(if parity
+      ;(values st v (cons v penv) '())
+      ;(values #f #f #f #f))))
+
+(define (pattern-transform-replace v assert)
+  (lambda args (let-values (((st penv _ svs) (apply assert args)))
+                 (values st penv v svs))))
+
+(define (pattern-assert-pair assert-car assert-cdr)
+  (lambda (parity st penv v)
+    ((if (pair? v)
+      (pattern-transform-replace
+        v
+        (pattern-assert-and
+          (lambda (parity st penv _)
+            (assert-car parity st penv (walk1 st (car v))))
+          (lambda (parity st penv _)
+            (assert-cdr parity st penv (walk1 st (cdr v))))))
+      (if (var? v)
+        (let/vars (va vd)
+          (let* ((v1 `(,va . ,vd)))
+            (lambda (parity st penv v)
+              (let-values
+                (((st penv v svs)
+                  (pattern-assert-and
+                    (lambda (parity st penv v)
+                      ((if parity
+                         (pattern-assert-== (pattern-value-literal v1))
+                         (pattern-assert-type-== 'pair))
+                       parity st penv v))
+                    (lambda (parity st penv _) (assert-car st penv va))
+                    (lambda (parity st penv _) (assert-cdr st penv vd)))))
+                (values st penv v (list-subtract svs (list va vd)))))))
+        pattern-assert-none))
+     parity st penv v)))
+
+(define (pattern-assert-predicate pred)
+  ; TODO:
+  (lambda (parity st penv v)
+    (let-values (((st result) (pred st v)))
+      ; TODO: if (not st) then entire computation needs to fail, not just match
+      ; needs to cooperate with nondeterministic search
+      (if (match-chain? result)
+
+        ; TODO: not quite right, want to check whether [dis]unify succeeded, and how
+        ; success means match-chain either finished or suspended; but which?
+        ; this determines whether we grab svs or not
+
+        (values ((if parity match-chain-disunify match-chain-unify)
+                 st result #f)
+                penv v (match-chain-svs result))
+        ((pattern-assert-=/= (pattern-value-literal #f)) parity st penv result)))))
+
+(define (pattern-assert-== pvalue)
+  (lambda (parity st penv v)
+    (let ((pval (pvalue st penv)))
+      (let/if (st1 ((if parity unify disunify) st pval v))
+        (values st1 penv pval (extract-svs st pval v))
+        (values #f #f #f #f)))))
+(define (pattern-assert-=/= pvalue)
+  (pattern-assert-not (pattern-assert-== pvalue)))
+(define (pattern-assert-type-== type-tag)
+  (lambda (parity st penv v)
+    (let/if (st1 ((if parity typify distypify) st type-tag v))
+      (values st1 penv (walk1 st1 v) (if (var? v) (list v) '()))
+      (values #f #f #f #f))))
+
+(define (pattern-exec-and a1 a2 st penv v)
+  (let-values (((st penv v svs1) (a1 #t st penv v)))
+    (if st
+      (let-values (((st penv v svs2) (a2 #t st penv v)))
+        (if st
+          (values st penv v (list-append-unique svs1 svs2))
+          (values #f #f #f #f)))
+      (values #f #f #f #f))))
+(define (pattern-assert-and a1 a2)
+  (lambda (parity st penv v)
+    (if parity
+      (pattern-exec-and a1 a2 st penv v)
+      ((pattern-assert-or (pattern-assert-not a1)
+                          (pattern-assert-and a1 (pattern-assert-not a2)))
+       #t st penv v))))
+
+(define or-rhs (cons denote-true denote-rhs-pattern-unknown))
+(define (pattern-assert-or a1 a2)
+  (lambda (parity st penv v)
+    (if parity
+      (let-values (((st result)
+                    (((pattern-match
+                        (denote-value v)
+                        (list (list (lambda (env) a1) or-rhs)
+                              (list (lambda (env) a2) or-rhs))) '()) st)))
+        (if st
+          (if (match-chain? result)
+            (values (match-chain-suspend st result)
+                    penv v (match-chain-svs result))
+            (values st penv v '()))
+          (values #f #f #f #f)))
+      (pattern-exec-and
+        (pattern-assert-not a1) (pattern-assert-not a2) st penv v))))
+(define (pattern-assert-not assert)
+  (lambda (parity st penv v)
+    (let-values (((st _ v svs) (assert (not parity) st penv v)))
+      (values st penv v svs))))
+
 (define denote-pattern-fail
   (let ((pat (pattern (lambda (st penv v) (values #f #f #f))
                       (lambda (st penv v) (values st penv '()))
