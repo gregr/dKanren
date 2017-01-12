@@ -140,6 +140,9 @@
     (let ((zs (list-append-unique (cdr xs) ys))
           (x0 (car xs)))
       (if (memq x0 ys) zs (cons x0 zs)))))
+(define (list-subtract xs ys)
+  ; TODO:
+  xs)
 
 (defrec var name)
 (define var-0 (var 'initial))
@@ -556,6 +559,7 @@
 
 (define (goal-value val) (lambda (st) (values st val)))
 (define (denote-value val) (lambda (env) (goal-value val)))
+(define denote-true (denote-value #t))
 (define (denote-lambda params body senv)
   (match params
     ((and (not (? symbol?)) params)
@@ -951,7 +955,23 @@
 
 (defrec match-chain svs scrutinee clauses)
 
+(define (match-chain-suspend st mc)
+  ; TODO: define retry, insert into goal store, and attach goal name to svs
+  st)
+(define (match-chain-unify st mc val)
+  ; TODO: also suspends if necessary
+  st)
+(define (match-chain-disunify st mc val)
+  ; TODO: also suspends if necessary
+  st)
+
 ; TODO: factor out loops?
+
+(define (pattern-match scrutinee clause*)
+  ; TODO:
+  (lambda (env)
+    (lambda (st)
+      (values st #f))))
 
 (define (denote-match pt*-all vt senv)
   (let ((dv (denote-term vt senv))
@@ -1008,7 +1028,7 @@
                                         (values
                                           st
                                           (match-chain
-                                            (append svs1 svs)
+                                            (list-append-unique svs1 svs)
                                             v (list (cons env (cons (car pc*)
                                                                     pc*1)))))
                                         (if (null? (cdr pc*1))
