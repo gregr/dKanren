@@ -714,11 +714,16 @@
      parity st penv v)))
 
 (define (pattern-assert-predicate pred)
-  ; TODO:
   (lambda (parity st penv v)
     (let-values (((st result) (pred st v)))
-      ; TODO: if (not st) then entire computation needs to fail, not just match
-      ; needs to cooperate with nondeterministic search
+      ; TODO: if (not st), the entire computation needs to fail, not just this
+      ; particular pattern assertion.  This failure needs to cooperate with
+      ; nondeterministic search, which makes things more complex and likely
+      ; less efficient (negations of conjunctions containing predicates become
+      ; mandatory, to verify that the predicate invocation, if reached, returns
+      ; a value).  For now, we'll assume a predicate can never fail in this
+      ; manner.  In this implementation, such a failure leads to unsound
+      ; behavior by being unpredictable in the granularity of failure.
       (if (match-chain? result)
 
         ; TODO: not quite right, want to check whether [dis]unify succeeded, and how
