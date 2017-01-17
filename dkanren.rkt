@@ -26,32 +26,16 @@
 ;   last-of-this-value markers: if you have this value, it's the last case where it's possible, so commit to it
 
 ; TODO:
+; list-subtract
+; match-chain-retry
+; match-chain-stack
+; match-chain-suspend
+; match-chain-[dis]unify
+; use rhs patterns
 ; schedule-resume-det
 ;   det-deferred pausing must cooperate with nondeterministic search
-; pattern combinators
-;   comparator suppliers
-;     literal, penv-var-ref
-;       [dis]unify these with scrutinee
-;       extract (potentially nested) svs from scrutinee
-;     ?pred-result
-;       [dis]unify this with #f
-;       if it's a match-chain, extract its svs
-;   type assertion
-;     qq-pair, symbol, number
-;     scrutinee is a var, it's an sv
-;       for qq-pair, do not capture irrelevant svs when introducing hypothetical car/cdr
-;   scrutinee traversal
-;     qq-car, qq-cdr
-;   penv-var-extend
-;   basic patterns
-;     [dis]unify, type-assert, and, or, not, _
-;       these are flippable by negation
-;   or-patterns
-;     compile or-patterns as (? pred?) patterns, where 'pred?' is a
-;     single-arg lambda matching on arg, with sub-patterns corresponding to
-;     clauses returning #t, with a final catch-all pattern returning #f.
-; merge pattern sat and assert
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
+; handle match-chains in dk-evalo
 ; cost-based nondeterminism and quota-based determinism
 ;   bind, mplus w/ costs
 ;     dfs, ws, quota/cost?
@@ -59,17 +43,6 @@
 ;       goal scoped or leaky costs?
 ;       quota wrapper?
 ; extended mk variant, mixing in deterministic computation where possible
-;   match/pattern compiler
-;     backwards result value information flow
-;       match clause rhs can often be treated as a pattern
-;       track a pair of values that distinguish these cases:
-;         [partly-]instantiated datum: #f, datum
-;           apply backwards pattern matching where helpful
-;         existing var w or w/o cxs: var, cxs/#f
-;           if goal doesn't produce a result, bind to existing logic var
-;         no value, no existing var: #t, cxs/#f
-;           if goal doesn't produce a result, create and bind to a fresh logic var
-;           is there really ever a cxs in this case?
 ;   non-root-deterministic-only quotas
 ;   tagging and pluggable solvers (one in particular)
 ;     aggressive, parallel term guesser
