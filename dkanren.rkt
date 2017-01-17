@@ -775,7 +775,8 @@
   (lambda (parity st penv v)
     (if parity
       (let-values (((st result)
-                    (((pattern-match penv (denote-value v) clause*) '()) st)))
+                    (((pattern-match penv (denote-value v) clause* #f #f)
+                      '()) st)))
         (if st
           (if (match-chain? result)
             (values
@@ -1076,8 +1077,12 @@
     ((? symbol? vname) (denote-pattern-var penv vname penv))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
 
-(defrec match-chain svs scrutinee clauses)
+(defrec match-chain svs scrutinee clauses rhs? rhs)
 
+(define (match-chain-stack st mc env pc* rhs? rhs)
+  ; TODO: don't stack chains like this, unify top mc with var and suspend it
+  (match-chain (match-chain-svs mc) (match-chain-scrutinee mc)
+               (cons (cons env pc*) (match-chain-clauses mc)) rhs? rhs))
 (define (match-chain-suspend st mc)
   ; TODO: define retry, insert into goal store, and attach goal name to svs
   st)
@@ -1087,14 +1092,58 @@
 (define (match-chain-disunify st mc val)
   ; TODO: also suspends if necessary
   (values st '()))
-
-; TODO: factor out loops?
-
-(define (pattern-match penv scrutinee clause*)
+(define (match-chain-retry st mc)
   ; TODO:
+  st)
+
+(define (pattern-match penv dv pc* expected-rhs? expected-rhs)
   (lambda (env)
-    (lambda (st)
-      (values st #f))))
+    (let ((gv (dv env)))
+      (lambda (st)
+        (let*/state (((st v) (gv st)))
+          (if (match-chain? v)
+            (values st (match-chain-stack
+                         st v env pc* expected-rhs? expected-rhs))
+            (let ((v (walk1 st v)))
+              (let loop ((pc* pc*))
+                (if (null? pc*) (values #f #f)
+                  (let* ((dpat (caar pc*))
+                         (drhs (cadar pc*))
+                         ; TODO: match expected-rhs when present and carry
+                         ; main pattern negation on failure
+                         (drhspat (cddar pc*))
+                         (assert (dpat env))
+                         (commit (lambda ()
+                                   (let-values
+                                     (((st penv _) (assert #t st '() v)))
+                                     (if st ((drhs (append penv env)) st)
+                                       (values #f #f))))))
+                    ;; This early check can save a lot.
+                    (if (null? (cdr pc*)) (commit)
+                      (let-values
+                        (((st1 penv svs) (assert #t st penv v)))
+                        (if st1
+                          (if (null? svs) ((drhs (append penv env)) st1)
+                            (let-values (((nst penv nsvs)
+                                          (assert #f st '() v)))
+                              (if nst
+                                (let ambiguous ((pc*1 (cdr pc*)))
+                                  (let ((assert1 ((caar pc*1) env)))
+                                    (let-values
+                                      (((st1 penv1 svs1) (assert1 nst '() v)))
+                                      (if st1
+                                        (values
+                                          st (match-chain
+                                               (list-append-unique
+                                                 svs1 (list-append-unique
+                                                        nsvs svs))
+                                               v
+                                               (cons env (cons (car pc*) pc*1))
+                                               expected-rhs? expected-rhs))
+                                        (if (null? (cdr pc*1)) (commit)
+                                          (ambiguous (cdr pc*1)))))))
+                                (commit))))
+                          (loop (cdr pc*)))))))))))))))
 
 (define (denote-match pt*-all vt senv)
   (let ((dv (denote-term vt senv))
