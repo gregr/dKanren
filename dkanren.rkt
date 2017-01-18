@@ -570,7 +570,10 @@
                   (lambda (env)
                     (let ((ga (da env)) (gd (dd env)))
                       (lambda (st)
-                        (let*/state (((st va) (ga st)) ((st vd) (gd st)))
+                        (let*/state (((st va) (ga st))
+                                     ((st va) (actual-value st va #f #f))
+                                     ((st vd) (gd st))
+                                     ((st vd) (actual-value st vd #f #f)))
                           (values st `(,va . ,vd))))))))
     ((? quotable? datum) (denote-value datum))))
 (define (denote-and t* senv)
@@ -582,7 +585,8 @@
         (lambda (env)
           (let ((g0 (d0 env)) (g* (d* env)))
             (lambda (st)
-              (let*/state (((st v0) (g0 st)))
+              (let*/state (((st v0) (g0 st))
+                           ((st v0) (actual-value st v0 #f #f)))
                 (if v0 (g* st) (values st #f))))))))))
 (define (denote-or t* senv)
   (match t*
@@ -593,7 +597,8 @@
         (lambda (env)
           (let ((g0 (d0 env)) (g* (d* env)))
             (lambda (st)
-              (let*/state (((st v0) (g0 st)))
+              (let*/state (((st v0) (g0 st))
+                           ((st v0) (actual-value st v0 #f #f)))
                 (if v0 (values st v0) (g* st))))))))))
 (define (denote-application proc a* senv)
   (denote-apply (denote-term proc senv) (denote-term-list a* senv)))
@@ -610,7 +615,8 @@
         (lambda (st)
           (let loop ((st st) (xs '()) (g* g*))
             (if (null? g*) (values st (reverse xs))
-              (let*/state (((st val) ((car g*) st)))
+              (let*/state (((st val) ((car g*) st))
+                           ((st val) (actual-value st val #f #f)))
                 (loop st (cons val xs) (cdr g*))))))))))
 
 (define (denote-rhs-pattern-unknown env st v) #t)
@@ -694,26 +700,27 @@
   (define assert (pattern-assert-and (pattern-transform car assert-car)
                                      (pattern-transform cdr assert-cdr)))
   (lambda (parity st penv v)
-    ((cond
-       ((pair? v) assert)
-       ((var? v)
-        (let/vars (va vd)
-          (let ((v1 `(,va . ,vd)))
-            (lambda (parity st penv v)
-              (let-values
-                (((st penv svs)
-                  ((pattern-assert-and
-                     (lambda (parity st penv v)
-                       ((if parity
-                          (pattern-assert-== (pattern-value-literal v1))
-                          pattern-assert-pair-==)
-                        parity st penv v))
-                     (pattern-replace v1 assert))
-                   parity st penv v)))
-                (values st penv (and svs (list-subtract
-                                           svs (list va vd)))))))))
-       (else pattern-assert-none))
-     parity st penv v)))
+    (let ((v (walk1 st v)))
+      ((cond
+         ((pair? v) assert)
+         ((var? v)
+          (let/vars (va vd)
+            (let ((v1 `(,va . ,vd)))
+              (lambda (parity st penv v)
+                (let-values
+                  (((st penv svs)
+                    ((pattern-assert-and
+                       (lambda (parity st penv v)
+                         ((if parity
+                            (pattern-assert-== (pattern-value-literal v1))
+                            pattern-assert-pair-==)
+                          parity st penv v))
+                       (pattern-replace v1 assert))
+                     parity st penv v)))
+                  (values st penv (and svs (list-subtract
+                                             svs (list va vd)))))))))
+         (else pattern-assert-none))
+       parity st penv v))))
 
 (define pattern-assert-not-false
   (pattern-assert-=/= (pattern-value-literal #f)))
@@ -729,10 +736,15 @@
       ; manner.  In this implementation, such a failure leads to unsound
       ; behavior by being unpredictable in the granularity of failure.
       (if (match-chain? result)
-        (let-values (((st svs) ((if parity
-                                  match-chain-disunify
-                                  match-chain-unify) st result #f)))
-          (values st penv svs))
+        (let-values (((st rhs) (if parity
+                                 (let/vars (notf)
+                                   (values (disunify st notf #f) notf))
+                                 (values st #f))))
+          (let-values (((st svs result) (match-chain-try
+                                          penv st result #t rhs)))
+            (if (match-chain? result)
+              (values (match-chain-suspend st result svs rhs) penv svs)
+              (pattern-assert-not-false parity st penv result))))
         (pattern-assert-not-false parity st penv result)))))
 
 (define (pattern-exec-and a1 a2 st penv v)
@@ -760,15 +772,12 @@
                         (cons (lambda (env) a2) or-rhs)))
   (lambda (parity st penv v)
     (if parity
-      (let-values (((st result)
-                    (((pattern-match penv (denote-value v) clause* #f #f)
-                      '()) st)))
-        (if st
-          (if (match-chain? result)
-            (values
-              (match-chain-suspend st result) penv (match-chain-svs result))
-            (values st penv '()))
-          (values #f #f #f)))
+      (let-values (((st svs result)
+                    (match-chain-try
+                      penv st (match-chain v (cons '() clause*)) #f #t)))
+        (if (match-chain? result)
+          (values (match-chain-suspend st result svs #t) penv svs)
+          (values st penv '())))
       (pattern-exec-and na1 na2 st penv v))))
 
 (define (denote-pattern-succeed env) pattern-assert-any)
@@ -858,73 +867,77 @@
     ((? symbol? vname) (denote-pattern-var penv vname penv))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
 
-(defrec match-chain svs scrutinee clauses rhs? rhs)
+(defrec match-chain scrutinee clauses)
 
-(define (match-chain-stack st mc env pc* rhs? rhs)
-  ; TODO: don't stack chains like this, unify top mc with var and suspend it
-  (match-chain (match-chain-svs mc) (match-chain-scrutinee mc)
-               (cons (cons env pc*) (match-chain-clauses mc)) rhs? rhs))
-(define (match-chain-suspend st mc)
+(define (actual-value st result rhs? rhs)
+  (if (match-chain? result)
+    (let-values (((st svs result) (match-chain-try '() st result rhs? rhs)))
+      (if (match-chain? result)
+        (let ((rhs (if rhs? rhs (let/vars (rhs) rhs))))
+          (values (match-chain-suspend st result svs rhs) rhs))
+        (values st result)))
+    (values (if rhs? (and st (unify st result rhs)) st) result)))
+
+(define (match-chain-stack st mc env pc*)
+  (let-values (((st v) (actual-value st mc #f #f)))
+    (match-chain v (cons env pc*))))
+(define (match-chain-suspend st mc svs rhs)
   ; TODO: define retry, insert into goal store, and attach goal name to svs
   st)
-(define (match-chain-unify st mc val)
-  ; TODO: also suspends if necessary
-  (values st '()))
-(define (match-chain-disunify st mc val)
-  ; TODO: also suspends if necessary
-  (values st '()))
-(define (match-chain-retry st mc)
-  ; TODO:
-  st)
+(define (match-chain-try penv st mc rhs? rhs)
+  (define (run-rhs penv env st drhs)
+    (let-values (((st result) ((drhs (append penv env)) st)))
+      (if (match-chain? result)
+        (match-chain-try '() st result rhs? rhs)
+        (values (if rhs? (and st (unify st result rhs)) st) '() result))))
+  (let* ((v (match-chain-scrutinee mc))
+         (epc* (match-chain-clauses mc))
+         (env (car epc*))
+         (pc* (cdr epc*)))
+    (let ((v (walk1 st v)))
+      (let loop ((pc* pc*))
+        (if (null? pc*) (values #f #f #f)
+          (let* ((dpat (caar pc*))
+                 (drhs (cadar pc*))
+                 ; TODO: match expected-rhs when present and carry
+                 ; main pattern negation on failure
+                 (drhspat (cddar pc*))
+                 (assert (dpat env))
+                 (commit (lambda ()
+                           (let-values (((st penv _) (assert #t st '() v)))
+                             (if st (run-rhs penv env st drhs)
+                               (values #f #f #f))))))
+            ;; This early check can save a lot.
+            (if (null? (cdr pc*)) (commit)
+              (let-values
+                (((st1 penv svs) (assert #t st penv v)))
+                (if st1
+                  (if (null? svs) (run-rhs penv env st1 drhs)
+                    (let-values (((nst penv nsvs) (assert #f st '() v)))
+                      (if nst
+                        (let ambiguous ((pc*1 (cdr pc*)))
+                          (let ((assert1 ((caar pc*1) env)))
+                            (let-values (((st1 penv1 svs1)
+                                          (assert1 #t nst '() v)))
+                              (if st1
+                                (values st
+                                        (list-append-unique
+                                          svs1 (list-append-unique nsvs svs))
+                                        (match-chain
+                                          v (cons env (cons (car pc*) pc*1))))
+                                (if (null? (cdr pc*1)) (commit)
+                                  (ambiguous (cdr pc*1)))))))
+                        (commit))))
+                  (loop (cdr pc*)))))))))))
 
-(define (pattern-match penv dv pc* expected-rhs? expected-rhs)
+(define (pattern-match penv dv pc*)
   (lambda (env)
     (let ((gv (dv env)))
       (lambda (st)
         (let*/state (((st v) (gv st)))
           (if (match-chain? v)
-            (values st (match-chain-stack
-                         st v env pc* expected-rhs? expected-rhs))
-            (let ((v (walk1 st v)))
-              (let loop ((pc* pc*))
-                (if (null? pc*) (values #f #f)
-                  (let* ((dpat (caar pc*))
-                         (drhs (cadar pc*))
-                         ; TODO: match expected-rhs when present and carry
-                         ; main pattern negation on failure
-                         (drhspat (cddar pc*))
-                         (assert (dpat env))
-                         (commit (lambda ()
-                                   (let-values
-                                     (((st penv _) (assert #t st '() v)))
-                                     (if st ((drhs (append penv env)) st)
-                                       (values #f #f))))))
-                    ;; This early check can save a lot.
-                    (if (null? (cdr pc*)) (commit)
-                      (let-values
-                        (((st1 penv svs) (assert #t st penv v)))
-                        (if st1
-                          (if (null? svs) ((drhs (append penv env)) st1)
-                            (let-values (((nst penv nsvs)
-                                          (assert #f st '() v)))
-                              (if nst
-                                (let ambiguous ((pc*1 (cdr pc*)))
-                                  (let ((assert1 ((caar pc*1) env)))
-                                    (let-values (((st1 penv1 svs1)
-                                                  (assert1 #t nst '() v)))
-                                      (if st1
-                                        (values
-                                          st (match-chain
-                                               (list-append-unique
-                                                 svs1 (list-append-unique
-                                                        nsvs svs))
-                                               v
-                                               (cons env (cons (car pc*) pc*1))
-                                               expected-rhs? expected-rhs))
-                                        (if (null? (cdr pc*1)) (commit)
-                                          (ambiguous (cdr pc*1)))))))
-                                (commit))))
-                          (loop (cdr pc*)))))))))))))))
+            (values st (match-chain-stack st v env pc*))
+            (values st (match-chain v (cons env pc*)))))))))
 
 (define (denote-match pt*-all vt senv)
   (let ((dv (denote-term vt senv))
@@ -940,7 +953,7 @@
                             (drhspat (denote-rhs-pattern rhs senv))
                             (pc* (loop clause*)))
                        (cons (cons dpat (cons drhs drhspat)) pc*))))))))
-    (pattern-match '() dv pc* #f #f)))
+    (pattern-match '() dv pc*)))
 
 (define (denote-term term senv)
   (let ((bound? (lambda (sym) (in-env? senv sym))))
@@ -1111,12 +1124,12 @@
 
 ;; 'dk-term' must be a valid dKanren program, *not* just any miniKanren term.
 ;; 'result' is a miniKanren term.
-(define (dk-evalo dk-term result)
+(define (dk-evalo dk-term expected)
   (let ((dk-goal (eval-term dk-term initial-env)))
     (lambda (st)
-      ; TODO: check for, and handle, match-chain vals
-      (let-values (((st val) (dk-goal st)))
-        (and st (unify st result val))))))
+      (let-values (((st result) (dk-goal st)))
+        (and st (let-values (((st _) (actual-value st result #t expected)))
+                  st))))))
 
 (define (primitive params body)
   (let-values (((st v) (((denote-lambda params body '()) '()) #t)))
@@ -1774,8 +1787,8 @@
      ((_ tm result)
       (let ((tm0 tm))
         (check-true (term? tm0 initial-env))
-        (let-values (((st v) ((eval-term tm0 initial-env) #t)))
-          (check-equal? v result))))))
+        (check-equal? (run 1 (answer) (dk-evalo tm0 answer))
+                      (list (list result)))))))
   (test-eval 3 3)
   (test-eval '3 3)
   (test-eval ''x 'x)
@@ -1838,51 +1851,53 @@
        (_ 'fail))
     'success)
 
-  (define ex-eval-expr
-    '(letrec
-       ((eval-expr
-          (lambda (expr env)
-            (match expr
-              (`(quote ,datum) datum)
-              (`(lambda (,(? symbol? x)) ,body)
-                (lambda (a)
-                  (eval-expr body (lambda (y)
-                                    (if (equal? y x) a (env y))))))
-              ((? symbol? x) (env x))
-              (`(cons ,e1 ,e2) (cons (eval-expr e1 env) (eval-expr e2 env)))
-              (`(,rator ,rand) ((eval-expr rator env)
-                                (eval-expr rand env)))))))
-       (list
-         (eval-expr '((lambda (y) y) 'g1) 'initial-env)
-         (eval-expr '(((lambda (z) z) (lambda (v) v)) 'g2) 'initial-env)
-         (eval-expr '(((lambda (a) (a a)) (lambda (b) b)) 'g3) 'initial-env)
-         (eval-expr '(((lambda (c) (lambda (d) c)) 'g4) 'g5) 'initial-env)
-         (eval-expr '(((lambda (f) (lambda (v1) (f (f v1)))) (lambda (e) e)) 'g6) 'initial-env)
-         (eval-expr '((lambda (g) ((g g) g)) (lambda (i) (lambda (j) 'g7))) 'initial-env))))
-  (test-eval ex-eval-expr '(g1 g2 g3 g4 g6 g7))
+  ;; TODO: run higher order interpreters in the relational interpreter instead.
+  ;; This won't work directly due to dKanren's first-order restriction.
+  ;(define ex-eval-expr
+    ;'(letrec
+       ;((eval-expr
+          ;(lambda (expr env)
+            ;(match expr
+              ;(`(quote ,datum) datum)
+              ;(`(lambda (,(? symbol? x)) ,body)
+                ;(lambda (a)
+                  ;(eval-expr body (lambda (y)
+                                    ;(if (equal? y x) a (env y))))))
+              ;((? symbol? x) (env x))
+              ;(`(cons ,e1 ,e2) (cons (eval-expr e1 env) (eval-expr e2 env)))
+              ;(`(,rator ,rand) ((eval-expr rator env)
+                                ;(eval-expr rand env)))))))
+       ;(list
+         ;(eval-expr '((lambda (y) y) 'g1) 'initial-env)
+         ;(eval-expr '(((lambda (z) z) (lambda (v) v)) 'g2) 'initial-env)
+         ;(eval-expr '(((lambda (a) (a a)) (lambda (b) b)) 'g3) 'initial-env)
+         ;(eval-expr '(((lambda (c) (lambda (d) c)) 'g4) 'g5) 'initial-env)
+         ;(eval-expr '(((lambda (f) (lambda (v1) (f (f v1)))) (lambda (e) e)) 'g6) 'initial-env)
+         ;(eval-expr '((lambda (g) ((g g) g)) (lambda (i) (lambda (j) 'g7))) 'initial-env))))
+  ;(test-eval ex-eval-expr '(g1 g2 g3 g4 g6 g7))
 
-  (define ex-eval-expr-dneg
-    '(letrec
-       ((eval-expr
-          (lambda (expr env)
-            (match expr
-              (`(,(not (not 'quote)) ,datum) datum)
-              (`(lambda (,(? symbol? x)) ,body)
-                (lambda (a)
-                  (eval-expr body (lambda (y)
-                                    (if (equal? y x) a (env y))))))
-              ((symbol x) (env x))
-              (`(cons ,e1 ,e2) (cons (eval-expr e1 env) (eval-expr e2 env)))
-              (`(,rator ,rand) ((eval-expr rator env)
-                                (eval-expr rand env)))))))
-       (list
-         (eval-expr '((lambda (y) y) 'g1) 'initial-env)
-         (eval-expr '(((lambda (z) z) (lambda (v) v)) 'g2) 'initial-env)
-         (eval-expr '(((lambda (a) (a a)) (lambda (b) b)) 'g3) 'initial-env)
-         (eval-expr '(((lambda (c) (lambda (d) c)) 'g4) 'g5) 'initial-env)
-         (eval-expr '(((lambda (f) (lambda (v1) (f (f v1)))) (lambda (e) e)) 'g6) 'initial-env)
-         (eval-expr '((lambda (g) ((g g) g)) (lambda (i) (lambda (j) 'g7))) 'initial-env))))
-  (test-eval ex-eval-expr-dneg '(g1 g2 g3 g4 g6 g7))
+  ;(define ex-eval-expr-dneg
+    ;'(letrec
+       ;((eval-expr
+          ;(lambda (expr env)
+            ;(match expr
+              ;(`(,(not (not 'quote)) ,datum) datum)
+              ;(`(lambda (,(? symbol? x)) ,body)
+                ;(lambda (a)
+                  ;(eval-expr body (lambda (y)
+                                    ;(if (equal? y x) a (env y))))))
+              ;((symbol x) (env x))
+              ;(`(cons ,e1 ,e2) (cons (eval-expr e1 env) (eval-expr e2 env)))
+              ;(`(,rator ,rand) ((eval-expr rator env)
+                                ;(eval-expr rand env)))))))
+       ;(list
+         ;(eval-expr '((lambda (y) y) 'g1) 'initial-env)
+         ;(eval-expr '(((lambda (z) z) (lambda (v) v)) 'g2) 'initial-env)
+         ;(eval-expr '(((lambda (a) (a a)) (lambda (b) b)) 'g3) 'initial-env)
+         ;(eval-expr '(((lambda (c) (lambda (d) c)) 'g4) 'g5) 'initial-env)
+         ;(eval-expr '(((lambda (f) (lambda (v1) (f (f v1)))) (lambda (e) e)) 'g6) 'initial-env)
+         ;(eval-expr '((lambda (g) ((g g) g)) (lambda (i) (lambda (j) 'g7))) 'initial-env))))
+  ;(test-eval ex-eval-expr-dneg '(g1 g2 g3 g4 g6 g7))
 
   ; the goal is to support something like this interpreter
   (define ex-eval-complex
