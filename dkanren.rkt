@@ -17,12 +17,13 @@
     ))
 
 ; TODO:
-; match-chain-suspend
 ; list-subtract
-; schedule-resume-det
+; state-resume-det
 ;   det-deferred pausing must cooperate with nondeterministic search
 ;   pattern assertions must resume deterministic suspensions to verify satisfiability
+; state-resume should loop until goals are exhausted
 ; uncomment more absento tests
+; match-chain guessing
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
 ; unlike normal mk, all vars in =/=* should be tracked for earliest access to determinism
 ;   these constraints can shrink domains, which may trigger new unifications, and so on
@@ -73,6 +74,7 @@
 ;     try for both dkanren (for comparison) and relational interpreter (may improve perf)
 ; possible ways to improve performance
 ;   unify2, typify2: gather svs in the same pass as this processing
+;   avoid generating 'notf' vars, possibly by testing against vattrs directly
 ;   inline portions of commit to reuse computation in match-chain-try
 ;   possibly split deterministic pending stack to prioritize by blocker instantiatedness
 ;     e.g., high-pri: blocking var was unified with a value
