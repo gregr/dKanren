@@ -465,12 +465,7 @@
     `(letrec ((absent?
                 (lambda (tm)
                   (match tm
-                    (`(,ta . ,td)
-                      (match `(,(absent? ta) ,(absent? td))
-                        (`(#t #t) #t)
-                        (_ #f))
-                      ;(and (absent? ta) (absent? td))
-                      )
+                    (`(,ta . ,td) (and (absent? ta) (absent? td)))
                     (',atom #f)
                     (_ #t)))))
        (absent? ',tm))
@@ -618,7 +613,7 @@
                            ((st val) (actual-value st val #f #f)))
                 (loop st (cons val xs) (cdr g*))))))))))
 
-(define (denote-rhs-pattern-unknown env st v) #t)
+(define (denote-rhs-pattern-unknown env st v) st)
 (define (denote-rhs-pattern-literal literal)
   (lambda (env st v) (unify st literal v)))
 (define (denote-rhs-pattern-var vname senv)
@@ -896,14 +891,11 @@
          (env (car epc*))
          (pc* (cdr epc*)))
     (let ((v (walk1 st v)))
-      (let loop ((pc* pc*))
+      (let loop ((st st) (pc* pc*))
         (if (null? pc*) (values #f #f #f)
-          (let* ((dpat (caar pc*))
+          (let* ((assert ((caar pc*) env))
                  (drhs (cadar pc*))
-                 ; TODO: match expected-rhs when present and carry
-                 ; main pattern negation on failure
                  (drhspat (cddar pc*))
-                 (assert (dpat env))
                  (commit (lambda ()
                            (let-values (((st penv _) (assert #t st '() v)))
                              (if st (run-rhs penv env st drhs)
@@ -911,25 +903,29 @@
             ;; This early check can save a lot.
             (if (null? (cdr pc*)) (commit)
               (let-values
-                (((st1 penv svs) (assert #t st penv v)))
+                (((st1 penv1 svs) (assert #t st penv v)))
                 (if st1
-                  (if (null? svs) (run-rhs penv env st1 drhs)
-                    (let-values (((nst penv nsvs) (assert #f st '() v)))
+                  (if (null? svs) (run-rhs penv1 env st1 drhs)
+                    (let-values (((nst _ nsvs) (assert #f st '() v)))
                       (if nst
-                        (let ambiguous ((pc*1 (cdr pc*)))
-                          (let ((assert1 ((caar pc*1) env)))
-                            (let-values (((st1 penv1 svs1)
-                                          (assert1 #t nst '() v)))
-                              (if st1
-                                (values st
-                                        (list-append-unique
-                                          svs1 (list-append-unique nsvs svs))
-                                        (match-chain
-                                          v (cons env (cons (car pc*) pc*1))))
-                                (if (null? (cdr pc*1)) (commit)
-                                  (ambiguous (cdr pc*1)))))))
+                        (if (and rhs? (not (drhspat
+                                             (append penv1 env) st1 rhs)))
+                          (loop nst (cdr pc*))
+                          (let ambiguous ((pc*1 (cdr pc*)))
+                            (let ((assert1 ((caar pc*1) env))
+                                  (drhspat1 (cadar pc*1)))
+                              (let-values (((st1 penv1 svs1)
+                                            (assert1 #t nst '() v)))
+                                (if st1
+                                  (values st
+                                          (list-append-unique
+                                            svs1 (list-append-unique nsvs svs))
+                                          (match-chain
+                                            v (cons env (cons (car pc*) pc*1))))
+                                  (if (null? (cdr pc*1)) (commit)
+                                    (ambiguous (cdr pc*1))))))))
                         (commit))))
-                  (loop (cdr pc*)))))))))))
+                  (loop st (cdr pc*)))))))))))
 
 (define (pattern-match penv dv pc*)
   (lambda (env)
