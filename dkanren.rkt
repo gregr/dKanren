@@ -968,7 +968,7 @@
                                         ;; need to be tracked so that retries
                                         ;; can relearn their negated patterns.
                                         (ambiguous
-                                          nst1 (cdr pc*1) (cons (car pc*) nc*))
+                                          nst1 (cdr pc*1) (cons (car pc*1) nc*))
                                         ;; Unless the negation is impossible,
                                         ;; in which case nothing else could
                                         ;; succeed, meaning the first clause
