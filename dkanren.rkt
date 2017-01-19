@@ -900,31 +900,59 @@
                            (let-values (((st penv _) (assert #t st '() v)))
                              (if st (run-rhs penv env st drhs)
                                (values #f #f #f))))))
-            ;; This early check can save a lot.
+            ;; If we only have a single option, commit to it.
             (if (null? (cdr pc*)) (commit)
-              (let-values
-                (((st1 penv1 svs) (assert #t st penv v)))
+              ;; Is the first pattern satisfiable?
+              (let-values (((st1 penv1 svs) (assert #t st penv v)))
                 (if st1
+                  ;; If no vars were scrutinized (svs) while checking
+                  ;; satisfiability, then we have an irrefutable match, so
+                  ;; commit to it.
                   (if (null? svs) (run-rhs penv1 env st1 drhs)
+                    ;; If vars were scrutinized, there is room for doubt.
+                    ;; Check whether the negated pattern is satisfiable.
                     (let-values (((nst _ nsvs) (assert #f st '() v)))
                       (if nst
+                        ;; If the negation is also satisfiable, check whether
+                        ;; we can still rule out this clause by matching its
+                        ;; right-hand-side with the expected result of the
+                        ;; entire match expression.
                         (if (and rhs? (not (drhspat
                                              (append penv1 env) st1 rhs)))
+                          ;; If we can rule it out, permanently learn the
+                          ;; negated state.
                           (loop nst (cdr pc*))
+                          ;; Otherwise, we're not sure whether to commit to
+                          ;; this clause yet.  If there are no other
+                          ;; satisfiable patterns, we can.  If there is at
+                          ;; least one other satisfiable pattern, we should
+                          ;; wait until later, when we either have more
+                          ;; information, or we're forced to guess.
                           (let ambiguous ((pc*1 (cdr pc*)))
                             (let ((assert1 ((caar pc*1) env))
                                   (drhspat1 (cadar pc*1)))
+                              ;; Is the next pattern satisfiable?
                               (let-values (((st1 penv1 svs1)
                                             (assert1 #t nst '() v)))
                                 (if st1
+                                  ;; If it is, wait until later, as described.
                                   (values st
                                           (list-append-unique
                                             svs1 (list-append-unique nsvs svs))
                                           (match-chain
                                             v (cons env (cons (car pc*) pc*1))))
+                                  ;; Otherwise, if we have no other clauses
+                                  ;; available, then the first clause happens
+                                  ;; to be the only option.  Commit to it.
                                   (if (null? (cdr pc*1)) (commit)
+                                    ;; If the there still are other clauses,
+                                    ;; keep checking.
                                     (ambiguous (cdr pc*1))))))))
+                        ;; If the negated pattern wasn't satisfiable, this
+                        ;; pattern was irrefutable after all.  Commit.
                         (commit))))
+                  ;; If the first pattern wasn't satisfiable, throw that clause
+                  ;; away and try the next.
                   (loop st (cdr pc*)))))))))))
 
 (define (pattern-match penv dv pc*)
