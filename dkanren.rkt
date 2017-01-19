@@ -17,8 +17,6 @@
     ))
 
 ; TODO:
-; use rhs patterns
-;   possibly redefine absento once these are used
 ; match-chain-suspend
 ; list-subtract
 ; schedule-resume-det
@@ -75,6 +73,7 @@
 ;     try for both dkanren (for comparison) and relational interpreter (may improve perf)
 ; possible ways to improve performance
 ;   unify2, typify2: gather svs in the same pass as this processing
+;   inline portions of commit to reuse computation in match-chain-try
 ;   possibly split deterministic pending stack to prioritize by blocker instantiatedness
 ;     e.g., high-pri: blocking var was unified with a value
 ;           lower-pri: some constraints were added to a var
