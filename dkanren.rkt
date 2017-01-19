@@ -928,26 +928,52 @@
                           ;; least one other satisfiable pattern, we should
                           ;; wait until later, when we either have more
                           ;; information, or we're forced to guess.
-                          (let ambiguous ((pc*1 (cdr pc*)))
+                          (let ambiguous ((nst nst) (pc*1 (cdr pc*)) (nc* '()))
                             (let ((assert1 ((caar pc*1) env))
                                   (drhspat1 (cadar pc*1)))
                               ;; Is the next pattern satisfiable?
                               (let-values (((st1 penv1 svs1)
                                             (assert1 #t nst '() v)))
                                 (if st1
-                                  ;; If it is, wait until later, as described.
-                                  (values st
-                                          (list-append-unique
-                                            svs1 (list-append-unique nsvs svs))
-                                          (match-chain
-                                            v (cons env (cons (car pc*) pc*1))))
+                                  ;; If it is, check whether we can rule it out
+                                  ;; by matching its right-hand-side with the
+                                  ;; expected result.
+                                  (if (and rhs?
+                                           (not (drhspat1
+                                                  (append penv1 env) st1 rhs)))
+                                    ;; If we rule it out, learn the negation
+                                    ;; and continue the search.
+                                    (let-values (((nst1 _ __)
+                                                  (assert1 #f nst '() v)))
+                                      (if nst1
+                                        ;; Clauses that were ruled out (nc*)
+                                        ;; need to be tracked so that retries
+                                        ;; can relearn their negated patterns.
+                                        (ambiguous
+                                          nst1 (cdr pc*1) (cons (car pc*) nc*))
+                                        ;; Unless the negation is impossible,
+                                        ;; in which case nothing else could
+                                        ;; succeed, meaning the first clause
+                                        ;; is the only option after all!
+                                        ;; Commit to it.
+                                        (commit)))
+                                    ;; If we can't rule it out, then we've
+                                    ;; established ambiguity.  Try again later.
+                                    (values st
+                                            (list-append-unique
+                                              svs1 (list-append-unique nsvs svs))
+                                            (match-chain
+                                              v
+                                              (cons env (cons (car pc*)
+                                                              (rev-append
+                                                                nc* pc*1))))))
                                   ;; Otherwise, if we have no other clauses
                                   ;; available, then the first clause happens
                                   ;; to be the only option.  Commit to it.
                                   (if (null? (cdr pc*1)) (commit)
                                     ;; If the there still are other clauses,
                                     ;; keep checking.
-                                    (ambiguous (cdr pc*1))))))))
+                                    (ambiguous nst (cdr pc*1) nc*)))))))
                         ;; If the negated pattern wasn't satisfiable, this
                         ;; pattern was irrefutable after all.  Commit.
                         (commit))))
