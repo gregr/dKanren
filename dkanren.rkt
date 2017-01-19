@@ -1818,9 +1818,14 @@
   (test-eval '(null? '()) #t)
   (test-eval '(null? '(0)) #f)
   (test-eval '(list 5 6) '(5 6))
+  (test-eval '(and 8 9) 9)
   (test-eval '(and #f 9 10) #f)
+  (test-eval '(and #f (letrec ((loop (lambda (x) (loop x))))
+                        (loop 'forever))) #f)
   (test-eval '(and 8 9 10) 10)
   (test-eval '(or #f 11 12) 11)
+  (test-eval '(or #t (letrec ((loop (lambda (x) (loop x))))
+                       (loop 'forever))) #t)
   (test-eval '(let ((p (cons 8 9))) (cdr p)) 9)
 
   (define ex-append
