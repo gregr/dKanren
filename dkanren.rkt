@@ -631,12 +631,16 @@
         (lambda (env st v)
           (let*/and ((st (da env st v))) (dd env st v)))))
     ((? quotable? datum) (denote-rhs-pattern-literal datum))))
+(define denote-rhs-pattern-true (denote-rhs-pattern-literal #t))
+(define denote-rhs-pattern-false (denote-rhs-pattern-literal #f))
 (define (denote-rhs-pattern pat senv)
   (match pat
     (`(quote ,(? quotable? datum)) (denote-rhs-pattern-literal datum))
     (`(quasiquote ,qq) (denote-rhs-pattern-qq qq senv))
     ((? symbol? vname) (denote-rhs-pattern-var vname senv))
-    ((? quotable? datum) (denote-rhs-pattern-literal datum))
+    ((? number? datum) (denote-rhs-pattern-literal datum))
+    (#t denote-rhs-pattern-true)
+    (#f denote-rhs-pattern-false)
     (_ denote-rhs-pattern-unknown)))
 
 (define (extract-svs st v1 v2)
@@ -944,7 +948,7 @@
                           ;; information, or we're forced to guess.
                           (let ambiguous ((nst nst) (pc*1 (cdr pc*)) (nc* '()))
                             (let ((assert1 ((caar pc*1) env))
-                                  (drhspat1 (cadar pc*1)))
+                                  (drhspat1 (cddar pc*1)))
                               ;; Is the next pattern satisfiable?
                               (let-values (((st1 penv1 svs1)
                                             (assert1 #t nst penv0 v)))
@@ -1020,7 +1024,7 @@
                        (cons (cons dpat (cons drhs drhspat)) pc*))))))))
     (pattern-match '() dv pc*)))
 
-(define and-rhs (cons denote-false (denote-rhs-pattern-literal #f)))
+(define and-rhs (cons denote-false denote-rhs-pattern-false))
 (define (denote-and t* senv)
   (match t*
     ('() (denote-value #t))
