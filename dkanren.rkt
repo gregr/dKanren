@@ -16,24 +16,18 @@
     rackunit
     ))
 
-; translate the same output to both direct and goal interpretations
-;
-; match/r
-;
-; optional match result-domain annotations
-;   type or finite domain: support fast, conservative domain constraints
-;     domain = _ (anything), ([quasi]quoted) literal, infinite set (i.e. number, symbol), list (union) of domains
-;   last-of-this-value markers: if you have this value, it's the last case where it's possible, so commit to it
-
 ; TODO:
-; list-subtract
-; match-chain-suspend
 ; use rhs patterns
 ;   possibly redefine absento once these are used
+; match-chain-suspend
+; list-subtract
 ; schedule-resume-det
 ;   det-deferred pausing must cooperate with nondeterministic search
+;   pattern assertions must resume deterministic suspensions to verify satisfiability
+; uncomment more absento tests
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
-; handle match-chains in dk-evalo
+; unlike normal mk, all vars in =/=* should be tracked for earliest access to determinism
+;   these constraints can shrink domains, which may trigger new unifications, and so on
 ; cost-based nondeterminism and quota-based determinism
 ;   bind, mplus w/ costs
 ;     dfs, ws, quota/cost?
@@ -64,6 +58,7 @@
 ;           could potentially refute this line of search early
 ;           if there are basic components useful as conditions, try those before general components
 ; tagging and reification for =/=, absento
+;   could do this just for =/= and be satisfied with some infinite absento enumerations
 ; faster-mk interface
 ;   port everything to chez
 ;   import/export substitution and constraint store, translating constraints
@@ -72,10 +67,39 @@
 ;   tweak match clauses and costs
 ;   tweak mk data reprs
 ;     e.g. try path compression
+;   try relational arithmetic
+;   try first-order minicurry tests
 ; future
 ;   de bruijn encoding interpreter
 ;     could be a useful alternative to closure-encoding for 1st order languages
 ;     try for both dkanren (for comparison) and relational interpreter (may improve perf)
+; possible ways to improve performance
+;   unify2, typify2: gather svs in the same pass as this processing
+;   possibly split deterministic pending stack to prioritize by blocker instantiatedness
+;     e.g., high-pri: blocking var was unified with a value
+;           lower-pri: some constraints were added to a var
+;   match/r, reversible match: manually describe a reversed computation
+;     should be much better than falling back to denote-rhs-pattern-unknown
+;   optional match result-domain annotations
+;     type or finite domain: support fast, conservative domain constraints
+;       domain = _ (anything), ([quasi]quoted) literal, infinite set (i.e. number, symbol), list (union) of domains
+;     at the very least, infer impossible scrutinee domains and immediately distypify them
+;   combine memq with filter in state-var-==
+;   relational interpreter
+;     define static closure-tag and prim-tag and literalize all uses (should appear directly in patterns)
+;     inline applicable-tag? uses
+;     in eval-term, possibly inline clauses of the nested 'operation' match into the main match
+;   is there a nice way to avoid bouncing all the way up and down mplus chains while interleaving?
+;     control state: (results, control-stack)
+;     pass control state to children
+;       efficient control of nesting
+;       dfs: parent passes self
+;       ils: parent passes '()
+;         flip on the way up
+;       ws: hybrid of both
+;         cost annotations:
+;           threshold, used, cycles (or lists of thresholds?)
+;       control state/stack could also be a closure, but compare list-based performance
 
 (define-syntax defrec
   (syntax-rules ()
