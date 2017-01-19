@@ -27,11 +27,9 @@
 
 ; TODO:
 ; list-subtract
-; match-chain-retry
-; match-chain-stack
 ; match-chain-suspend
-; match-chain-[dis]unify
 ; use rhs patterns
+;   possibly redefine absento once these are used
 ; schedule-resume-det
 ;   det-deferred pausing must cooperate with nondeterministic search
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
