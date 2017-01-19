@@ -880,7 +880,7 @@
 (define (match-chain-suspend st mc svs rhs)
   ; TODO: define retry, insert into goal store, and attach goal name to svs
   st)
-(define (match-chain-try penv st mc rhs? rhs)
+(define (match-chain-try penv0 st mc rhs? rhs)
   (define (run-rhs penv env st drhs)
     (let-values (((st result) ((drhs (append penv env)) st)))
       (if (match-chain? result)
@@ -897,13 +897,13 @@
                  (drhs (cadar pc*))
                  (drhspat (cddar pc*))
                  (commit (lambda ()
-                           (let-values (((st penv _) (assert #t st '() v)))
+                           (let-values (((st penv _) (assert #t st penv0 v)))
                              (if st (run-rhs penv env st drhs)
                                (values #f #f #f))))))
             ;; If we only have a single option, commit to it.
             (if (null? (cdr pc*)) (commit)
               ;; Is the first pattern satisfiable?
-              (let-values (((st1 penv1 svs) (assert #t st penv v)))
+              (let-values (((st1 penv1 svs) (assert #t st penv0 v)))
                 (if st1
                   ;; If no vars were scrutinized (svs) while checking
                   ;; satisfiability, then we have an irrefutable match, so
@@ -911,7 +911,7 @@
                   (if (null? svs) (run-rhs penv1 env st1 drhs)
                     ;; If vars were scrutinized, there is room for doubt.
                     ;; Check whether the negated pattern is satisfiable.
-                    (let-values (((nst _ nsvs) (assert #f st '() v)))
+                    (let-values (((nst _ nsvs) (assert #f st penv0 v)))
                       (if nst
                         ;; If the negation is also satisfiable, check whether
                         ;; we can still rule out this clause by matching its
@@ -933,7 +933,7 @@
                                   (drhspat1 (cadar pc*1)))
                               ;; Is the next pattern satisfiable?
                               (let-values (((st1 penv1 svs1)
-                                            (assert1 #t nst '() v)))
+                                            (assert1 #t nst penv0 v)))
                                 (if st1
                                   ;; If it is, check whether we can rule it out
                                   ;; by matching its right-hand-side with the
@@ -944,7 +944,7 @@
                                     ;; If we rule it out, learn the negation
                                     ;; and continue the search.
                                     (let-values (((nst1 _ __)
-                                                  (assert1 #f nst '() v)))
+                                                  (assert1 #f nst penv0 v)))
                                       (if nst1
                                         ;; Clauses that were ruled out (nc*)
                                         ;; need to be tracked so that retries
