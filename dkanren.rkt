@@ -827,11 +827,13 @@
       (values penv
               (lambda (env)
                 (let-values (((st0 vpred) ((dpred env) #t)))
-                  (if (not st0) (error `(invalid-predicate ,predicate))
+                  (if (not st0)
+                    (error (format "invalid predicate: ~a" predicate))
                     (let* ((pred (lambda (st v)
                                    (let-values (((st result) ((vpred v) st)))
                                      (if (not st)
-                                       (error `(predicate-failed ,predicate))
+                                       (error (format "predicate failed: ~a"
+                                                      predicate))
                                        (values st result)))))
                            (assert (pattern-assert-predicate pred)))
                       (if (null? pat*) assert
@@ -1113,7 +1115,8 @@
 
 (define (primitive params body)
   (let-values (((st v) (((denote-lambda params body '()) '()) #t)))
-    (if (not st) (error `(invalid-primitive (lambda ,params ,body)))
+    (if (not st)
+      (error (format "invalid primitive: ~a" `(lambda ,params ,body)))
       v)))
 
 (define empty-env '())
