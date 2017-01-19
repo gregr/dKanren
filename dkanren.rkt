@@ -1382,15 +1382,16 @@
   (test "absento-partial-nested-2"
     (run* (q r) (== q `(1 ,r)) (== r 5) (absento 5 `(4 ((3 ,q) 4))))
     '())
-  ;(test "absento-delayed-var-1"
-    ;(run* (q) (== q 'ok) (fresh (r) (absento 5 r) (== r '(4 ((3 2) 4)))))
-    ;'(ok))
-  ;(test "absento-delayed-var-2"
-    ;(run* (q) (== q 'ok) (fresh (r) (absento 5 r) (== r '(4 ((3 5) 4)))))
-    ;'(2))
-  ;(test "absento-delayed-partial-1"
-    ;(run* (q) (absento 5 `(4 ((3 ,q) 4))) (== q 2))
-    ;'((ok)))
+  (test "absento-delayed-var-1"
+    (run* (q) (== q 'ok) (fresh (r) (absento 5 r) (== r '(4 ((3 2) 4)))))
+    '((ok)))
+  (test "absento-delayed-var-2"
+    (run* (q) (== q 'ok) (fresh (r) (absento 5 r) (== r '(4 ((3 5) 4)))))
+    '())
+  (test "absento-delayed-partial-1"
+    (run* (q) (absento 5 `(4 ((3 ,q) 4))) (== q 2))
+    '((2)))
+  ; TODO: debug
   ;(test "absento-delayed-partial-2"
     ;(run* (q) (absento 5 `(4 ((3 ,q) 4))) (== q 5))
     ;'((2)))
@@ -1811,12 +1812,12 @@
   (test "test 25"
     (run* (q) (== q `(5 6)) (absento 5 q))
     '())
-  ;(test "test 25b"
-    ;(run* (q) (absento 5 q) (== q `(5 6)))
-    ;'())
-  ;(test "test 26"
-    ;(run* (q) (absento 5 q) (== 5 q))
-    ;'())
+  (test "test 25b"
+    (run* (q) (absento 5 q) (== q `(5 6)))
+    '())
+  (test "test 26"
+    (run* (q) (absento 5 q) (== 5 q))
+    '())
   (test "test 33"
     (run* (q)
       (fresh (a b c)
@@ -1847,39 +1848,39 @@
     (run* (q) (absento 6 5))
     '((_.0)))
 
-  ;(test "absento 'closure-1a"
-    ;(run* (q) (absento 'closure q) (== q 'closure))
-    ;'())
+  (test "absento 'closure-1a"
+    (run* (q) (absento 'closure q) (== q 'closure))
+    '())
   (test "absento 'closure-1b"
     (run* (q) (== q 'closure) (absento 'closure q))
     '())
   (test "absento 'closure-2a"
     (run* (q) (fresh (a d) (== q 'closure) (absento 'closure q)))
     '())
-  ;(test "absento 'closure-2b"
-    ;(run* (q) (fresh (a d) (absento 'closure q) (== q 'closure)))
-    ;'())
-  ;(test "absento 'closure-4a"
-    ;(run* (q) (fresh (a d) (absento 'closure q) (== `(,a . ,d) q) (== 'closure a)))
-    ;'())
-  ;(test "absento 'closure-4b"
-    ;(run* (q) (fresh (a d) (absento 'closure q) (== 'closure a) (== `(,a . ,d) q)))
-    ;'())
-  ;(test "absento 'closure-4c"
-    ;(run* (q) (fresh (a d) (== 'closure a) (absento 'closure q) (== `(,a . ,d) q)))
-    ;'())
+  (test "absento 'closure-2b"
+    (run* (q) (fresh (a d) (absento 'closure q) (== q 'closure)))
+    '())
+  (test "absento 'closure-4a"
+    (run* (q) (fresh (a d) (absento 'closure q) (== `(,a . ,d) q) (== 'closure a)))
+    '())
+  (test "absento 'closure-4b"
+    (run* (q) (fresh (a d) (absento 'closure q) (== 'closure a) (== `(,a . ,d) q)))
+    '())
+  (test "absento 'closure-4c"
+    (run* (q) (fresh (a d) (== 'closure a) (absento 'closure q) (== `(,a . ,d) q)))
+    '())
   (test "absento 'closure-4d"
     (run* (q) (fresh (a d) (== 'closure a) (== `(,a . ,d) q) (absento 'closure q)))
     '())
-  ;(test "absento 'closure-5a"
-    ;(run* (q) (fresh (a d) (absento 'closure q) (== `(,a . ,d) q) (== 'closure d)))
-    ;'())
-  ;(test "absento 'closure-5b"
-    ;(run* (q) (fresh (a d) (absento 'closure q) (== 'closure d) (== `(,a . ,d) q)))
-    ;'())
-  ;(test "absento 'closure-5c"
-    ;(run* (q) (fresh (a d) (== 'closure d) (absento 'closure q) (== `(,a . ,d) q)))
-    ;'())
+  (test "absento 'closure-5a"
+    (run* (q) (fresh (a d) (absento 'closure q) (== `(,a . ,d) q) (== 'closure d)))
+    '())
+  (test "absento 'closure-5b"
+    (run* (q) (fresh (a d) (absento 'closure q) (== 'closure d) (== `(,a . ,d) q)))
+    '())
+  (test "absento 'closure-5c"
+    (run* (q) (fresh (a d) (== 'closure d) (absento 'closure q) (== `(,a . ,d) q)))
+    '())
   (test "absento 'closure-5d"
     (run* (q) (fresh (a d) (== 'closure d) (== `(,a . ,d) q) (absento 'closure q)))
     '())
