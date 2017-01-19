@@ -443,7 +443,12 @@
     `(letrec ((absent?
                 (lambda (tm)
                   (match tm
-                    (`(,ta . ,td) (and (absent? ta) (absent? td)))
+                    (`(,ta . ,td)
+                      (match `(,(absent? ta) ,(absent? td))
+                        (`(#t #t) #t)
+                        (_ #f))
+                      ;(and (absent? ta) (absent? td))
+                      )
                     (',atom #f)
                     (_ #t)))))
        (absent? ',tm))
