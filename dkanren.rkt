@@ -248,9 +248,8 @@
             (if forward?
               (vattr-associate va goal)
               (vattr-depend va goal)))))
-(define (state-suspend* st var-forwards var-backwards goal)
-  (let* ((goal-ref (goal-ref-new))
-         (goals (store-set (state-goals st) goal-ref goal))
+(define (state-suspend* st var-forwards var-backwards goal-ref goal)
+  (let* ((goals (store-set (state-goals st) goal-ref goal))
          (vs (state-vs st))
          (vs (foldl (lambda (vr vs)
                       (vattrs-set vs vr (vattr-associate
@@ -737,9 +736,9 @@
                                    (values (disunify st notf #f) notf))
                                  (values st #f))))
           (let-values (((st svs result) (match-chain-try
-                                          penv st result #t rhs)))
+                                          '() st result #t rhs)))
             (if (match-chain? result)
-              (values (match-chain-suspend st result svs rhs) penv svs)
+              (values (match-chain-suspend st '() #f result svs rhs) penv svs)
               (pattern-assert-not-false parity st penv result))))
         (pattern-assert-not-false parity st penv result)))))
 
@@ -772,7 +771,7 @@
                     (match-chain-try
                       penv st (match-chain v (cons '() clause*)) #f #t)))
         (if (match-chain? result)
-          (values (match-chain-suspend st result svs #t) penv svs)
+          (values (match-chain-suspend st penv #f result svs #t) penv svs)
           (values st penv '())))
       (pattern-exec-and na1 na2 st penv v))))
 
@@ -870,16 +869,27 @@
     (let-values (((st svs result) (match-chain-try '() st result rhs? rhs)))
       (if (match-chain? result)
         (let ((rhs (if rhs? rhs (let/vars (rhs) rhs))))
-          (values (match-chain-suspend st result svs rhs) rhs))
+          (values (match-chain-suspend st '() #f result svs rhs) rhs))
         (values st result)))
     (values (if rhs? (and st (unify st result rhs)) st) result)))
 
 (define (match-chain-stack st mc env pc*)
   (let-values (((st v) (actual-value st mc #f #f)))
     (match-chain v (cons env pc*))))
-(define (match-chain-suspend st mc svs rhs)
-  ; TODO: define retry, insert into goal store, and attach goal name to svs
-  st)
+(define (match-chain-suspend st penv0 goal-ref mc svs rhs)
+  (let* ((goal-ref (or goal-ref (goal-ref-new)))
+         (retry (lambda (st)
+                  (let ((rhs (walk1 st rhs)))
+                    (let-values (((st svs result)
+                                (match-chain-try penv0 st mc #t rhs)))
+                      (if (match-chain? result)
+                        (match-chain-suspend st penv0 goal-ref result svs rhs)
+                        st)))))
+         (guess (lambda (st)
+                  ; TODO: guess match clause
+                  st))
+         (goal (goal-suspended #f rhs svs retry guess)))
+    (state-suspend* st svs (if (var? rhs) (list rhs) '()) goal-ref goal)))
 (define (match-chain-try penv0 st mc rhs? rhs)
   (define (run-rhs penv env st drhs)
     (let-values (((st result) ((drhs (append penv env)) st)))
