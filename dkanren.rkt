@@ -108,8 +108,10 @@
 
 (define-syntax let*/and
   (syntax-rules ()
-    ((_ ((name expr) ...) rest ...)
-     (let* ((name expr) ...) (and name ... rest ...)))))
+    ((_ () rest ...) (and rest ...))
+    ((_ ((name expr) ne* ...) rest ...)
+     (let ((name expr))
+       (and name (let*/and (ne* ...) rest ...))))))
 
 (define-syntax let/if
   (syntax-rules ()
@@ -217,7 +219,7 @@
 (define (goal-ref-new) (gensym))
 (define (goal-retry goals goal)
   (if (procedure? goal) goal
-    (let*/and ((gsusp (store-ref goals goal)))
+    (let*/and ((gsusp (store-ref goals goal #f)))
       (goal-suspended-retry gsusp))))
 
 (define (goal-block-cons block blocks)
