@@ -556,7 +556,7 @@
     ((_ n (qv ...) goal ...)
      (map (reify var-0)
           (take n (zzz ((fresh (qv ...)
-                          (== (list qv ...) var-0) goal ... state-resume)
+                          (== (list qv ...) var-0) goal ... state-resume-det1)
                         state-empty)))))))
 (define-syntax run* (syntax-rules () ((_ body ...) (run #f body ...))))
 
@@ -1415,10 +1415,9 @@
   (test "absento-delayed-partial-1"
     (run* (q) (absento 5 `(4 ((3 ,q) 4))) (== q 2))
     '((2)))
-  ; TODO: debug
-  ;(test "absento-delayed-partial-2"
-    ;(run* (q) (absento 5 `(4 ((3 ,q) 4))) (== q 5))
-    ;'((2)))
+  (test "absento-delayed-partial-2"
+    (run* (q) (absento 5 `(4 ((3 ,q) 4))) (== q 5))
+    '())
   ;(test "absento-unknown-1"
     ;(run* (q) (absento 5 q))
     ;'((ok)))
