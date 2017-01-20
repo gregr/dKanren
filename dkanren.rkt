@@ -984,27 +984,35 @@
                                   (if (and rhs?
                                            (not (drhspat1
                                                   (append penv1 env) st1 rhs)))
-                                    ;; If we rule it out, learn the negation
-                                    ;; and continue the search.
-                                    (let-values (((nst1 _ __)
-                                                  (assert1 #f nst penv0 v)))
-                                      (if nst1
-                                        ;; Clauses that were ruled out (nc*)
-                                        ;; need to be tracked so that retries
-                                        ;; can relearn their negated patterns.
-                                        (ambiguous
-                                          nst1 (cdr pc*1) (cons (car pc*1) nc*))
-                                        ;; Unless the negation is impossible,
-                                        ;; in which case nothing else could
-                                        ;; succeed, meaning the first clause
-                                        ;; is the only option after all!
-                                        ;; Commit to it.
-                                        (commit)))
+                                    ;; If we rule it out and there are no
+                                    ;; patterns left to try, the first clause
+                                    ;; is the only option.  Commit to it.
+                                    (if (null? (cdr pc*1)) (commit)
+                                      ;; If we rule it out and there are other
+                                      ;; patterns to try, learn the negation
+                                      ;; and continue the search.
+                                      (let-values (((nst1 _ __)
+                                                    (assert1 #f nst penv0 v)))
+                                        (if nst1
+                                          ;; Clauses that were ruled out (nc*)
+                                          ;; need to be tracked so that retries
+                                          ;; can relearn their negated
+                                          ;; patterns.
+                                          (ambiguous
+                                            nst1 (cdr pc*1) (cons (car pc*1)
+                                                                  nc*))
+                                          ;; Unless the negation is impossible,
+                                          ;; in which case nothing else could
+                                          ;; succeed, meaning the first clause
+                                          ;; is the only option after all!
+                                          ;; Commit to it.
+                                          (commit))))
                                     ;; If we can't rule it out, then we've
                                     ;; established ambiguity.  Try again later.
                                     (values st
                                             (list-append-unique
-                                              svs1 (list-append-unique nsvs svs))
+                                              svs1 (list-append-unique
+                                                     nsvs svs))
                                             (match-chain
                                               v
                                               (cons env (cons (car pc*)
