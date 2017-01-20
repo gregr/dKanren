@@ -645,7 +645,8 @@
   (lambda (env st v) (unify st literal v)))
 (define (denote-rhs-pattern-var vname senv)
   (let ((dv (denote-term vname senv)))
-    (lambda (env st v) (unify st ((dv env) st) v))))
+    (lambda (env st rhs)
+      (let*/state (((st v) ((dv env) st))) (unify st v rhs)))))
 (define (denote-rhs-pattern-qq qq senv)
   (match qq
     (`(,'unquote ,pat) (denote-rhs-pattern pat senv))
