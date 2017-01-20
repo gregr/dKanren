@@ -1915,6 +1915,12 @@
     '())
   )
 
+(define (letrec-append body)
+    `(letrec ((append
+                (lambda (xs ys)
+                  (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
+       ,body))
+
 (module+ test
   (define-syntax test-eval
     (syntax-rules ()
@@ -1943,13 +1949,17 @@
                        (loop 'forever))) #t)
   (test-eval '(let ((p (cons 8 9))) (cdr p)) 9)
 
-  (define ex-append
-    '(letrec ((append
+  (define (letrec-append body)
+    `(letrec ((append
                 (lambda (xs ys)
                   (if (null? xs) ys (cons (car xs) (append (cdr xs) ys))))))
-       (list (append '() '()) (append '(foo) '(bar)) (append '(1 2) '(3 4)))) )
+       ,body))
+  (define ex-append
+    (letrec-append
+      '(list (append '() '()) (append '(foo) '(bar)) (append '(1 2) '(3 4)))))
   (define ex-append-answer '(() (foo bar) (1 2 3 4)))
   (test-eval ex-append ex-append-answer)
+
   (test-eval '`(1 ,(car `(,(cdr '(b 2)) 3)) ,'a) '(1 (2) a))
 
   (test-eval
@@ -2198,4 +2208,23 @@
           (and (term? program initial-env)
                (eval-term program initial-env)))))))
   (test-eval ex-eval-complex ex-append-answer)
+
+  (define-syntax test-evalo
+    (syntax-rules ()
+     ((_ tm result)
+      (let ((tm0 tm) (res0 result))
+        (when (not (term? tm0 initial-env))
+          (error (format "not a term: ~a" tm0)))
+        (dk-evalo tm0 res0)))))
+
+  (test "evalo-deterministic-1"
+    (run 1 (q)
+      (fresh (a b c) (== `(,a ,b ,c) q))
+      (test-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5)))
+    '(((1 2 3))))
+  (test "evalo-deterministic-2"
+    (run 1 (q)
+      (test-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5))
+      (fresh (a b c) (== `(,a ,b ,c) q)))
+    '(((1 2 3))))
   )
