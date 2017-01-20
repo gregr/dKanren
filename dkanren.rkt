@@ -2219,10 +2219,14 @@
 
   (test "evalo-deterministic-1"
     (run 1 (q)
+      (test-evalo (letrec-append `(append '(1 2 3) ',q)) '(1 2 3 4 5)))
+    '(((4 5))))
+  (test "evalo-deterministic-2"
+    (run 1 (q)
       (fresh (a b c) (== `(,a ,b ,c) q))
       (test-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5)))
     '(((1 2 3))))
-  (test "evalo-deterministic-2"
+  (test "evalo-deterministic-3"
     (run 1 (q)
       (test-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5))
       (fresh (a b c) (== `(,a ,b ,c) q)))
