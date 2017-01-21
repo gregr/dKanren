@@ -906,9 +906,6 @@
         (values st result)))
     (values (if rhs? (and st (unify st result rhs)) st) result)))
 
-(define (match-chain-stack st mc env pc*)
-  (let-values (((st v) (actual-value st mc #f #f)))
-    (match-chain v (cons env pc*))))
 (define (match-chain-suspend st penv0 goal-ref mc svs rhs)
   (let* ((goal-ref (or goal-ref (goal-ref-new)))
          (retry (lambda (st)
@@ -1038,7 +1035,8 @@
       (lambda (st)
         (let*/state (((st v) (gv st)))
           (if (match-chain? v)
-            (values st (match-chain-stack st v env pc*))
+            (let-values (((st v) (actual-value st v #f #f)))
+              (values st (match-chain v (cons env pc*))))
             (values st (match-chain v (cons env pc*)))))))))
 
 (define (denote-match pt*-all vt senv)
