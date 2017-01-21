@@ -550,7 +550,7 @@
     ((_ n (qv ...) goal ...)
      (map (reify var-0)
           (take n (zzz ((fresh (qv ...)
-                          (== (list qv ...) var-0) goal ... state-resume-det1)
+                          (== (list qv ...) var-0) goal ... state-resume)
                         state-empty)))))))
 (define-syntax run* (syntax-rules () ((_ body ...) (run #f body ...))))
 
@@ -2257,17 +2257,31 @@
         (dk-evalo tm0 res0)))))
 
   (test "evalo-deterministic-1"
-    (run 1 (q)
+    (run* (q)
       (test-evalo (letrec-append `(append '(1 2 3) ',q)) '(1 2 3 4 5)))
     '(((4 5))))
   (test "evalo-deterministic-2"
-    (run 1 (q)
+    (run* (q)
       (fresh (a b c) (== `(,a ,b ,c) q))
       (test-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5)))
     '(((1 2 3))))
   (test "evalo-deterministic-3"
-    (run 1 (q)
+    (run* (q)
       (test-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5))
       (fresh (a b c) (== `(,a ,b ,c) q)))
     '(((1 2 3))))
+
+  (test "evalo-nondet-1"
+    (run* (q)
+      (test-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5)))
+    '(((1 2 3))))
+  (test "evalo-nondet-2"
+    (run* (q r)
+      (test-evalo (letrec-append `(append ',q ',r)) '(1 2 3 4 5)))
+    '((() (1 2 3 4 5))
+      ((1) (2 3 4 5))
+      ((1 2) (3 4 5))
+      ((1 2 3) (4 5))
+      ((1 2 3 4) (5))
+      ((1 2 3 4 5) ())))
   )
