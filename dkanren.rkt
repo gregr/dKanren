@@ -2248,6 +2248,17 @@
                (eval-term program initial-env)))))))
   (test-eval ex-eval-complex ex-append-answer)
 
+  (define-syntax run-det
+    (syntax-rules ()
+      ((_ n (qv ...) goal ...)
+       (map (reify var-0)
+            (take n (zzz ((fresh (qv ...)
+                            (== (list qv ...) var-0) goal ...
+                            state-resume-det1)
+                          state-empty)))))))
+  (define-syntax run*-det
+    (syntax-rules () ((_ body ...) (run-det #f body ...))))
+
   (define-syntax test-dk-evalo
     (syntax-rules ()
      ((_ tm result)
@@ -2643,17 +2654,57 @@
       (== 2 r))
     '((a 2) (e 2) (f 2)))
 
+  (test "match-match-det-1"
+    (run*-det (q)
+      (test-dk-evalo
+        `(match (match ',q
+                  ('a 5)
+                  ('b 6)
+                  ('c 9)
+                  ('d 8)
+                  ('d 6)
+                  ('e 5)
+                  ('f 7)
+                  ('g 4))
+           (4 1)
+           (5 2)
+           (6 3)
+           (7 2)
+           (8 1))
+        3))
+    '((b)))
+  (test "match-match-det-2"
+    (run*-det (q r)
+      (test-dk-evalo
+        `(match (match ',q
+                  ('a 5)
+                  ('b 6)
+                  ('c 9)
+                  ('d 8)
+                  ('d 6)
+                  ('e 5)
+                  ('f 7)
+                  ('g 4))
+           (4 1)
+           (5 2)
+           (6 3)
+           (7 2)
+           (8 1))
+        r)
+      (== r 3))
+    '((b 3)))
+
   (test "append-deterministic-1"
-    (run* (q)
+    (run*-det (q)
       (test-dk-evalo (letrec-append `(append '(1 2 3) ',q)) '(1 2 3 4 5)))
     '(((4 5))))
   (test "append-deterministic-2"
-    (run* (q)
+    (run*-det (q)
       (fresh (a b c) (== `(,a ,b ,c) q))
       (test-dk-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5)))
     '(((1 2 3))))
   (test "append-deterministic-3"
-    (run* (q)
+    (run*-det (q)
       (test-dk-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5))
       (fresh (a b c) (== `(,a ,b ,c) q)))
     '(((1 2 3))))
