@@ -901,7 +901,8 @@
     (values (if rhs? (and st (unify st result rhs)) st) result)))
 
 (define (match-chain-suspend st penv0 goal-ref mc svs rhs)
-  (let* ((goal-ref (or goal-ref (goal-ref-new)))
+  (let* ((rhs (walk1 st rhs))
+         (goal-ref (or goal-ref (goal-ref-new)))
          (retry (lambda (st)
                   (let ((rhs (walk1 st rhs)))
                     (let-values (((st svs result)
@@ -958,8 +959,9 @@
                   ss)))))
 
 (define (match-chain-try penv0 st mc rhs? rhs)
-  (define run-rhs (rhs->goal rhs? rhs))
-  (let* ((v (match-chain-scrutinee mc))
+  (let* ((rhs (if rhs? (walk1 st rhs) rhs))
+         (run-rhs (rhs->goal rhs? rhs))
+         (v (match-chain-scrutinee mc))
          (epc* (match-chain-clauses mc))
          (env (car epc*))
          (pc* (cdr epc*)))
@@ -2652,6 +2654,25 @@
            (8 1))
         r)
       (== 2 r))
+    '((a 2) (e 2) (f 2)))
+  (test "match-match-4"
+    (run* (q r)
+      (== 2 r)
+      (test-dk-evalo
+        `(match (match ',q
+                  ('a 5)
+                  ('b 6)
+                  ('c 9)
+                  ('d 6)
+                  ('e 5)
+                  ('f 7)
+                  ('g 4))
+           (4 1)
+           (5 2)
+           (6 3)
+           (7 2)
+           (8 1))
+        r))
     '((a 2) (e 2) (f 2)))
 
   (test "match-match-det-1"
