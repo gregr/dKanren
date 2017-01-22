@@ -2248,7 +2248,7 @@
                (eval-term program initial-env)))))))
   (test-eval ex-eval-complex ex-append-answer)
 
-  (define-syntax test-evalo
+  (define-syntax test-dk-evalo
     (syntax-rules ()
      ((_ tm result)
       (let ((tm0 tm) (res0 result))
@@ -2256,28 +2256,415 @@
           (error (format "not a term: ~a" tm0)))
         (dk-evalo tm0 res0)))))
 
-  (test "evalo-deterministic-1"
+  (test "match-simple-0"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q)
+        r))
+    '())
+  (test "match-simple-1"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (_ #t))
+        r))
+    '((_.0 #t)))
+  (test "match-simple-2"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (x x)
+           (_ #t))
+        r))
+    '((_.0 _.0)))
+  (test "match-simple-3"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((not x) #f)
+           (_ #t))
+        r))
+    '((_.0 #t)))
+  (test "match-simple-4"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (_ #f)
+           (_ #t))
+        r))
+    '((_.0 #f)))
+  (test "match-simple-5"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((not _) #f)
+           (_ #t))
+        r))
+    '((_.0 #t)))
+
+  (test "match-simple-6"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (8 'eight)
+           (12 'twelve)
+           (#t 'true)
+           (#f 'false)
+           ('sym 'symbol)
+           ('() 'nil)
+           ('(a b) 'pair))
+        r))
+    '((8 eight)
+      (12 twelve)
+      (#t true)
+      (#f false)
+      (sym symbol)
+      (() nil)
+      ((a b) pair)))
+
+  (test "match-simple-7"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (8 'eight)
+           (12 'twelve)
+           (#t 'true)
+           (_ (match ',q
+                (#f 'false)
+                ('sym 'symbol)
+                ('() 'nil)
+                ('(a b) 'pair))))
+        r))
+    '((8 eight)
+      (12 twelve)
+      (#t true)
+      (#f false)
+      (sym symbol)
+      (() nil)
+      ((a b) pair)))
+
+  (test "match-simple-8"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (8 'eight)
+           (12 'twelve)
+           (#t 'true)
+           (8 (match ',q
+                (#f 'false)
+                ('sym 'symbol)
+                ('() 'nil)
+                ('(a b) 'pair))))
+        r))
+    '((8 eight) (12 twelve) (#t true)))
+
+  (test "match-simple-9"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (8 'eight)
+           ((number) 'number)
+           ((symbol) 'symbol)
+           (12 'twelve)
+           (#t 'true)
+           (`(,x ,y . ,z) 'pair-2)
+           (`(,x . ,y) 'pair)
+           (`(,w ,x ,y . ,z) 'pair-3)
+           (#f 'false)
+           ('sym 'symbol)
+           ('() 'nil)
+           ('(a b) 'pair)
+           (_ 'anything))
+        r))
+    '((8 eight)
+      (_.0 number)
+      (_.0 symbol)
+      (#t true)
+      ((_.0 _.1 . _.2) pair-2)
+      ((_.0 . _.1) pair)
+      (#f false)
+      (() nil)))
+
+  (test "match-simple-10"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (8 'eight)
+           ((number) 'number)
+           ((symbol) 'symbol)
+           (12 'twelve)
+           (#t 'true)
+           (`(,x ,y . ,z) 'pair-2)
+           (`(,x . ,y) 'pair)
+           (`(,w ,x ,y . ,z) 'pair-3)
+           (#f 'false)
+           ('sym 'symbol)
+           ('(a b) 'pair)
+           (_ 'anything))
+        r))
+    '((8 eight)
+      (_.0 number)
+      (_.0 symbol)
+      (#t true)
+      ((_.0 _.1 . _.2) pair-2)
+      ((_.0 . _.1) pair)
+      (#f false)
+      (() anything)))
+
+  (test "match-simple-11"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (8 'eight)
+           ((number) 'number)
+           ((symbol) 'symbol)
+           (12 'twelve)
+           (#t 'true)
+           (`(,x ,y . ,z) 'pair-2)
+           (`(,x . ,y) 'pair)
+           (`(,w ,x ,y . ,z) 'pair-3)
+           ('sym 'symbol)
+           ('(a b) 'pair)
+           ((not '()) 'anything))
+        r))
+    '((8 eight)
+      (_.0 number)
+      (_.0 symbol)
+      (#t true)
+      ((_.0 _.1 . _.2) pair-2)
+      ((_.0 . _.1) pair)
+      (#f anything)))
+
+  (test "match-simple-12"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (8 'eight)
+           ((number) 'number)
+           ((symbol) 'symbol)
+           (12 'twelve)
+           (#t 'true)
+           (`(,x ,y . ,z) 'pair-2)
+           (`(,x . ,y) 'pair)
+           (`(,w ,x ,y . ,z) 'pair-3)
+           ('sym 'symbol)
+           ('(a b) 'pair)
+           ((not '()) 'anything))
+        r))
+    '((8 eight)
+      (_.0 number)
+      (_.0 symbol)
+      (#t true)
+      ((_.0 _.1 . _.2) pair-2)
+      ((_.0 . _.1) pair)
+      (#f anything)))
+
+  (test "match-compound-1"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((and #t #f #t) 'impossible))
+        r))
+    '())
+  (test "match-compound-2"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((and #t #t #t) 'possible)
+           (#t 'true)
+           (#f 'false))
+        r))
+    '((#t possible) (#f false)))
+  (test "match-compound-3"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((or #t #f #t) 'possible)
+           (#t 'true)
+           (#f 'false))
+        r))
+    '((#t possible) (#f possible)))
+  (test "match-compound-4"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((not (or #t #f #t)) 'possible)
+           (#t 'true)
+           (#f 'false))
+        r))
+    '((_.0 possible) (#t true) (#f false)))
+  (test "match-compound-5"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((and (not (or #t #f #t)) #t) 'impossible)
+           (#t 'true)
+           (#f 'false))
+        r))
+    '((#t true) (#f false)))
+  (test "match-compound-6"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((not (not (and #t #t #t))) 'possible)
+           (#t 'true)
+           (#f 'false))
+        r))
+    '((#t possible) (#f false)))
+  (test "match-compound-7"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((not (not (and #t (not #t) #t))) 'impossible)
+           (#t 'true)
+           (#f 'false))
+        r))
+    '((#t true) (#f false)))
+
+  (test "match-qq-1"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (`(,(and 1 1 1) . ,(and 2 2 2)) 'ok))
+        r))
+    '(((1 . 2) ok)))
+  (test "match-qq-2a"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (`(,(and 1 (not 1) 1) . ,(and 2 2 2)) 'ok))
+        r))
+    '())
+  (test "match-qq-2b"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (`(,(and 1 (not 2) 1) . ,(and 2 2 2)) 'ok))
+        r))
+    '(((1 . 2) ok)))
+  (test "match-qq-3"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (`(,(and 1 x 1) . ,(and 2 y 2)) 'ok))
+        r))
+    '(((1 . 2) ok)))
+  (test "match-qq-4"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           (`(,(and 1 x 1) . ,(and 2 x 2)) 'ok))
+        r))
+    '())
+  (test "match-qq-5"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((and `(1 . ,x) `(,y . 2)) 'ok))
+        r))
+    '(((1 . 2) ok)))
+  (test "match-qq-6"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((and `(1 . ,x) `(,x . 2)) 'ok))
+        r))
+    '())
+
+  (test "match-match-0"
+    (run* (q r)
+      (test-dk-evalo
+        `(match (match ',q
+                  ('a 15)
+                  ('b 16)
+                  ('c 19)
+                  ('d 16)
+                  ('e 15)
+                  ('f 14))
+           (4 1)
+           (5 2)
+           (6 3)
+           (7 2)
+           (8 1))
+        r))
+    '())
+  (test "match-match-1"
+    (run* (q r)
+      (test-dk-evalo
+        `(match (match ',q
+                  ('a 5)
+                  ('b 6)
+                  ('c 9)
+                  ('d 6)
+                  ('e 5)
+                  ('f 4))
+           (4 1)
+           (5 2)
+           (6 3)
+           (7 2)
+           (8 1))
+        r))
+    '((a 2) (b 3) (d 3) (e 2) (f 1)))
+  (test "match-match-2"
     (run* (q)
-      (test-evalo (letrec-append `(append '(1 2 3) ',q)) '(1 2 3 4 5)))
+      (test-dk-evalo
+        `(match (match ',q
+                  ('a 5)
+                  ('b 6)
+                  ('c 9)
+                  ('d 6)
+                  ('e 5)
+                  ('f 7)
+                  ('g 4))
+           (4 1)
+           (5 2)
+           (6 3)
+           (7 2)
+           (8 1))
+        2))
+    '((a) (e) (f)))
+  (test "match-match-3"
+    (run* (q r)
+      (test-dk-evalo
+        `(match (match ',q
+                  ('a 5)
+                  ('b 6)
+                  ('c 9)
+                  ('d 6)
+                  ('e 5)
+                  ('f 7)
+                  ('g 4))
+           (4 1)
+           (5 2)
+           (6 3)
+           (7 2)
+           (8 1))
+        r)
+      (== 2 r))
+    '((a 2) (e 2) (f 2)))
+
+  (test "append-deterministic-1"
+    (run* (q)
+      (test-dk-evalo (letrec-append `(append '(1 2 3) ',q)) '(1 2 3 4 5)))
     '(((4 5))))
-  (test "evalo-deterministic-2"
+  (test "append-deterministic-2"
     (run* (q)
       (fresh (a b c) (== `(,a ,b ,c) q))
-      (test-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5)))
+      (test-dk-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5)))
     '(((1 2 3))))
-  (test "evalo-deterministic-3"
+  (test "append-deterministic-3"
     (run* (q)
-      (test-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5))
+      (test-dk-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5))
       (fresh (a b c) (== `(,a ,b ,c) q)))
     '(((1 2 3))))
 
-  (test "evalo-nondet-1"
+  (test "append-nondet-1"
     (run* (q)
-      (test-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5)))
+      (test-dk-evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5)))
     '(((1 2 3))))
-  (test "evalo-nondet-2"
+  (test "append-nondet-2"
     (run* (q r)
-      (test-evalo (letrec-append `(append ',q ',r)) '(1 2 3 4 5)))
+      (test-dk-evalo (letrec-append `(append ',q ',r)) '(1 2 3 4 5)))
     '((() (1 2 3 4 5))
       ((1) (2 3 4 5))
       ((1 2) (3 4 5))
