@@ -519,7 +519,7 @@
 (define-syntax let/vars
   (syntax-rules ()
     ((_ (vname ...) body ...)
-     (let ((vname (var 'vname)) ...) body ...))))
+     (let ((vname (var (gensym (symbol->string 'vname)))) ...) body ...))))
 
 (define-syntax fresh
   (syntax-rules ()
