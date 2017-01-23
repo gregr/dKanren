@@ -2586,6 +2586,55 @@
         r))
     '())
 
+  (test "match-?-0"
+    (run* (q r)
+      (test-dk-evalo
+        `(let ((ok? (lambda (x) #f)))
+           (match ',q
+             ((? ok?) 'ok)))
+        r))
+    '())
+  (test "match-?-1"
+    (run* (q r)
+      (test-dk-evalo
+        `(let ((ok? (lambda (x) #t)))
+           (match ',q
+             ((? ok?) 'ok)))
+        r))
+    '((_.0 ok)))
+  (test "match-?-2"
+    (run* (q r)
+      (test-dk-evalo
+        `(let ((ok? (lambda (x) #f)))
+           (match ',q
+             ((? ok?) 'ok)
+             (3 'three)))
+        r))
+    '((3 three)))
+  (test "match-?-4"
+    (run* (q r)
+      (test-dk-evalo
+        `(let ((number? (lambda (x) (match x
+                                      ((number) #t)
+                                      (_ #f)))))
+           (match ',q
+             ((? number?) 'ok)))
+        r))
+    '((_.0 ok)))
+  (test "match-?-5"
+    (run* (q r)
+      (test-dk-evalo
+        `(let ((number? (lambda (x) (match x
+                                      ((number) #t)
+                                      (_ #f)))))
+           (match ',q
+             ((? number?) 'ok)
+             (4 'four)
+             (#t 'true)
+             ))
+        r))
+    '((_.0 ok) (#t true)))
+
   (test "match-match-0"
     (run* (q r)
       (test-dk-evalo
