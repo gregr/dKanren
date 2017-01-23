@@ -758,15 +758,17 @@
       ; manner.  In this implementation, such a failure leads to unsound
       ; behavior by being unpredictable in the granularity of failure.
       (if (match-chain? result)
-        (let-values (((st rhs) (if parity
-                                 (let/vars (notf)
-                                   (values (disunify st notf #f) notf))
-                                 (values st #f))))
-          (let-values (((st svs result) (match-chain-try
-                                          '() st result #t rhs)))
-            (if (match-chain? result)
-              (values (match-chain-suspend st '() #f result svs rhs) penv svs)
-              (pattern-assert-not-false parity st penv result))))
+        (let-values (((st svs result) (match-chain-try '() st result #f #f)))
+          (if (match-chain? result)
+            (let-values (((st rhs) (if parity
+                                     (let/vars (notf)
+                                       (values (disunify st notf #f) notf))
+                                     (values st #f))))
+              (let-values (((st result) (actual-value st result #t rhs)))
+                (if st
+                  (values st penv svs)
+                  (values #f #f #f))))
+            (pattern-assert-not-false parity st penv result)))
         (pattern-assert-not-false parity st penv result)))))
 
 (define (pattern-exec-and a1 a2 st penv v)
