@@ -600,7 +600,8 @@
               (if (equal? sym p-name)
                 (lambda (env)
                   ((list-ref (list-ref env idx) ridx) (drop env idx)))
-                (loop-rec (+ ridx 1) binding*)))))))))
+                (loop-rec (+ ridx 1) binding*))))))
+      ('() (error (format "unbound variable: '~a'" sym))))))
 
 (define (denote-qq qqterm senv)
   (match qqterm
