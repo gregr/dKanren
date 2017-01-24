@@ -710,7 +710,7 @@
 (define (pattern-assert-type-== type-tag)
   (lambda (parity st penv v)
     (let/if (st1 ((if parity typify distypify) st type-tag v))
-      (let ((v1 (walk1 st1 v)))
+      (let ((v1 (walk1 st v)))
         (values st1 penv (if (var? v1) (list v1) '())))
       (values #f #f #f))))
 
