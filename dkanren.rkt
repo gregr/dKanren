@@ -2536,6 +2536,36 @@
         r))
     '((#t true) (#f false)))
 
+  (test "match-compound-8"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((or #t #f #t 5) 'possible)
+           (#t 'true)
+           (#f 'false))
+        r))
+    '((#t possible) (#f possible) (5 possible)))
+  (test "match-compound-8b"
+    (run* (q r)
+      (=/= #t q)
+      (test-dk-evalo
+        `(match ',q
+           ((or #t #f #t 5) 'possible)
+           (#t 'true)
+           (#f 'false))
+        r))
+    '((#f possible) (5 possible)))
+  (test "match-compound-8c"
+    (run* (q r)
+      (test-dk-evalo
+        `(match ',q
+           ((or #t #f #t 5) 'possible)
+           (#t 'true)
+           (#f 'false))
+        r)
+      (=/= #t q))
+    '((#f possible) (5 possible)))
+
   (test "match-qq-1"
     (run* (q r)
       (test-dk-evalo
