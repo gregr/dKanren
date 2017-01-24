@@ -940,7 +940,7 @@
              (let*/and ((st (if (match-chain? result)
                               (match-chain-suspend
                                 st '() goal-ref result svs rhs)
-                              st)))
+                              (state-remove-goal st goal-ref))))
                (state-resume st))))))
   (define (commit-with assert drhs)
     (let-values (((st penv _)
