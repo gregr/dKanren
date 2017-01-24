@@ -782,7 +782,8 @@
       (values #f #f #f))))
 (define (pattern-assert-and a1 a2)
   (define (nassert)
-    (pattern-assert-or (pattern-assert-not a1) (pattern-assert-not a2)))
+    (pattern-assert-or (pattern-assert-not a1)
+                       (pattern-assert-and a1 (pattern-assert-not a2))))
   (lambda (parity st penv v)
     (if parity
       (pattern-exec-and a1 a2 st penv v)
