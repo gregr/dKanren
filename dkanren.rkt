@@ -17,24 +17,27 @@
     ))
 
 ; TODO:
+; new mcs with immediately known rhs should be scheduled to nondet
+; store penv0 with mcs
+; tag some match expressions (such as in constraints) to lower guessing priority
+;   these really should be satisfied last, used mostly deterministically for constraint enforcement
 ; list-subtract
 ; state-resume-det
 ;   det-deferred pausing must cooperate with nondeterministic search
-;   pattern assertions must resume deterministic suspensions to verify satisfiability
-; state-resume should loop until goals are exhausted
-; uncomment more absento tests
-; match-chain guessing
+; pattern assertions may resume deterministic suspensions to more precisely verify satisfiability
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
 ; unlike normal mk, all vars in =/=* should be tracked for earliest access to determinism
 ;   these constraints can shrink domains, which may trigger new unifications, and so on
 ; cost-based nondeterminism and quota-based determinism
+;   det-deferred quotas
+;     match-chain-try checks quota and adds to det-deferred if necessary
 ;   bind, mplus w/ costs
 ;     dfs, ws, quota/cost?
 ;     cost must be able to express size-incrementing search
 ;       goal scoped or leaky costs?
 ;       quota wrapper?
+; implement quasiquote, let, let*, and, or, cond, match for evalo
 ; extended mk variant, mixing in deterministic computation where possible
-;   non-root-deterministic-only quotas
 ;   tagging and pluggable solvers (one in particular)
 ;     aggressive, parallel term guesser
 ;       not complete on its own, but likely more effective for typical synthesis
@@ -58,9 +61,7 @@
 ;           if there are basic components useful as conditions, try those before general components
 ; tagging and reification for =/=, absento
 ;   could do this just for =/= and be satisfied with some infinite absento enumerations
-; faster-mk interface
-;   port everything to chez
-;   import/export substitution and constraint store, translating constraints
+; port everything to chez
 ; performance and benchmarking
 ;   move from closure-encoding interpreter to ahead-of-time compiler
 ;   tweak match clauses and costs
