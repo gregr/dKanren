@@ -2831,4 +2831,31 @@
   (define (evalo program result)
     (let ((tm (letrec-eval-term program)))
       (dk-evalo tm result)))
+
+  ;; TODO: why does run* not work in this simple case?
+  (test "evalo-1"
+    (run 1 (q)
+      (evalo `'(1 2 ,q 4 5) '(1 2 3 4 5)))
+    '((3)))
+  (test "evalo-append-1"
+    (run* (q)
+      (evalo (letrec-append `(append '(1 2 3) '(4 5))) q))
+    '(((1 2 3 4 5))))
+  (test "evalo-append-2"
+    (run* (q)
+      (evalo (letrec-append `(append '(1 2 3) ',q)) '(1 2 3 4 5)))
+    '(((4 5))))
+  (test "evalo-append-3"
+    (run* (q)
+      (evalo (letrec-append `(append ',q '(4 5))) '(1 2 3 4 5)))
+    '(((1 2 3))))
+  (test "evalo-append-4"
+    (run* (q r)
+      (evalo (letrec-append `(append ',q ',r)) '(1 2 3 4 5)))
+      '((() (1 2 3 4 5))
+        ((1) (2 3 4 5))
+        ((1 2) (3 4 5))
+        ((1 2 3 4 5) ())  ;; unusual transposition
+        ((1 2 3) (4 5))
+        ((1 2 3 4) (5))))
   )
