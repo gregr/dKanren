@@ -2867,4 +2867,38 @@
         ((1 2 3) (4 5))
         ((1 2 3 4) (5))
         ((1 2 3 4 5) ())))
+
+  (test "evalo-append-synthesis-1"
+    (run 1 (q)
+      (evalo `(letrec
+                ((append (lambda (xs ys)
+                           (if (null? xs)
+                             ys
+                             (cons (car ,q) (append (cdr xs) ys))))))
+                (append '(1 2) '(3 4)))
+        '(1 2 3 4))
+      )
+    '((xs)))
+  (test "evalo-append-synthesis-2"
+    (run 1 (q)
+      (evalo `(letrec
+                ((append (lambda (xs ys)
+                           (if (null? xs)
+                             ys
+                             (cons (car xs) (,q (cdr xs) ys))))))
+                (append '(1 2) '(3 4)))
+        '(1 2 3 4))
+      )
+    '((append)))
+  (test "evalo-append-synthesis-3"
+    (run 1 (q)
+      (evalo `(letrec
+                ((append (lambda (xs ys)
+                           (if (,q xs)
+                             ys
+                             (cons (car xs) (append (cdr xs) ys))))))
+                (append '(1 2) '(3 4)))
+        '(1 2 3 4))
+      )
+    '((null?)))
   )
