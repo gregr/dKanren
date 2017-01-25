@@ -2249,8 +2249,11 @@
                             . ,env))))))))))
 
         (let ((program ',program))
-          (and (term? program initial-env)
-               (eval-term program initial-env)))))))
+          (let ((result (eval-term program initial-env)))
+            ;; TODO: this ordering isn't ideal: give constraints a lower
+            ;; guessing priority to avoid this ordering hack.
+            (match (term? program initial-env)
+              (#t result))))))))
 
   (define ex-eval-complex (letrec-eval-term ex-append))
   (test-eval ex-eval-complex ex-append-answer)
@@ -2832,9 +2835,8 @@
     (let ((tm (letrec-eval-term program)))
       (dk-evalo tm result)))
 
-  ;; TODO: why does run* not work in this simple case?
   (test "evalo-1"
-    (run 1 (q)
+    (run* (q)
       (evalo `'(1 2 ,q 4 5) '(1 2 3 4 5)))
     '((3)))
   (test "evalo-append-1"
@@ -2855,7 +2857,7 @@
       '((() (1 2 3 4 5))
         ((1) (2 3 4 5))
         ((1 2) (3 4 5))
-        ((1 2 3 4 5) ())  ;; unusual transposition
         ((1 2 3) (4 5))
-        ((1 2 3 4) (5))))
+        ((1 2 3 4) (5))
+        ((1 2 3 4 5) ())))
   )
