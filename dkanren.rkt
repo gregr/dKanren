@@ -2093,7 +2093,7 @@
   ;(test-eval ex-eval-expr-dneg '(g1 g2 g3 g4 g6 g7))
 
   ; the goal is to support something like this interpreter
-  (define ex-eval-complex
+  (define (letrec-eval-term program)
     `(let ((closure-tag ',(gensym "#%closure"))
            (prim-tag ',(gensym "#%primitive"))
            (empty-env '()))
@@ -2136,7 +2136,7 @@
             (in-env? (lambda (env sym)
                        (match env
                          ('() #f)
-                         (`((,a . ,_). ,d)
+                         (`((,a . ,_) . ,d)
                            (or (equal? a sym) (in-env? d sym))))))
             (extend-env*
               (lambda (params args env)
@@ -2248,9 +2248,11 @@
                           `((,p-name . (rec . (lambda ,params ,body)))
                             . ,env))))))))))
 
-        (let ((program ',ex-append))
+        (let ((program ',program))
           (and (term? program initial-env)
                (eval-term program initial-env)))))))
+
+  (define ex-eval-complex (letrec-eval-term ex-append))
   (test-eval ex-eval-complex ex-append-answer)
 
   (define-syntax run-det
@@ -2825,4 +2827,8 @@
       ((1 2 3) (4 5))
       ((1 2 3 4) (5))
       ((1 2 3 4 5) ())))
+
+  (define (evalo program result)
+    (let ((tm (letrec-eval-term program)))
+      (dk-evalo tm result)))
   )
