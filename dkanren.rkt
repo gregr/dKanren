@@ -17,7 +17,6 @@
     ))
 
 ; TODO:
-; new mcs with immediately known rhs should be scheduled to nondet
 ; store penv0 with mcs
 ; tag some match expressions (such as in constraints) to lower guessing priority
 ;   these really should be satisfied last, used mostly deterministically for constraint enforcement
@@ -231,6 +230,10 @@
   (schedule (goal-block-cons det (schedule-det sch))
             (schedule-det-deferred sch)
             (schedule-nondet sch)))
+(define (schedule-add-nondet sch nondet)
+  (schedule (schedule-det sch)
+            (schedule-det-deferred sch)
+            (goal-block-cons nondet (schedule-nondet sch))))
 (define (schedule-add sch det nondet)
   (schedule (goal-block-cons det (schedule-det sch))
             (schedule-det-deferred sch)
@@ -266,7 +269,10 @@
                       (vattrs-set vs vr (vattr-depend
                                           (vattrs-get vs vr) goal-ref)))
                     vs var-backwards)))
-    (state vs goals (state-schedule st))))
+    (state vs goals (let ((sch (state-schedule st)))
+                      (if (null? var-backwards)
+                        (schedule-add-nondet sch (list goal-ref))
+                        sch)))))
 (define (state-remove-goal st goal)
   (state (state-vs st)
          (store-remove (state-goals st) goal)
