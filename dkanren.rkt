@@ -17,7 +17,6 @@
     ))
 
 ; TODO:
-; store penv0 with mcs
 ; tag some match expressions (such as in constraints) to lower guessing priority
 ;   these really should be satisfied last, used mostly deterministically for constraint enforcement
 ; list-subtract
@@ -766,7 +765,7 @@
       ; manner.  In this implementation, such a failure leads to unsound
       ; behavior by being unpredictable in the granularity of failure.
       (if (match-chain? result)
-        (let-values (((st svs result) (match-chain-try '() st result #f #f)))
+        (let-values (((st svs result) (match-chain-try st result #f #f)))
           (if (match-chain? result)
             (let-values (((st rhs) (if parity
                                      (let/vars (notf)
@@ -805,10 +804,9 @@
   (lambda (parity st penv v)
     (if parity
       (let-values (((st svs result)
-                    (match-chain-try
-                      penv st (match-chain v (cons '() clause*)) #f #t)))
+                    (match-chain-try st (mc-new penv '() v clause*) #f #t)))
         (if (match-chain? result)
-          (values (match-chain-suspend st penv #f result svs #t) penv svs)
+          (values (match-chain-suspend st #f result svs #t) penv svs)
           (values st penv '())))
       (pattern-exec-and na1 na2 st penv v))))
 
@@ -899,29 +897,35 @@
     ((? symbol? vname) (denote-pattern-var penv vname penv))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
 
-(defrec match-chain scrutinee clauses)
+(defrec match-chain scrutinee penv env clauses)
+(define (mc-new penv0 env scrutinee clauses)
+  (match-chain scrutinee penv0 env clauses))
+(define mc-scrutinee match-chain-scrutinee)
+(define mc-penv match-chain-penv)
+(define mc-env match-chain-env)
+(define mc-clauses match-chain-clauses)
 
 (define (actual-value st result rhs? rhs)
   (if (match-chain? result)
-    (let-values (((st svs result) (match-chain-try '() st result rhs? rhs)))
+    (let-values (((st svs result) (match-chain-try st result rhs? rhs)))
       (if (match-chain? result)
         (let ((rhs (if rhs? rhs (let/vars (rhs) rhs))))
-          (values (match-chain-suspend st '() #f result svs rhs) rhs))
+          (values (match-chain-suspend st #f result svs rhs) rhs))
         (values st result)))
     (values (if rhs? (and st (unify st result rhs)) st) result)))
 
-(define (match-chain-suspend st penv0 goal-ref mc svs rhs)
+(define (match-chain-suspend st goal-ref mc svs rhs)
   (let* ((rhs (walk1 st rhs))
          (goal-ref (or goal-ref (goal-ref-new)))
          (retry (lambda (st)
                   (let ((rhs (walk1 st rhs)))
                     (let-values (((st svs result)
-                                (match-chain-try penv0 st mc #t rhs)))
+                                (match-chain-try st mc #t rhs)))
                       (if (match-chain? result)
-                        (match-chain-suspend st penv0 goal-ref result svs rhs)
+                        (match-chain-suspend st goal-ref result svs rhs)
                         (and st (state-remove-goal st goal-ref)))))))
          (guess (lambda (st)
-                  (match-chain-guess goal-ref penv0 st mc (walk1 st rhs))))
+                  (match-chain-guess goal-ref st mc (walk1 st rhs))))
          (goal (goal-suspended #f rhs svs retry guess)))
     (state-suspend* st svs (if (var? rhs) (list rhs) '()) goal-ref goal)))
 
@@ -929,25 +933,23 @@
   (lambda (penv env st drhs)
     (let-values (((st result) ((drhs (append penv env)) st)))
       (if (match-chain? result)
-        (match-chain-try '() st result rhs? rhs)
+        (match-chain-try st result rhs? rhs)
         (values (if rhs? (and st (unify st result rhs)) st) '() result)))))
 
-(define (match-chain-guess goal-ref penv0 st mc rhs)
-  (define v (walk1 st (match-chain-scrutinee mc)))
-  (define epc* (match-chain-clauses mc))
-  (define env (car epc*))
-  (define pc* (cdr epc*))
+(define (match-chain-guess goal-ref st mc rhs)
+  (define v (walk1 st (mc-scrutinee mc)))
+  (define penv0 (mc-penv mc))
+  (define env (mc-env mc))
+  (define pc* (mc-clauses mc))
   (define run-rhs (rhs->goal #t rhs))
   (define (commit-without next-pc* assert)
     (let-values (((st penv _) (assert #f st penv0 v)))
       (and st
            (let-values (((st svs result)
                          (match-chain-try
-                           penv0 st (match-chain
-                                      v (cons env next-pc*)) #t rhs)))
+                           st (mc-new penv0 env v next-pc*) #t rhs)))
              (let*/and ((st (if (match-chain? result)
-                              (match-chain-suspend
-                                st '() goal-ref result svs rhs)
+                              (match-chain-suspend st goal-ref result svs rhs)
                               (and st (state-remove-goal st goal-ref)))))
                (state-resume st))))))
   (define (commit-with assert drhs)
@@ -955,8 +957,7 @@
                   (assert #t (state-remove-goal st goal-ref) penv0 v)))
       (and st (let-values (((st svs result) (run-rhs penv env st drhs)))
                 (let*/and ((st (if (match-chain? result)
-                                  (match-chain-suspend
-                                    st '() #f result svs rhs)
+                                  (match-chain-suspend st #f result svs rhs)
                                   st)))
                   (state-resume st))))))
   (and (pair? pc*)
@@ -968,13 +969,13 @@
                   (mplus ss (zzz (commit-without next-pc* assert)))
                   ss)))))
 
-(define (match-chain-try penv0 st mc rhs? rhs)
+(define (match-chain-try st mc rhs? rhs)
   (let* ((rhs (if rhs? (walk1 st rhs) rhs))
          (run-rhs (rhs->goal rhs? rhs))
-         (v (match-chain-scrutinee mc))
-         (epc* (match-chain-clauses mc))
-         (env (car epc*))
-         (pc* (cdr epc*)))
+         (v (mc-scrutinee mc))
+         (penv0 (mc-penv mc))
+         (env (mc-env mc))
+         (pc* (mc-clauses mc)))
     (let ((v (walk1 st v)))
       (let loop ((st st) (pc* pc*))
         (if (null? pc*) (values #f #f #f)
@@ -1055,11 +1056,10 @@
                                             (list-append-unique
                                               svs1 (list-append-unique
                                                      nsvs svs))
-                                            (match-chain
-                                              v
-                                              (cons env (cons (car pc*)
-                                                              (rev-append
-                                                                nc* pc*1))))))
+                                            (mc-new
+                                              penv0 env v (cons (car pc*)
+                                                                (rev-append
+                                                                  nc* pc*1)))))
                                   ;; Otherwise, if we have no other clauses
                                   ;; available, then the first clause happens
                                   ;; to be the only option.  Commit to it.
@@ -1081,8 +1081,8 @@
         (let*/state (((st v) (gv st)))
           (if (match-chain? v)
             (let-values (((st v) (actual-value st v #f #f)))
-              (values st (match-chain v (cons env pc*))))
-            (values st (match-chain v (cons env pc*)))))))))
+              (values st (mc-new penv env v pc*)))
+            (values st (mc-new penv env v pc*))))))))
 
 (define (denote-match pt*-all vt senv)
   (let ((dv (denote-term vt senv))
@@ -1116,7 +1116,7 @@
             (lambda (st)
               (let*/state (((st v0) (g0 st))
                            ((st v0) (actual-value st v0 #f #f)))
-                (values st (match-chain v0 (cons env clause*)))))))))))
+                (values st (mc-new '() env v0 clause*))))))))))
 (define or-rhs-var (gensym 'or-rhs-var))
 (define or-rhs-params (list or-rhs-var))
 (define (denote-or t* senv)
@@ -1138,7 +1138,7 @@
             (lambda (st)
               (let*/state (((st v0) (g0 st))
                            ((st v0) (actual-value st v0 #f #f)))
-                (values st (match-chain v0 (cons env clause*)))))))))))
+                (values st (mc-new '() env v0 clause*))))))))))
 
 (define (denote-term term senv)
   (let ((bound? (lambda (sym) (in-env? senv sym))))
