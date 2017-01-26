@@ -1,14 +1,25 @@
 #lang racket/base
 (provide
+  ==
+  =/=
+  absento
+  dk-evalo
+  fail
+  fresh
+  not-numbero
+  not-pairo
+  not-symbolo
+  numbero
+  symbolo
+  run
+  run*
+  succeed
   term?
-  eval-term
-  initial-env
   )
 
 (require
   racket/list
   racket/match
-  racket/set
   )
 
 (module+ test
