@@ -200,6 +200,14 @@
     (run* (q)
       (evalo `'(1 2 ,q 4 5) '(1 2 3 4 5)))
     '((3)))
+  (test "evalo-append-0"
+    (run* (q)
+      (evalo (letrec-append
+               '(list (append '() '())
+                      (append '(foo) '(bar))
+                      (append '(1 2) '(3 4))))
+             q))
+    '(((() (foo bar) (1 2 3 4)))))
   (test "evalo-append-1"
     (run* (q)
       (evalo (letrec-append `(append '(1 2 3) '(4 5))) q))
