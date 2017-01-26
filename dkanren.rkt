@@ -1166,6 +1166,13 @@
                            ((st v0) (actual-value st v0 #f #f)))
                 (values st (mc-new '() env v0 clause*))))))))))
 
+(define (denote-fresh vsyms body senv)
+  (let ((db (denote-term body (extend-env* vsyms vsyms senv))))
+    (lambda (env)
+      (let ((vs (map (lambda (vsym) (var (gensym (symbol->string vsym))))
+                     vsyms)))
+        (db (rev-append vs env))))))
+
 (define (denote-term term senv)
   (let ((bound? (lambda (sym) (in-env? senv sym))))
     (match term
@@ -1198,7 +1205,8 @@
              (lambda (env) (dbody (cons db* env)))))
          (`(and . ,t*) (denote-and t* senv))
          (`(or . ,t*) (denote-or t* senv))
-         (`(match ,scrutinee . ,pt*) (denote-match pt* scrutinee senv)))))))
+         (`(match ,scrutinee . ,pt*) (denote-match pt* scrutinee senv))
+         (`(fresh ,vars ,body) (denote-fresh vars body senv)))))))
 
 (define (in-env? env sym)
   (match env
@@ -1328,6 +1336,7 @@
       (`(and . ,t*) (terms? t* env))
       (`(or . ,t*) (terms? t* env))
       (`(match ,s . ,pt*) (and (term1? s) (match-clauses? pt* env)))
+      (`(fresh ,vars ,body) (term? body (extend-env* vars vars env)))
       (_ #f))))
 
 (define (eval-denoted-term dterm env) (dterm (map cddr env)))
