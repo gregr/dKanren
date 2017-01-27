@@ -1106,7 +1106,7 @@
       (lambda (st)
         (let*/state (((st v) (gv st)))
           (if (match-chain? v)
-            (let-values (((st v) (actual-value st v #f #f)))
+            (let*/state (((st v) (actual-value st v #f #f)))
               (values st (mc-new penv env v pc*)))
             (values st (mc-new penv env v pc*))))))))
 
