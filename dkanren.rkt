@@ -83,6 +83,10 @@
 ;     could be a useful alternative to closure-encoding for 1st order languages
 ;     try for both dkanren (for comparison) and relational interpreter (may improve perf)
 ; possible ways to improve performance
+;   pattern prefix factoring (also affects run* termination)
+;     ideally we'd use full-blown pattern compilation
+;       but hard to preserve programmer's intended(?) clause search priority with nesting changes
+;       in contrast factoring only the final clauses will not affect priorities (since nothing follows them)
 ;   unify2, typify2: gather svs in the same pass as this processing
 ;   avoid generating 'notf' vars, possibly by testing against vattrs directly
 ;   inline portions of commit to reuse computation in match-chain-try
