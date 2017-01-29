@@ -84,11 +84,23 @@
                   (`(1  ()  (,_ . ,_)) (adder 0 '(1) m))
                   (`(,_ (1) (1)      ) (full-adder d 1 1))
                   (`(,_ (1) ,_       ) (gen-adder d n m))
-                  (`(,_ (,_ ,_ . ,_) (1))
-                    (match (adder d '(1) n)
-                      ((and `(,_ ,_ . ,_) r) r)
-                      (_ (gen-adder d n m))))
-                  (`(,_ (,_ ,_ . ,_) ,_) (gen-adder d n m)))))
+                  ;; TODO: ideally, this could be written as two separate
+                  ;; patterns without sacrificing performance.  See the
+                  ;; commented clauses.
+                  (`(,_ (,_ ,_ . ,_) ,_)
+                    (match m
+                      ('(1)
+                       (match (adder d '(1) n)
+                         ((and `(,_ ,_ . ,_) r) r)))
+                      (`(,_ ,_ . ,_) (gen-adder d n m))))
+                  ;; TODO: ideally, these two clauses, which share a common
+                  ;; pattern prefix, would allow the prefix to be learned when
+                  ;; these were the only two clauses remaining.
+                  ;(`(,_ (,_ ,_ . ,_) (1))
+                    ;(match (adder d '(1) n)
+                      ;((and `(,_ ,_ . ,_) r) r)))
+                  ;(`(,_ (,_ ,_ . ,_) (,_ ,_ . ,_)) (gen-adder d n m))
+                  )))
             (gen-adder
               (lambda (d n m)
                 (match `(,n ,m)
