@@ -42,6 +42,18 @@
         (begin
           (displayln test-name)
           (time (mk-test-cont test-name #t query expected))))))
+
+  (require racket/pretty)
+  (define-syntax test
+    (syntax-rules ()
+     ((_ name expr expected)
+      (let ((actual expr))
+        (when (not (equal? actual expected))
+          (display name)
+          (newline)
+          (pretty-print actual)
+          (newline))
+        (check-equal? actual expected)))))
   )
 
 (define build-num
@@ -140,14 +152,23 @@
 
 (module+ test
   (mk-test "test 1"
-    (run 1 (q) (dk-evalo (arith `(plus ',(build-num 2) ',(build-num 3))) q))
+    (run* (q) (dk-evalo (arith `(plus ',(build-num 2) ',(build-num 3))) q))
     '(((1 0 1))))
 
   (mk-test "test 2"
-    (run 1 (q) (dk-evalo (arith `(* ',(build-num 2) ',(build-num 3))) q))
+    (run* (q) (dk-evalo (arith `(* ',(build-num 2) ',(build-num 3))) q))
     '(((0 1 1))))
 
   (mk-test "test 3"
     (run* (n m) (dk-evalo (arith `(* ',n ',m)) (build-num 6)))
     '(((1) (0 1 1)) ((0 1 1) (1)) ((0 1) (1 1)) ((1 1) (0 1))))
+
+  (mk-test-subsumed "sums"
+    (run 12 (x y z) (dk-evalo (arith `(plus ',x ',y)) z))
+    '((_.0 () _.0)
+      (() (_.0 . _.1) (_.0 . _.1))
+      ((1) (1) (0 1))
+      ((1) (0 _.0 . _.1) (1 _.0 . _.1))
+      ((1) (1 1) (0 0 1))
+      ((0 1) (0 1) (0 0 1))))
   )
