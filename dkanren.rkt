@@ -836,7 +836,7 @@
                     (match-chain-try st (mc-new penv '() v clause*) #f #t)))
         (if (match-chain? result)
           (values (match-chain-suspend st #f result svs #t) penv svs)
-          (values st penv '())))
+          (values st penv svs)))
       (pattern-exec-and na1 na2 st penv v))))
 
 (define (denote-pattern-succeed env) pattern-assert-any)
@@ -959,11 +959,11 @@
     (state-suspend* st svs (if (var? rhs) (list rhs) '()) goal-ref goal)))
 
 (define (rhs->goal rhs? rhs)
-  (lambda (penv env st drhs)
+  (lambda (svs penv env st drhs)
     (let-values (((st result) ((drhs (append penv env)) st)))
       (if (match-chain? result)
         (match-chain-try st result rhs? rhs)
-        (values (if rhs? (and st (unify st result rhs)) st) '() result)))))
+        (values (if rhs? (and st (unify st result rhs)) st) svs result)))))
 
 (define (match-chain-guess goal-ref st mc rhs)
   (define v (walk1 st (mc-scrutinee mc)))
@@ -982,9 +982,9 @@
                               (and st (state-remove-goal st goal-ref)))))
                (state-resume st))))))
   (define (commit-with assert drhs)
-    (let-values (((st penv _)
+    (let-values (((st penv svs)
                   (assert #t (state-remove-goal st goal-ref) penv0 v)))
-      (and st (let-values (((st svs result) (run-rhs penv env st drhs)))
+      (and st (let-values (((st svs result) (run-rhs svs penv env st drhs)))
                 (let*/and ((st (if (match-chain? result)
                                   (match-chain-suspend st #f result svs rhs)
                                   st)))
@@ -1012,8 +1012,8 @@
                  (drhs (cadar pc*))
                  (drhspat (cddar pc*))
                  (commit (lambda ()
-                           (let-values (((st penv _) (assert #t st penv0 v)))
-                             (if st (run-rhs penv env st drhs)
+                           (let-values (((st penv svs) (assert #t st penv0 v)))
+                             (if st (run-rhs svs penv env st drhs)
                                (values #f #f #f))))))
             ;; If we only have a single option, commit to it.
             (if (null? (cdr pc*)) (commit)
@@ -1023,7 +1023,7 @@
                   ;; If no vars were scrutinized (svs) while checking
                   ;; satisfiability, then we have an irrefutable match, so
                   ;; commit to it.
-                  (if (null? svs) (run-rhs penv1 env st1 drhs)
+                  (if (null? svs) (run-rhs svs penv1 env st1 drhs)
                     ;; If vars were scrutinized, there is room for doubt.
                     ;; Check whether the negated pattern is satisfiable.
                     (let-values (((nst _ nsvs) (assert #f st penv0 v)))
