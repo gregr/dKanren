@@ -2,6 +2,8 @@
 (provide
   arith
   build-num
+  pluso
+  *o
   )
 
 (require
@@ -287,36 +289,30 @@
             )
      ,body))
 
+(define (pluso a b c) (dk-evalo (arith `(plus ',a ',b)) c))
+(define (*o a b c) (dk-evalo (arith `(* ',a ',b)) c))
+
 (module+ test
   (mk-test "test 1"
-    (run* (q) (dk-evalo (arith `(plus ',(build-num 2) ',(build-num 3))) q))
+    (run* (q) (pluso (build-num 2) (build-num 3) q) )
     '(((1 0 1))))
 
   (mk-test "test 2"
-    (run* (q) (dk-evalo (arith `(* ',(build-num 2) ',(build-num 3))) q))
+    (run* (q) (*o (build-num 2) (build-num 3) q))
     '(((0 1 1))))
 
   (mk-test "test 3"
-    (run* (n m) (dk-evalo (arith `(* ',n ',m)) (build-num 6)))
+    (run* (n m) (*o n m (build-num 6)))
     '(((1) (0 1 1)) ((0 1 1) (1)) ((0 1) (1 1)) ((1 1) (0 1))))
 
   (mk-test-subsumed "sums"
-    (run 12 (x y z) (dk-evalo (arith `(plus ',x ',y)) z))
+    (run 12 (x y z) (pluso x y z))
     '((_.0 () _.0)
       (() (_.0 . _.1) (_.0 . _.1))
       ((1) (1) (0 1))
       ((1) (0 _.0 . _.1) (1 _.0 . _.1))
       ((1) (1 1) (0 0 1))
       ((0 1) (0 1) (0 0 1))))
-
-  ;(mk-test-subsumed "sums"
-    ;(run 17 (x y z) (pluso x y z))
-    ;'(((_.0 () _.0))
-      ;((() (_.0 . _.1) (_.0 . _.1)))
-      ;(((1) (1) (0 1)))
-      ;(((1) (0 _.0 . _.1) (1 _.0 . _.1)))
-      ;(((1) (1 1) (0 0 1)))
-      ;(((0 1) (0 1) (0 0 1)))))
 
   ;(mk-test "factors"
     ;(run* (q)
