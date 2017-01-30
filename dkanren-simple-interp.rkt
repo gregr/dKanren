@@ -19,6 +19,13 @@
           (pretty-print actual)
           (newline))
         (check-equal? actual expected)))))
+
+  (define-syntax test-time
+    (syntax-rules ()
+      ((_ test-name query expected)
+        (begin
+          (displayln test-name)
+          (time (test test-name query expected))))))
   )
 
 (define closure-tag (gensym "#%closure"))
@@ -91,4 +98,22 @@
   (test "application-2"
     (run* (q) (evalo '(((lambda (x) (lambda (y) x)) '1) '2) q))
     '((1)))
+
+  (test-time "quine parts"
+    (run 1 (q) (evalo
+                 `((lambda (x) (list x ,q))
+                   (quote
+                     (lambda (x) (list x ,q))))
+                 `((lambda (x) (list x ,q))
+                   (quote
+                     (lambda (x) (list x ,q))))))
+    '(((list (quote quote) x))))
+
+  (test-time "quine more parts"
+    (run 1 (q) (evalo
+                 `((lambda (x) ,q)
+                   (quote (lambda (x) ,q)))
+                 `((lambda (x) ,q)
+                   (quote (lambda (x) ,q)))))
+    '(((list x (list (quote quote) x)))))
   )
