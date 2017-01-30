@@ -616,11 +616,21 @@
 (define (denote-lambda params body senv)
   (match params
     ((and (not (? symbol?)) params)
-     (let ((body (denote-term body (extend-env* params params senv))))
-       (lambda (env) (goal-value (lambda args (body (rev-append args env)))))))
+     (let ((dbody (denote-term body (extend-env* params params senv)))
+           (nparams (length params)))
+       (lambda (env)
+         (goal-value
+           (lambda args
+             (let ((nargs (length args)))
+               (when (not (= nparams nargs))
+                 (error
+                   (format
+                     "expected ~a args, given ~a; params=~v, body=~v, args=~v"
+                     nparams nargs params body args))))
+             (dbody (rev-append args env)))))))
     (sym
-      (let ((body (denote-term body `((val . (,sym . ,sym)) . senv))))
-        (lambda (env) (goal-value (lambda args (body (cons args env)))))))))
+      (let ((dbody (denote-term body `((val . (,sym . ,sym)) . senv))))
+        (lambda (env) (goal-value (lambda args (dbody (cons args env)))))))))
 (define (denote-variable sym senv)
   (let loop ((idx 0) (senv senv))
     (match senv
