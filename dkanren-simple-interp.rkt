@@ -43,7 +43,7 @@
                 (match (eval op env)
                   (`(,(? ct?) ,x ,body ,env^)
                     (eval body `((,x . ,(eval rand env)) . ,env^)))))
-              (`(lambda (,(and x (symbol))) ,body)
+              (`(lambda (,(symbol x)) ,body)
                 (list ',closure-tag x body env))))))
 
       (in-env? (lambda (x env)
@@ -63,11 +63,10 @@
 
       (quotable?
         (lambda (datum)
-          (if (ct? datum)
-            #f
-            (if (pair? datum)
-              (and (quotable? (car datum)) (quotable? (cdr datum)))
-              #t))))
+          (match datum
+            (',closure-tag #f)
+            (`(,a . ,d) (and (quotable? a) (quotable? d)))
+            (_ #t))))
 
       (proper-list
         (lambda (expr env)
