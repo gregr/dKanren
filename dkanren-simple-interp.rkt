@@ -71,11 +71,32 @@
       (proper-list
         (lambda (expr env)
           (match expr
-            ('() '())
+            ;; TODO: ultimately, this clause should be: ('() '())
+            ;; Until quotas are enforced, we obfuscate the rhs to prevent
+            ;; unbounded deterministic elimination of this clause.
+            ('() (car (list '())))
             (`(,a . ,d) `(,(eval a env) . ,(proper-list d env)))))))
      ,body))
 
 (define (evalo expr result) (dk-evalo (si `(eval ',expr '())) result))
+
+(define quinec
+  '((lambda (_.0)
+      (list _.0 (list (quote quote) _.0)))
+    (quote
+      (lambda (_.0)
+        (list _.0 (list (quote quote) _.0))))))
+
+(define twine1
+  '((lambda (_.0) (list 'quote (list _.0 (list 'quote _.0))))
+    '(lambda (_.0) (list 'quote (list _.0 (list 'quote _.0))))))
+(define twine0 (list 'quote twine1))
+
+(define thrine2
+  '((lambda (_.0) (list 'quote (list 'quote (list _.0 (list 'quote _.0)))))
+    '(lambda (_.0) (list 'quote (list 'quote (list _.0 (list 'quote _.0)))))))
+(define thrine1 (list 'quote thrine2))
+(define thrine0 (list 'quote thrine1))
 
 (module+ test
   (test "quote"
@@ -115,4 +136,20 @@
                  `((lambda (x) ,q)
                    (quote (lambda (x) ,q)))))
     '(((list x (list (quote quote) x)))))
+
+  ;; TODO: reify constraints on _.0
+
+  (test-time "quine full"
+    (run 1 (q) (evalo q q))
+    `((,quinec)))
+
+  (test-time "twine"
+    (run 1 (p q) (=/= p q) (evalo p q) (evalo q p))
+    `((,twine0 ,twine1)))
+
+  ;; TODO: haven't seen this finish yet.
+  ;(test-time "thrine"
+    ;(run 1 (p q r) (=/= p q) (=/= q r) (=/= r p)
+      ;(evalo p q) (evalo q r) (evalo r p))
+    ;`((,thrine0 ,thrine1 ,thrine2)))
   )
