@@ -28,7 +28,6 @@
     ))
 
 ; TODO:
-; bind to resumption outside of 'guess' thunks to reward progress, giving higher scheduling priority
 ; improve demand-based guessing schedule
 ;   push root goals onto nondet immediately, but defer dependency pulling
 ;     any mc given a rhs (variables and values alike; just rhs?=(not #f)) by actual-value is a root?
@@ -355,10 +354,12 @@
                   (loop
                     (cons deps (cons (cons goal goals1) nondet))
                     (vattrs-set vs blocker (vattr-dependencies-clear va))))))
-            ((goal-suspended-guess gsusp)
-             (state vs
-                    sgoals
-                    (schedule det det-def (cons (cons goal goals1) nondet)))))
+            (bind ((goal-suspended-guess gsusp)
+                   (state vs
+                          sgoals
+                          (schedule
+                            det det-def (cons (cons goal goals1) nondet))))
+                  state-resume))
           (loop1 goals1))
         (loop nondet vs))
       ; TODO: also force remaining unnamed goals from vattrs
@@ -1021,18 +1022,16 @@
            (let-values (((st svs result)
                          (match-chain-try
                            st (mc-new penv0 env v next-pc*) #t rhs)))
-             (let*/and ((st (if (match-chain? result)
-                              (match-chain-suspend st goal-ref result svs rhs)
-                              (and st (state-remove-goal st goal-ref)))))
-               (state-resume st))))))
+             (if (match-chain? result)
+               (match-chain-suspend st goal-ref result svs rhs)
+               (and st (state-remove-goal st goal-ref)))))))
   (define (commit-with assert drhs)
     (let-values (((st penv svs)
                   (assert #t (state-remove-goal st goal-ref) penv0 v)))
       (and st (let-values (((st svs result) (run-rhs svs penv env st drhs)))
-                (let*/and ((st (if (match-chain? result)
-                                  (match-chain-suspend st #f result svs rhs)
-                                  st)))
-                  (state-resume st))))))
+                (if (match-chain? result)
+                  (match-chain-suspend st #f result svs rhs)
+                  st)))))
   (and (pair? pc*)
        (zzz (let* ((next-pc* (cdr pc*))
                    (assert ((caar pc*) env))
