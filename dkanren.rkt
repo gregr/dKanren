@@ -28,7 +28,6 @@
     ))
 
 ; TODO:
-; restore mplus-compatible bind
 ; bind to resumption outside of 'guess' thunks to reward progress, giving higher scheduling priority
 ; improve demand-based guessing schedule
 ;   push root goals onto nondet immediately, but defer dependency pulling
@@ -570,12 +569,17 @@
       ((? state?) (list ss))
       (`(,result . ,ss) (cons result (take (and n (- n 1)) ss))))))
 
-(define-syntax bind
+(define (bind ss goal)
+  (match ss
+    (#f #f)
+    ((? procedure?) (zzz (bind (ss) goal)))
+    ((? state?) (goal ss))
+    (`(,result . ,zss) (mplus (goal result) (zzz (bind (zss) goal))))))
+
+(define-syntax bind*
   (syntax-rules ()
-    ((_) succeed)
-    ((_ goal) goal)
-    ((_ goal0 goal ...)
-     (lambda (st) (let*/and ((st (goal0 st))) ((bind goal ...) st))))))
+    ((_ e) e)
+    ((_ e goal0 goal ...) (bind* (bind e goal0) goal ...))))
 
 (define-syntax let/vars
   (syntax-rules ()
@@ -584,7 +588,8 @@
 
 (define-syntax fresh
   (syntax-rules ()
-    ((_ (vname ...) goal ...) (let/vars (vname ...) (bind goal ...)))))
+    ((_ (vname ...) goal ...)
+     (let/vars (vname ...) (lambda (st) (bind* st goal ...))))))
 
 (define (reify-var ix) (string->symbol (string-append "_." (number->string ix))))
 (define (reify tm)
