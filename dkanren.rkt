@@ -28,11 +28,36 @@
     ))
 
 ; TODO:
+; restore mplus-compatible bind
+; bind to resumption outside of 'guess' thunks to reward progress, giving higher scheduling priority
+; improve demand-based guessing schedule
+;   push root goals onto nondet immediately, but defer dependency pulling
+;     any mc given a rhs (variables and values alike; just rhs?=(not #f)) by actual-value is a root?
+;       unless explicitly suppressed by tag (as will be used by constraints)
+;         may want a second tier of goals whose demand is suppressed, but whose rhs values are known
+;           since these should still be guessed before those whose rhs values are not known
+;       unification has to propagate this optional demand
+;         allowing scrutinees and elements of pairs to inherit it
+;   to start guessing
+;     pull top dependencies
+;     pop top nondet goal
+;     stash remaining nondet goals in continuation (we'll bind to this)
+;     clear nondet list and start guessing with popped goal, resuming normal operation
+;   once there's nothing left to do in this immediate state, return it to the bound continuation
+; quotas on deterministic computation
+;   need to CPS the deterministic analysis to allow preemption; another monad-plus DSL variation?
+;     gv: st -> (st, mc|value)
+;     pa: (st, penv, v) -> (st, penv, svs)
+;     mc-try: (st, mc, rhs?/rhs) -> (st, svs, mc|value)
+;     (values ...) becomes explicit arg passing; no bind glue should be necessary (except syntax)
+;     thunks returned at boundaries expecting singleton state
+;     if this is too painful, could fall back on shift/reset
+;   match-chain-try can loop directly via rhs->goal, or indirectly via match-chain-suspend+state-resume-det1 (actual-value, etc.)
+;   it may best to have some forms of determinism cost more of quota, to punish their use
+;     i.e., rhs pattern matching, which can lead to infinite looping
 ; tag some match expressions (such as in constraints) to lower guessing priority
 ;   these really should be satisfied last, used mostly deterministically for constraint enforcement
 ; list-subtract
-; state-resume-det
-;   det-deferred pausing must cooperate with nondeterministic search
 ; pattern assertions may resume deterministic suspensions to more precisely verify satisfiability
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
 ; unlike normal mk, all vars in =/=* should be tracked for earliest access to determinism
