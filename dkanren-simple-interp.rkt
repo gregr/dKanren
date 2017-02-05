@@ -145,7 +145,7 @@
 
   (test-time "twine"
     (run 1 (p q) (=/= p q) (evalo p q) (evalo q p))
-    `((,twine1 ,twine0)))
+    `((,twine0 ,twine1)))
 
   ;; TODO: haven't seen this finish yet.
   ;(test-time "thrine"

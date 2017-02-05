@@ -61,8 +61,6 @@
 ; unlike normal mk, all vars in =/=* should be tracked for earliest access to determinism
 ;   these constraints can shrink domains, which may trigger new unifications, and so on
 ; cost-based nondeterminism and quota-based determinism
-;   det-deferred quotas
-;     match-chain-try checks quota and adds to det-deferred if necessary
 ;   bind, mplus w/ costs
 ;     dfs, ws, quota/cost?
 ;     cost must be able to express size-incrementing search
@@ -266,26 +264,19 @@
 
 (define (goal-block-cons block blocks)
   (if (null? block) blocks (cons block blocks)))
-(defrec schedule det det-deferred nondet)
-(define schedule-empty (schedule '() '() '()))
+(defrec schedule det nondet)
+(define schedule-empty (schedule '() '()))
 (define (schedule-add-det sch det)
   (schedule (goal-block-cons det (schedule-det sch))
-            (schedule-det-deferred sch)
             (schedule-nondet sch)))
 (define (schedule-add-nondet sch nondet)
   (schedule (schedule-det sch)
-            (schedule-det-deferred sch)
             (goal-block-cons nondet (schedule-nondet sch))))
 (define (schedule-add sch det nondet)
   (schedule (goal-block-cons det (schedule-det sch))
-            (schedule-det-deferred sch)
             (goal-block-cons nondet (schedule-nondet sch))))
-(define (schedule-defer sch goal)
-  (schedule (schedule-det sch)
-            (cons goal (schedule-det-deferred sch))
-            (schedule-nondet sch)))
 (define (schedule-clear-det sch)
-  (schedule '() (schedule-det-deferred sch) (schedule-nondet sch)))
+  (schedule '() (schedule-nondet sch)))
 
 (defrec state vs goals schedule)
 (define state-empty (state store-empty store-empty schedule-empty))
@@ -342,7 +333,6 @@
   (let* ((sgoals (state-goals st))
          (sch (state-schedule st))
          (det (schedule-det sch))
-         (det-def (schedule-det-deferred sch))
          (nondet (schedule-nondet sch)))
     (let/list loop ((goals nondet nondet) (vs (state-vs st)))
       (let/list loop1 ((goal goals1 goals))
@@ -357,15 +347,14 @@
             (bind ((goal-suspended-guess gsusp)
                    (state vs
                           sgoals
-                          (schedule
-                            det det-def (cons (cons goal goals1) nondet))))
+                          (schedule det (cons (cons goal goals1) nondet))))
                   state-resume))
           (loop1 goals1))
         (loop nondet vs))
       ; TODO: also force remaining unnamed goals from vattrs
       (let/if (goal-ref (store-key-top sgoals))
         (loop (list (list goal-ref)) vs)
-         (state vs sgoals (schedule det det-def '()))))))
+         (state vs sgoals (schedule det '()))))))
 (define (state-resume st) (let*/and ((st (state-resume-det1 st)))
                             (state-resume-nondet1 st)))
 
