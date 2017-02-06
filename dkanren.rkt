@@ -317,8 +317,7 @@
   (state (state-vs st) (state-goals st) schedule-empty))
 
 (define (state-resume-det1 st)
-  (let* ((sch (state-schedule st))
-         (det (schedule-det sch))
+  (let* ((det (schedule-det (state-schedule st)))
          (st (state-schedule-clear-det st)))
     (let/list loop ((goals det det) (st st))
       (let/list loop1 ((goal goals goals) (st st))
@@ -331,9 +330,7 @@
       st)))
 (define (state-resume-nondet1 st)
   (let* ((sgoals (state-goals st))
-         (sch (state-schedule st))
-         (det (schedule-det sch))
-         (nondet (schedule-nondet sch)))
+         (nondet (schedule-nondet (state-schedule st))))
     (let/list loop ((goals nondet nondet) (vs (state-vs st)))
       (let/list loop1 ((goal goals1 goals))
         (let/if (gsusp (store-ref sgoals goal #f))
@@ -347,16 +344,24 @@
             (bind ((goal-suspended-guess gsusp)
                    (state vs
                           sgoals
-                          (schedule det (cons (cons goal goals1) nondet))))
-                  state-resume))
+                          (schedule '() (cons (cons goal goals1) nondet))))
+                  state-resume-pending))
           (loop1 goals1))
         (loop nondet vs))
-      ; TODO: also force remaining unnamed goals from vattrs
-      (let/if (goal-ref (store-key-top sgoals))
-        (loop (list (list goal-ref)) vs)
-         (state vs sgoals (schedule det '()))))))
-(define (state-resume st) (let*/and ((st (state-resume-det1 st)))
-                            (state-resume-nondet1 st)))
+      (state vs sgoals schedule-empty))))
+(define (state-resume-pending st)
+  (bind (state-resume-det1 st) state-resume-nondet1))
+(define (state-resume-remaining st)
+  (let ((sgoals (state-goals st)))
+    ; TODO: also force remaining unnamed goals from vattrs
+    (let/if (goal-ref (store-key-top sgoals))
+      (bind* (state-resume-nondet1
+               (state
+                 (state-vs st) sgoals (schedule '() (list (list goal-ref)))))
+             state-resume-remaining)
+      st)))
+(define (state-resume st)
+  (bind (state-resume-pending st) state-resume-remaining))
 
 (define (state-var-type-== st vr va type)
   (and (domain-has-type? (vattr-domain va) type)
