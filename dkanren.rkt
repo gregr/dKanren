@@ -313,8 +313,8 @@
 (define (state-schedule-clear-det st)
   (state (state-vs st) (state-goals st) (schedule-clear-det
                                           (state-schedule st))))
-(define (state-schedule-clear st)
-  (state (state-vs st) (state-goals st) schedule-empty))
+(define (state-schedule-set st sch) (state (state-vs st) (state-goals st) sch))
+(define (state-schedule-clear st) (state-schedule-set schedule-empty))
 
 (define (state-resume-det1 st)
   (let* ((det (schedule-det (state-schedule st)))
@@ -341,25 +341,25 @@
                   (loop
                     (cons deps (cons (cons goal goals1) nondet))
                     (vattrs-set vs blocker (vattr-dependencies-clear va))))))
-            (bind ((goal-suspended-guess gsusp)
-                   (state vs
-                          sgoals
-                          (schedule '() (cons (cons goal goals1) nondet))))
-                  state-resume-pending))
+            (let ((sch-next (schedule '() (cons (cons goal goals1) nondet))))
+              (bind
+                (bind ((goal-suspended-guess gsusp)
+                       (state vs sgoals schedule-empty))
+                      state-resume-pending)
+                (lambda (st)
+                  (state-resume-nondet1 (state-schedule-set st sch-next))))))
           (loop1 goals1))
         (loop nondet vs))
       (state vs sgoals schedule-empty))))
 (define (state-resume-pending st)
   (bind (state-resume-det1 st) state-resume-nondet1))
 (define (state-resume-remaining st)
-  (let ((sgoals (state-goals st)))
-    ; TODO: also force remaining unnamed goals from vattrs
-    (let/if (goal-ref (store-key-top sgoals))
-      (bind* (state-resume-nondet1
-               (state
-                 (state-vs st) sgoals (schedule '() (list (list goal-ref)))))
-             state-resume-remaining)
-      st)))
+  ; TODO: also force remaining unnamed goals from vattrs
+  (let/if (goal-ref (store-key-top (state-goals st)))
+    (bind* (state-resume-nondet1
+             (state-schedule-set st (schedule '() (list (list goal-ref)))))
+           state-resume-remaining)
+    st))
 (define (state-resume st)
   (bind (state-resume-pending st) state-resume-remaining))
 

@@ -147,9 +147,8 @@
     (run 1 (p q) (=/= p q) (evalo p q) (evalo q p))
     `((,twine0 ,twine1)))
 
-  ;; TODO: haven't seen this finish yet.
-  ;(test-time "thrine"
-    ;(run 1 (p q r) (=/= p q) (=/= q r) (=/= r p)
-      ;(evalo p q) (evalo q r) (evalo r p))
-    ;`((,thrine0 ,thrine1 ,thrine2)))
+  (test-time "thrine"
+    (run 1 (p q r) (=/= p q) (=/= q r) (=/= r p)
+      (evalo p q) (evalo q r) (evalo r p))
+    `((,thrine0 ,thrine1 ,thrine2)))
   )
