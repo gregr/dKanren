@@ -250,7 +250,7 @@
            (append (vattr-dependencies va1)
                    (vattr-dependencies va2)))))
 
-(defrec goal-suspended tag result blockers retry guess)
+(defrec goal-suspended tag result blockers retry guess active?)
 (define (goal-ref-new) (gensym))
 (define (goal-retry goals goal)
   (if (procedure? goal) goal
@@ -287,18 +287,18 @@
               (vattr-associate va goal)
               (vattr-depend va goal)))))
 (define (state-suspend* st var-forwards var-backwards goal-ref goal)
+  (define (update vattr-add vs vrs)
+    (foldl (lambda (vr vs)
+             (vattrs-set vs vr (vattr-add (vattrs-get vs vr) goal-ref)))
+           vs vrs))
   (let* ((goals (store-set (state-goals st) goal-ref goal))
          (vs (state-vs st))
-         (vs (foldl (lambda (vr vs)
-                      (vattrs-set vs vr (vattr-associate
-                                          (vattrs-get vs vr) goal-ref)))
-                    vs var-forwards))
-         (vs (foldl (lambda (vr vs)
-                      (vattrs-set vs vr (vattr-depend
-                                          (vattrs-get vs vr) goal-ref)))
-                    vs var-backwards)))
+         (vs (update vattr-associate vs var-forwards) )
+         (active? (and (goal-suspended? goal) (goal-suspended-active? goal)))
+         (vs (update
+               (if active? vattr-depend vattr-associate) vs var-backwards)))
     (state vs goals (let ((sch (state-schedule st)))
-                      (if (null? var-backwards)
+                      (if (and (null? var-backwards) active?)
                         (schedule-add-nondet sch (list goal-ref))
                         sch)))))
 (define (state-remove-goal st goal)
@@ -867,7 +867,7 @@
   (lambda (parity st penv v)
     (if parity
       (let-values (((st svs result)
-                    (match-chain-try st (mc-new penv '() v clause*) #f #t)))
+                    (match-chain-try st (mc-new penv '() v clause* #t) #f #t)))
         (if (match-chain? result)
           (values (match-chain-suspend st #f result svs #t) penv svs)
           (values st penv svs)))
@@ -960,9 +960,9 @@
     ((? symbol? vname) (denote-pattern-var penv vname penv))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
 
-(defrec match-chain scrutinee penv env clauses)
-(define (mc-new penv0 env scrutinee clauses)
-  (match-chain scrutinee penv0 env clauses))
+(defrec match-chain scrutinee penv env clauses active?)
+(define (mc-new penv0 env scrutinee clauses active?)
+  (match-chain scrutinee penv0 env clauses active?))
 (define mc-scrutinee match-chain-scrutinee)
 (define mc-penv match-chain-penv)
 (define mc-env match-chain-env)
@@ -989,7 +989,8 @@
                         (and st (state-remove-goal st goal-ref)))))))
          (guess (lambda (st)
                   (match-chain-guess goal-ref st mc (walk1 st rhs))))
-         (goal (goal-suspended #f rhs svs retry guess)))
+         (goal (goal-suspended
+                 #f rhs svs retry guess (match-chain-active? mc))))
     (state-suspend* st svs (if (var? rhs) (list rhs) '()) goal-ref goal)))
 
 (define (rhs->goal rhs? rhs)
@@ -1010,7 +1011,7 @@
       (and st
            (let-values (((st svs result)
                          (match-chain-try
-                           st (mc-new penv0 env v next-pc*) #t rhs)))
+                           st (mc-new penv0 env v next-pc* #t) #t rhs)))
              (if (match-chain? result)
                (match-chain-suspend st goal-ref result svs rhs)
                (and st (state-remove-goal st goal-ref)))))))
@@ -1120,7 +1121,8 @@
                                             (mc-new
                                               penv0 env v (cons (car pc*)
                                                                 (rev-append
-                                                                  nc* pc*1)))))
+                                                                  nc* pc*1))
+                                              #t)))
                                   ;; Otherwise, if we have no other clauses
                                   ;; available, then the first clause happens
                                   ;; to be the only option.  Commit to it.
@@ -1141,7 +1143,7 @@
       (lambda (st)
         (let*/state (((st v) (gv st))
                      ((st v) (actual-value st v #f #f)))
-          (values st (mc-new penv env v pc*)))))))
+          (values st (mc-new penv env v pc* #t)))))))
 
 (define (denote-match pt*-all vt senv)
   (let ((dv (denote-term vt senv))
@@ -1175,7 +1177,7 @@
             (lambda (st)
               (let*/state (((st v0) (g0 st))
                            ((st v0) (actual-value st v0 #f #f)))
-                (values st (mc-new '() env v0 clause*))))))))))
+                (values st (mc-new '() env v0 clause* #t))))))))))
 (define or-rhs-var (gensym 'or-rhs-var))
 (define or-rhs-params (list or-rhs-var))
 (define (denote-or t* senv)
@@ -1197,7 +1199,7 @@
             (lambda (st)
               (let*/state (((st v0) (g0 st))
                            ((st v0) (actual-value st v0 #f #f)))
-                (values st (mc-new '() env v0 clause*))))))))))
+                (values st (mc-new '() env v0 clause* #t))))))))))
 
 (define (denote-fresh vsyms body senv)
   (let ((db (denote-term body (extend-env* vsyms vsyms senv))))
