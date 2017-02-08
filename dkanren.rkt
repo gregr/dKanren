@@ -542,7 +542,7 @@
   (dk-evalo
     `(letrec ((absent?
                 (lambda (tm)
-                  (match tm
+                  (match/lazy tm
                     (`(,ta . ,td) (and (absent? ta) (absent? td)))
                     (',atom #f)
                     (_ #t)))))
@@ -874,7 +874,7 @@
   (lambda (parity st penv v)
     (if parity
       (let-values (((st svs result)
-                    (match-chain-try st (mc-new penv '() v clause* #t) #f #t)))
+                    (match-chain-try st (mc-new penv '() v clause* #f) #f #t)))
         (if (match-chain? result)
           (values (match-chain-suspend st #f result svs #t) penv svs)
           (values st penv svs)))

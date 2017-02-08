@@ -26,6 +26,20 @@
         (begin
           (displayln test-name)
           (time (test test-name query expected))))))
+
+  (define-syntax test-any
+    (syntax-rules ()
+     ((_ name expr expecteds)
+      (let* ((actual expr)
+             (found (member actual expecteds))
+             (expected (if (null? found) (car expecteds) (car found))))
+        (test name actual expected)))))
+  (define-syntax test-time-any
+    (syntax-rules ()
+     ((_ name body ...)
+      (begin
+        (displayln name)
+        (time (test-any name body ...))))))
   )
 
 (define closure-tag (gensym "#%closure"))
@@ -47,7 +61,7 @@
                 (list ',closure-tag x body env))))))
 
       (in-env? (lambda (x env)
-                 (match env
+                 (match/lazy env
                    ('() #f)
                    (`((,a . ,_) . ,d)
                      (or (equal? x a) (in-env? x d))))))
@@ -63,7 +77,7 @@
 
       (quotable?
         (lambda (datum)
-          (match datum
+          (match/lazy datum
             (',closure-tag #f)
             (`(,a . ,d) (and (quotable? a) (quotable? d)))
             (_ #t))))
@@ -143,12 +157,15 @@
     (run 1 (q) (evalo q q))
     `((,quinec)))
 
-  (test-time "twine"
+  (test-time-any "twine"
     (run 1 (p q) (=/= p q) (evalo p q) (evalo q p))
-    `((,twine0 ,twine1)))
+    `(((,twine0 ,twine1))
+      ((,twine1 ,twine0))))
 
-  (test-time "thrine"
+  (test-time-any "thrine"
     (run 1 (p q r) (=/= p q) (=/= q r) (=/= r p)
       (evalo p q) (evalo q r) (evalo r p))
-    `((,thrine0 ,thrine1 ,thrine2)))
+    `(((,thrine0 ,thrine1 ,thrine2))
+      ((,thrine2 ,thrine0 ,thrine1))
+      ((,thrine1 ,thrine2 ,thrine0))))
   )

@@ -27,28 +27,28 @@
        (letrec
          ((applicable-tag? (lambda (v) (or (closure-tag? v) (prim-tag? v))))
           (quotable? (lambda (v)
-                       (match v
+                       (match/lazy v
                          ((? symbol?) (not (applicable-tag? v)))
                          (`(,a . ,d) (and (quotable? a) (quotable? d)))
                          (_ #t))))
           (not-in-params? (lambda (ps sym)
-                            (match ps
+                            (match/lazy ps
                               ('() #t)
                               (`(,a . ,d)
                                 (and (not (equal? a sym))
                                      (not-in-params? d sym))))))
           (param-list? (lambda (x)
-                         (match x
+                         (match/lazy x
                            ('() #t)
                            (`(,(? symbol? a) . ,d)
                              (and (param-list? d) (not-in-params? d a)))
                            (_ #f))))
           (params? (lambda (x)
-                     (match x
+                     (match/lazy x
                        ((? param-list?) #t)
                        (x (symbol? x)))))
           (in-env? (lambda (env sym)
-                     (match env
+                     (match/lazy env
                        ('() #f)
                        (`((,a . ,_) . ,d)
                          (or (equal? a sym) (in-env? d sym))))))
@@ -72,11 +72,11 @@
               (letrec
                 ((term1? (lambda (v) (term? v env)))
                  (terms? (lambda (ts env)
-                           (match ts
+                           (match/lazy ts
                              ('() #t)
                              (`(,t . ,ts)
                                (and (term? t env) (terms? ts env)))))))
-                (match term
+                (match/lazy term
                   (#t #t)
                   (#f #t)
                   ((? number?) #t)
@@ -163,11 +163,10 @@
                            . ,env))))))))))
 
          (let ((program ',program))
-           (let ((result (eval-term program initial-env)))
              ;; TODO: this ordering isn't ideal: give constraints a lower
              ;; guessing priority to avoid this ordering hack.
-             (match (term? program initial-env)
-               (#t result))))))))
+             (let ((_ (match/lazy (term? program initial-env) (#t #t))))
+               (eval-term program initial-env)))))))
 
 (define (evalo program result)
   (let ((tm (letrec-eval-term program)))
