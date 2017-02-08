@@ -349,19 +349,22 @@
   (bind (state-resume-det1 st) state-resume-nondet1))
 (define (state-resume-remaining st)
   (define sgoals (state-goals st))
-  (let/list loop ((goal-ref goal-refs (store-keys sgoals)) (inactive '()))
+  (let/list loop ((goal-ref goal-refs (store-keys sgoals))
+                  (active '()) (inactive '()))
     (let ((gsusp (store-ref sgoals goal-ref)))
       (if (goal-suspended-active? gsusp)
-        (bind* (state-resume-nondet1
-                 (state-schedule-set st (schedule '() (list (list goal-ref)))))
-               state-resume-remaining)
-        (loop goal-refs (cons goal-ref inactive))))
-    (if (null? inactive)
+        (loop goal-refs (cons goal-ref active) inactive)
+        (loop goal-refs active (cons goal-ref inactive))))
+    (if (and (null? active) (null? inactive))
       st
       ; TODO: also force remaining unnamed goals from vattrs
-      (bind* (state-resume-nondet1
-               (state-schedule-set st (schedule '() (list inactive))))
-             state-resume-remaining))))
+      (bind (state-resume-nondet1
+              (state-schedule-set st (schedule '() (list active))))
+            (lambda (st)
+              (bind
+                (state-resume-nondet1
+                  (state-schedule-set st (schedule '() (list inactive))))
+                state-resume-remaining))))))
 (define (state-resume st)
   (bind (state-resume-pending st) state-resume-remaining))
 
