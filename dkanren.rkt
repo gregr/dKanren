@@ -28,20 +28,9 @@
     ))
 
 ; TODO:
-; improve demand-based guessing schedule
-;   push root goals onto nondet immediately, but defer dependency pulling
-;     any mc given a rhs (variables and values alike; just rhs?=(not #f)) by actual-value is a root?
-;       unless explicitly suppressed by tag (as will be used by constraints)
-;         may want a second tier of goals whose demand is suppressed, but whose rhs values are known
-;           since these should still be guessed before those whose rhs values are not known
-;       unification has to propagate this optional demand
-;         allowing scrutinees and elements of pairs to inherit it
-;   to start guessing
-;     pull top dependencies
-;     pop top nondet goal
-;     stash remaining nondet goals in continuation (we'll bind to this)
-;     clear nondet list and start guessing with popped goal, resuming normal operation
-;   once there's nothing left to do in this immediate state, return it to the bound continuation
+; tag some match expressions (such as in constraints) to lower guessing priority
+;   these really should be satisfied last, used mostly deterministically for constraint enforcement
+;     pass over them during state-resume-remaining until all normal mcs are guessed
 ; quotas on deterministic computation
 ;   need to CPS the deterministic analysis to allow preemption; another monad-plus DSL variation?
 ;     gv: st -> (st, mc|value)
@@ -53,8 +42,14 @@
 ;   match-chain-try can loop directly via rhs->goal, or indirectly via match-chain-suspend+state-resume-det1 (actual-value, etc.)
 ;   it may best to have some forms of determinism cost more of quota, to punish their use
 ;     i.e., rhs pattern matching, which can lead to infinite looping
-; tag some match expressions (such as in constraints) to lower guessing priority
-;   these really should be satisfied last, used mostly deterministically for constraint enforcement
+; improve demand-based guessing schedule
+;   push root goals onto nondet immediately, but defer dependency pulling
+;     any mc given a rhs (variables and values alike; just rhs?=(not #f)) by actual-value is a root?
+;       unless explicitly suppressed by tag (as will be used by constraints)
+;         may want a second tier of goals whose demand is suppressed, but whose rhs values are known
+;           since these should still be guessed before those whose rhs values are not known
+;       unification has to propagate this optional demand
+;         allowing scrutinees and elements of pairs to inherit it
 ; list-subtract
 ; pattern assertions may resume deterministic suspensions to more precisely verify satisfiability
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
