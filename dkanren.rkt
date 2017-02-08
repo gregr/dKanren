@@ -28,9 +28,6 @@
     ))
 
 ; TODO:
-; tag some match expressions (such as in constraints) to lower guessing priority
-;   these really should be satisfied last, used mostly deterministically for constraint enforcement
-;     pass over them during state-resume-remaining until all normal mcs are guessed
 ; quotas on deterministic computation
 ;   need to CPS the deterministic analysis to allow preemption; another monad-plus DSL variation?
 ;     gv: st -> (st, mc|value)
