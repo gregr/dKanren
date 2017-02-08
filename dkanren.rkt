@@ -1155,7 +1155,7 @@
                      ((st v) (actual-value st v #f #f)))
           (values st (mc-new penv env v pc* active?)))))))
 
-(define (denote-match pt*-all vt senv)
+(define (denote-match pt*-all vt senv active?)
   (let ((dv (denote-term vt senv))
         (pc* (let loop ((pt* pt*-all))
                (match pt*
@@ -1169,7 +1169,7 @@
                             (drhspat (denote-rhs-pattern rhs senv))
                             (pc* (loop clause*)))
                        (cons (cons dpat (cons drhs drhspat)) pc*))))))))
-    (pattern-match '() dv pc* #t)))
+    (pattern-match '() dv pc* active?)))
 
 (define and-rhs (cons denote-false denote-rhs-pattern-false))
 (define (denote-and t* senv)
@@ -1232,7 +1232,7 @@
          (`(quote ,(? quotable? datum)) (denote-value datum))
          (`(quasiquote ,qqterm) (denote-qq qqterm senv))
          (`(if ,condition ,alt-true ,alt-false)
-           (denote-match `((#f ,alt-false) (_ ,alt-true)) condition senv))
+           (denote-match `((#f ,alt-false) (_ ,alt-true)) condition senv #t))
          (`(lambda ,params ,body) (denote-lambda params body senv))
          (`(let ,binding* ,let-body)
            (let-values (((ps vs) (split-bindings binding*)))
@@ -1250,7 +1250,8 @@
              (lambda (env) (dbody (cons db* env)))))
          (`(and . ,t*) (denote-and t* senv))
          (`(or . ,t*) (denote-or t* senv))
-         (`(match ,scrutinee . ,pt*) (denote-match pt* scrutinee senv))
+         (`(match ,scrutinee . ,pt*) (denote-match pt* scrutinee senv #t))
+         (`(match/lazy ,scrutinee . ,pt*) (denote-match pt* scrutinee senv #f))
          (`(fresh ,vars ,body) (denote-fresh vars body senv)))))))
 
 (define (in-env? env sym)
