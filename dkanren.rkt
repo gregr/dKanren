@@ -974,6 +974,7 @@
 (define mc-penv match-chain-penv)
 (define mc-env match-chain-env)
 (define mc-clauses match-chain-clauses)
+(define mc-active? match-chain-active?)
 
 (define (actual-value st result rhs? rhs)
   (if (match-chain? result)
@@ -997,7 +998,7 @@
          (guess (lambda (st)
                   (match-chain-guess goal-ref st mc (walk1 st rhs))))
          (goal (goal-suspended
-                 #f rhs svs retry guess (match-chain-active? mc))))
+                 #f rhs svs retry guess (mc-active? mc))))
     (state-suspend* st svs (if (var? rhs) (list rhs) '()) goal-ref goal)))
 
 (define (rhs->goal rhs? rhs)
@@ -1012,13 +1013,14 @@
   (define penv0 (mc-penv mc))
   (define env (mc-env mc))
   (define pc* (mc-clauses mc))
+  (define active? (mc-active? mc))
   (define run-rhs (rhs->goal #t rhs))
   (define (commit-without next-pc* assert)
     (let-values (((st penv _) (assert #f st penv0 v)))
       (and st
            (let-values (((st svs result)
                          (match-chain-try
-                           st (mc-new penv0 env v next-pc* #t) #t rhs)))
+                           st (mc-new penv0 env v next-pc* active?) #t rhs)))
              (if (match-chain? result)
                (match-chain-suspend st goal-ref result svs rhs)
                (and st (state-remove-goal st goal-ref)))))))
@@ -1044,7 +1046,8 @@
          (v (mc-scrutinee mc))
          (penv0 (mc-penv mc))
          (env (mc-env mc))
-         (pc* (mc-clauses mc)))
+         (pc* (mc-clauses mc))
+         (active? (mc-active? mc)))
     (let ((v (walk1 st v)))
       (let loop ((st st) (pc* pc*))
         (if (null? pc*) (values #f #f #f)
@@ -1129,7 +1132,7 @@
                                               penv0 env v (cons (car pc*)
                                                                 (rev-append
                                                                   nc* pc*1))
-                                              #t)))
+                                              active?)))
                                   ;; Otherwise, if we have no other clauses
                                   ;; available, then the first clause happens
                                   ;; to be the only option.  Commit to it.
@@ -1144,13 +1147,13 @@
                   ;; away and try the next.
                   (loop st (cdr pc*)))))))))))
 
-(define (pattern-match penv dv pc*)
+(define (pattern-match penv dv pc* active?)
   (lambda (env)
     (let ((gv (dv env)))
       (lambda (st)
         (let*/state (((st v) (gv st))
                      ((st v) (actual-value st v #f #f)))
-          (values st (mc-new penv env v pc* #t)))))))
+          (values st (mc-new penv env v pc* active?)))))))
 
 (define (denote-match pt*-all vt senv)
   (let ((dv (denote-term vt senv))
@@ -1166,7 +1169,7 @@
                             (drhspat (denote-rhs-pattern rhs senv))
                             (pc* (loop clause*)))
                        (cons (cons dpat (cons drhs drhspat)) pc*))))))))
-    (pattern-match '() dv pc*)))
+    (pattern-match '() dv pc* #t)))
 
 (define and-rhs (cons denote-false denote-rhs-pattern-false))
 (define (denote-and t* senv)

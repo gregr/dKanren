@@ -150,5 +150,5 @@
   (test-time "thrine"
     (run 1 (p q r) (=/= p q) (=/= q r) (=/= r p)
       (evalo p q) (evalo q r) (evalo r p))
-    `((,thrine1 ,thrine2 ,thrine0)))
+    `((,thrine0 ,thrine1 ,thrine2)))
   )
