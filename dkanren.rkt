@@ -18,6 +18,7 @@
   )
 
 (require
+  racket/control
   racket/list
   racket/match
   )
@@ -307,6 +308,20 @@
 (define (state-schedule-set st sch) (state (state-vs st) (state-goals st) sch))
 (define (state-schedule-clear st) (state-schedule-set schedule-empty))
 
+(define det-quota 100)
+(define det-cost 0)
+(define (det-reset) (set! det-cost 0))
+(define (det-pay cost)
+  (let ((next-cost (+ cost det-cost)))
+    (if (> det-quota next-cost)
+      (set! det-cost next-cost)
+      (begin (set! det-cost 0) (shift k k)))))
+(define-syntax reset-cost
+  (syntax-rules ()
+    ((_ body ...) (let ((result (reset body ...)))
+                    (det-reset)
+                    result))))
+
 (define (state-resume-det1 st)
   (let* ((det (schedule-det (state-schedule st)))
          (st (state-schedule-clear-det st)))
@@ -343,7 +358,7 @@
         (loop nondet vs))
       (state vs sgoals schedule-empty))))
 (define (state-resume-pending st)
-  (bind (state-resume-det1 st) state-resume-nondet1))
+  (bind (reset-cost (state-resume-det1 st)) state-resume-nondet1))
 (define (state-resume-remaining st)
   (define sgoals (state-goals st))
   (let/list loop ((goal-ref goal-refs (store-keys sgoals))
@@ -1035,9 +1050,9 @@
        (zzz (let* ((next-pc* (cdr pc*))
                    (assert ((caar pc*) env))
                    (drhs (cadar pc*))
-                   (ss (commit-with assert drhs)))
+                   (ss (reset-cost (commit-with assert drhs))))
               (if (pair? next-pc*)
-                  (mplus ss (zzz (commit-without next-pc* assert)))
+                  (mplus ss (zzz (reset-cost (commit-without next-pc* assert))))
                   ss)))))
 
 (define (match-chain-try st mc rhs? rhs)
@@ -1393,9 +1408,10 @@
 (define (dk-evalo dk-term expected)
   (let ((dk-goal (eval-term dk-term initial-env)))
     (lambda (st)
-      (let-values (((st result) (dk-goal st)))
-        (and st (let-values (((st _) (actual-value st result #t expected)))
-                  st))))))
+      (reset-cost
+        (let-values (((st result) (dk-goal st)))
+          (and st (let-values (((st _) (actual-value st result #t expected)))
+                    st)))))))
 
 (define (primitive params body)
   (let-values (((st v) (((denote-lambda params body '()) '()) #t)))
@@ -2138,7 +2154,7 @@
        (map (reify var-0)
             (take n (zzz ((fresh (qv ...)
                             (== (list qv ...) var-0) goal ...
-                            state-resume-det1)
+                            (lambda (st) (reset-cost (state-resume-det1 st))))
                           state-empty)))))))
   (define-syntax run*-det
     (syntax-rules () ((_ body ...) (run-det #f body ...))))
