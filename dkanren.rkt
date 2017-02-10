@@ -91,7 +91,6 @@
 ;       in contrast factoring only the final clauses will not affect priorities (since nothing follows them)
 ;   unify2, typify2: gather svs in the same pass as this processing
 ;   avoid generating 'notf' vars, possibly by testing against vattrs directly
-;   inline portions of commit to reuse computation in match-chain-try
 ;   possibly split deterministic pending stack to prioritize by blocker instantiatedness
 ;     e.g., high-pri: blocking var was unified with a value
 ;           lower-pri: some constraints were added to a var
@@ -300,7 +299,7 @@
 (define (state-schedule-set st sch) (state (state-vs st) (state-goals st) sch))
 (define (state-schedule-clear st) (state-schedule-set schedule-empty))
 
-(define det-quota 100)
+(define det-quota 200)
 (define det-cost 0)
 (define (det-reset) (set! det-cost 0))
 (define (det-pay cost)
@@ -1065,102 +1064,98 @@
         (if (null? pc*) (values #f #f #f)
           (let* ((assert ((caar pc*) env))
                  (drhs (cadar pc*))
-                 (drhspat (cddar pc*))
-                 (commit (lambda ()
-                           (let-values (((st penv svs) (assert #t st penv0 v)))
-                             (if st (run-rhs svs penv env st drhs)
-                               (values #f #f #f))))))
-            ;; If we only have a single option, commit to it.
-            (if (null? (cdr pc*)) (commit)
-              ;; Is the first pattern satisfiable?
-              (begin (det-pay 1) (let-values (((st1 penv1 svs) (assert #t st penv0 v)))
+                 (drhspat (cddar pc*)))
+            (let-values (((st1 penv1 svs) (assert #t st penv0 v)))
+              (let ((commit (lambda () (run-rhs svs penv1 env st1 drhs))))
+                ;; Is the first pattern satisfiable?
                 (if st1
-                  ;; If no vars were scrutinized (svs) while checking
-                  ;; satisfiability, then we have an irrefutable match, so
-                  ;; commit to it.
-                  (if (null? svs)
-                    (run-rhs svs penv1 env st1 drhs)
-                    ;; If vars were scrutinized, there is room for doubt.
-                    ;; Check whether the negated pattern is satisfiable.
-                    (begin (det-pay 5)
-                      (let-values (((nst _ nsvs) (assert #f st penv0 v)))
-                      (if nst
-                        ;; If the negation is also satisfiable, check whether
-                        ;; we can still rule out this clause by matching its
-                        ;; right-hand-side with the expected result of the
-                        ;; entire match expression.
-                        (if (and rhs? (not (drhspat
-                                             (append penv1 env) st1 rhs)))
-                          ;; If we can rule it out, permanently learn the
-                          ;; negated state.
-                          (begin (det-pay 0) (loop nst (cdr pc*)))
-                          ;; Otherwise, we're not sure whether to commit to
-                          ;; this clause yet.  If there are no other
-                          ;; satisfiable patterns, we can.  If there is at
-                          ;; least one other satisfiable pattern, we should
-                          ;; wait until later, when we either have more
-                          ;; information, or we're forced to guess.
-                          (let ambiguous ((nst nst) (pc*1 (cdr pc*)) (nc* '()))
-                            (let ((assert1 ((caar pc*1) env))
-                                  (drhspat1 (cddar pc*1)))
-                              ;; Is the next pattern satisfiable?
-                              (let-values (((st1 penv1 svs1)
-                                            (assert1 #t nst penv0 v)))
-                                (if st1
-                                  ;; If it is, check whether we can rule it out
-                                  ;; by matching its right-hand-side with the
-                                  ;; expected result.
-                                  (if (and rhs?
-                                           (not (drhspat1
-                                                  (append penv1 env) st1 rhs)))
-                                    ;; If we rule it out and there are no
-                                    ;; patterns left to try, the first clause
-                                    ;; is the only option.  Commit to it.
-                                    (begin (det-pay 0) (if (null? (cdr pc*1)) (commit)
-                                      ;; If we rule it out and there are other
-                                      ;; patterns to try, learn the negation
-                                      ;; and continue the search.
-                                      (let-values (((nst1 _ __)
-                                                    (assert1 #f nst penv0 v)))
-                                        (if nst1
-                                          ;; Clauses that were ruled out (nc*)
-                                          ;; need to be tracked so that retries
-                                          ;; can relearn their negated
-                                          ;; patterns.
-                                          (begin (det-pay 0)
-                                                 (ambiguous
-                                                   nst1 (cdr pc*1) (cons (car pc*1)
-                                                                         nc*)))
-                                          ;; Unless the negation is impossible,
-                                          ;; in which case nothing else could
-                                          ;; succeed, meaning the first clause
-                                          ;; is the only option after all!
-                                          ;; Commit to it.
-                                          (commit)))))
-                                    ;; If we can't rule it out, then we've
-                                    ;; established ambiguity.  Try again later.
-                                    (values st
-                                            (list-append-unique
-                                              svs1 (list-append-unique
-                                                     nsvs svs))
-                                            (mc-new
-                                              penv0 env v (cons (car pc*)
-                                                                (rev-append
-                                                                  nc* pc*1))
-                                              active?)))
-                                  ;; Otherwise, if we have no other clauses
-                                  ;; available, then the first clause happens
-                                  ;; to be the only option.  Commit to it.
-                                  (if (null? (cdr pc*1)) (commit)
-                                    ;; If the there still are other clauses,
-                                    ;; keep checking.
-                                    (begin (det-pay 0) (ambiguous nst (cdr pc*1) nc*))))))))
-                        ;; If the negated pattern wasn't satisfiable, this
-                        ;; pattern was irrefutable after all.  Commit.
-                        (commit)))))
-                  ;; If the first pattern wasn't satisfiable, throw that clause
-                  ;; away and try the next.
-                  (begin (det-pay 0) (loop st (cdr pc*)))))))))))))
+                  ;; If we only have a single option, commit to it.
+                  (if (null? (cdr pc*)) (commit)
+                    (begin (det-pay 1)
+                      ;; If no vars were scrutinized (svs) while checking
+                      ;; satisfiability, then we have an irrefutable match, so
+                      ;; commit to it.
+                      (if (null? svs) (commit)
+                        ;; If vars were scrutinized, there is room for doubt.
+                        ;; Check whether the negated pattern is satisfiable.
+                        (begin (det-pay 5)
+                          (let-values (((nst _ nsvs) (assert #f st penv0 v)))
+                            (if nst
+                              ;; If the negation is also satisfiable, check whether
+                              ;; we can still rule out this clause by matching its
+                              ;; right-hand-side with the expected result of the
+                              ;; entire match expression.
+                              (if (and rhs? (not (drhspat
+                                                   (append penv1 env) st1 rhs)))
+                                ;; If we can rule it out, permanently learn the
+                                ;; negated state.
+                                (loop nst (cdr pc*))
+                                ;; Otherwise, we're not sure whether to commit to
+                                ;; this clause yet.  If there are no other
+                                ;; satisfiable patterns, we can.  If there is at
+                                ;; least one other satisfiable pattern, we should
+                                ;; wait until later, when we either have more
+                                ;; information, or we're forced to guess.
+                                (let ambiguous ((nst nst) (pc*1 (cdr pc*)) (nc* '()))
+                                  (let ((assert1 ((caar pc*1) env))
+                                        (drhspat1 (cddar pc*1)))
+                                    ;; Is the next pattern satisfiable?
+                                    (let-values (((st1 penv1 svs1)
+                                                  (assert1 #t nst penv0 v)))
+                                      (if st1
+                                        ;; If it is, check whether we can rule it out
+                                        ;; by matching its right-hand-side with the
+                                        ;; expected result.
+                                        (if (and rhs?
+                                                 (not (drhspat1
+                                                        (append penv1 env) st1 rhs)))
+                                          ;; If we rule it out and there are no
+                                          ;; patterns left to try, the first clause
+                                          ;; is the only option.  Commit to it.
+                                          (if (null? (cdr pc*1)) (commit)
+                                            ;; If we rule it out and there are other
+                                            ;; patterns to try, learn the negation
+                                            ;; and continue the search.
+                                            (let-values (((nst1 _ __)
+                                                          (assert1 #f nst penv0 v)))
+                                              (if nst1
+                                                ;; Clauses that were ruled out (nc*)
+                                                ;; need to be tracked so that retries
+                                                ;; can relearn their negated
+                                                ;; patterns.
+                                                (ambiguous
+                                                  nst1 (cdr pc*1) (cons (car pc*1)
+                                                                        nc*))
+                                                ;; Unless the negation is impossible,
+                                                ;; in which case nothing else could
+                                                ;; succeed, meaning the first clause
+                                                ;; is the only option after all!
+                                                ;; Commit to it.
+                                                (commit))))
+                                          ;; If we can't rule it out, then we've
+                                          ;; established ambiguity.  Try again later.
+                                          (values st
+                                                  (list-append-unique
+                                                    svs1 (list-append-unique
+                                                           nsvs svs))
+                                                  (mc-new
+                                                    penv0 env v (cons (car pc*)
+                                                                      (rev-append
+                                                                        nc* pc*1))
+                                                    active?)))
+                                        ;; Otherwise, if we have no other clauses
+                                        ;; available, then the first clause happens
+                                        ;; to be the only option.  Commit to it.
+                                        (if (null? (cdr pc*1)) (commit)
+                                          ;; If the there still are other clauses,
+                                          ;; keep checking.
+                                          (ambiguous nst (cdr pc*1) nc*)))))))
+                              ;; If the negated pattern wasn't satisfiable, this
+                              ;; pattern was irrefutable after all.  Commit.
+                              (commit)))))))
+                      ;; If the first pattern wasn't satisfiable, throw that clause
+                      ;; away and try the next.
+                      (loop st (cdr pc*)))))))))))
 
 (define (pattern-match penv dv pc* active?)
   (lambda (env)
