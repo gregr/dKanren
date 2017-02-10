@@ -29,24 +29,9 @@
     ))
 
 ; TODO:
-; improve demand-based guessing schedule
-;   push root goals onto nondet immediately, but defer dependency pulling
-;     any mc given a rhs (variables and values alike; just rhs?=(not #f)) by actual-value is a root?
-;       unless explicitly suppressed by tag (as will be used by constraints)
-;         may want a second tier of goals whose demand is suppressed, but whose rhs values are known
-;           since these should still be guessed before those whose rhs values are not known
-;       unification has to propagate this optional demand
-;         allowing scrutinees and elements of pairs to inherit it
-; pattern assertions may resume deterministic suspensions to more precisely verify satisfiability
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
 ; unlike normal mk, all vars in =/=* should be tracked for earliest access to determinism
 ;   these constraints can shrink domains, which may trigger new unifications, and so on
-; cost-based nondeterminism and quota-based determinism
-;   bind, mplus w/ costs
-;     dfs, ws, quota/cost?
-;     cost must be able to express size-incrementing search
-;       goal scoped or leaky costs?
-;       quota wrapper?
 ; implement quasiquote, let, let*, and, or, cond, match for evalo
 ; extended mk variant, mixing in deterministic computation where possible
 ;   tagging and pluggable solvers (one in particular)
@@ -75,7 +60,6 @@
 ; port everything to chez
 ; performance and benchmarking
 ;   move from closure-encoding interpreter to ahead-of-time compiler
-;   tweak match clauses and costs
 ;   tweak mk data reprs
 ;     e.g. try path compression
 ;   try relational arithmetic
@@ -85,37 +69,13 @@
 ;     could be a useful alternative to closure-encoding for 1st order languages
 ;     try for both dkanren (for comparison) and relational interpreter (may improve perf)
 ; possible ways to improve performance
+;   infer impossible scrutinee domains and immediately distypify them (integrate with prefix factoring?)
 ;   pattern prefix factoring (also affects run* termination)
 ;     ideally we'd use full-blown pattern compilation
 ;       but hard to preserve programmer's intended(?) clause search priority with nesting changes
 ;       in contrast factoring only the final clauses will not affect priorities (since nothing follows them)
-;   unify2, typify2: gather svs in the same pass as this processing
-;   avoid generating 'notf' vars, possibly by testing against vattrs directly
-;   possibly split deterministic pending stack to prioritize by blocker instantiatedness
-;     e.g., high-pri: blocking var was unified with a value
-;           lower-pri: some constraints were added to a var
 ;   match/r, reversible match: manually describe a reversed computation
 ;     should be much better than falling back to denote-rhs-pattern-unknown
-;   optional match result-domain annotations
-;     type or finite domain: support fast, conservative domain constraints
-;       domain = _ (anything), ([quasi]quoted) literal, infinite set (i.e. number, symbol), list (union) of domains
-;     at the very least, infer impossible scrutinee domains and immediately distypify them
-;   combine memq with filter in state-var-==
-;   relational interpreter
-;     define static closure-tag and prim-tag and literalize all uses (should appear directly in patterns)
-;     inline applicable-tag? uses
-;     in eval-term, possibly inline clauses of the nested 'operation' match into the main match
-;   is there a nice way to avoid bouncing all the way up and down mplus chains while interleaving?
-;     control state: (results, control-stack)
-;     pass control state to children
-;       efficient control of nesting
-;       dfs: parent passes self
-;       ils: parent passes '()
-;         flip on the way up
-;       ws: hybrid of both
-;         cost annotations:
-;           threshold, used, cycles (or lists of thresholds?)
-;       control state/stack could also be a closure, but compare list-based performance
 
 (define-syntax defrec
   (syntax-rules ()
@@ -390,7 +350,6 @@
     ((eq? vattr-empty va) (state-var-set st vr val))
     ((domain-has-val? (vattr-domain va) val)
      (let ((=/=s (vattr-=/=s va)))
-       ; TODO: perf: combine memq with filter
        (and (not (memq val =/=s))
             (let* ((vps (filter (if (pair? val)
                                   (lambda (x) (or (var? x) (pair? x)))
