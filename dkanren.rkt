@@ -37,7 +37,6 @@
 ;           since these should still be guessed before those whose rhs values are not known
 ;       unification has to propagate this optional demand
 ;         allowing scrutinees and elements of pairs to inherit it
-; list-subtract
 ; pattern assertions may resume deterministic suspensions to more precisely verify satisfiability
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
 ; unlike normal mk, all vars in =/=* should be tracked for earliest access to determinism
@@ -156,8 +155,12 @@
           (x0 (car xs)))
       (if (memq x0 ys) zs (cons x0 zs)))))
 (define (list-subtract xs ys)
-  ; TODO:
-  xs)
+  (if (null? xs) xs
+    (let ((x0 (car xs))
+          (xs1 (list-subtract (cdr xs) ys)))
+     (if (memq x0 ys) xs1
+       (if (eq? xs1 (cdr xs)) xs
+         (cons x0 xs1))))))
 
 (defrec var name)
 (define var-0 (var 'initial))
