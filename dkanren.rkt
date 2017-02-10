@@ -912,6 +912,10 @@
                     ((penv dd) (denote-pattern-qq d penv senv)))
         (values penv (lambda (env) (pattern-assert-pair (da env) (dd env))))))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
+(define (denote-pattern-cons apat dpat penv senv)
+  (let*-values (((penv da) (denote-pattern apat penv senv))
+                ((penv dd) (denote-pattern dpat penv senv)))
+    (values penv (lambda (env) (pattern-assert-pair (da env) (dd env))))))
 
 (define (denote-pattern-or pattern* penv senv)
   (match pattern*
@@ -964,6 +968,7 @@
   (match pat
     (`(quote ,(? quotable? datum)) (denote-pattern-literal datum penv))
     (`(quasiquote ,qqpat) (denote-pattern-qq qqpat penv senv))
+    (`(cons ,apat ,dpat) (denote-pattern-cons apat dpat penv senv))
     (`(not . ,pat*) (denote-pattern-not pat* penv senv))
     (`(and . ,pat*) (denote-pattern* pat* penv senv))
     (`(or . ,pat*) (denote-pattern-or pat* penv senv))
