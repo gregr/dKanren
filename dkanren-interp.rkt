@@ -79,8 +79,8 @@
                 (match/lazy term
                   (#t #t)
                   (#f #t)
-                  ((? number?) #t)
-                  ((and (? symbol? sym)) (in-env? env sym))
+                  ((number) #t)
+                  ((symbol sym) (in-env? env sym))
                   (`(,(? term1?) . ,rands) (terms? rands env))
                   (`(quote ,datum) (quotable? datum))
                   (`(if ,c ,t ,f) (and (term1? c) (term1? t) (term1? f)))
@@ -88,7 +88,7 @@
                     (and (params? params)
                          (let ((res
                                  (match params
-                                   ((and (not (? symbol?)) params)
+                                   ((and (not (symbol)) params)
                                     (extend-env* params params env))
                                    (sym `((,sym . (val . ,sym)) . ,env)))))
                            (term? body res))))
@@ -108,14 +108,18 @@
                 (`(cons ,a ,d) `(,a . ,d))
                 (`(car (,(and (not (? applicable-tag?)) a) . ,d)) a)
                 (`(cdr (,(and (not (? applicable-tag?)) a) . ,d)) d)
-                (`(null? ,v) (match v ('() #t) (_ #f)))
-                (`(pair? ,v) (match v
-                               (`(,(not (? applicable-tag?)) . ,_) #t)
-                               (_ #f)))
-                (`(symbol? ,v) (symbol? v))
-                (`(number? ,v) (number? v))
-                (`(not ,v) (match v (#f #t) (_ #f)))
-                (`(equal? ,v1 ,v2) (equal? v1 v2)))))
+                (`(null? ()) #t)
+                (`(null? ,_) #f)
+                (`(pair? (,(not (? applicable-tag?)) . ,_)) #t)
+                (`(pair? ,_) #f)
+                (`(symbol? ,(symbol)) #t)
+                (`(symbol? ,_) #f)
+                (`(number? ,(number)) #t)
+                (`(number? ,(number)) #f)
+                (`(not #f) #t)
+                (`(not #t) #f)
+                (`(equal? ,v1 ,v1) #t)
+                (`(equal? ,_ ,_) #f))))
           (eval-term-list
             (lambda (terms env)
               (match terms
@@ -127,15 +131,15 @@
               (let ((bound? (lambda (sym) (in-env? env sym)))
                     (term1? (lambda (v) (term? v env))))
                 (match term
+                  ((symbol sym) (lookup env sym))
                   (#t #t)
                   (#f #f)
-                  ((? number? num) num)
+                  ((number num) num)
                   (`(,(and 'quote (not (? bound?))) ,(? quotable? datum))
                     datum)
-                  ((? symbol? sym) (lookup env sym))
                   ((and `(,op . ,_) operation)
                    (match operation
-                     (`(,(or (? bound?) (not (? symbol?)))
+                     (`(,(or (not (symbol)) (? bound?))
                          . ,rands)
                        (let ((op (eval-term op env))
                              (a* (eval-term-list rands env)))
@@ -144,7 +148,7 @@
                              (eval-prim prim-id a*))
                            (`(,(? closure-tag?) (lambda ,x ,body) ,env^)
                              (let ((res (match x
-                                          ((and (not (? symbol?)) params)
+                                          ((and (not (symbol)) params)
                                            (extend-env* params a* env^))
                                           (sym `((,sym . (val . ,a*))
                                                  . ,env^)))))
@@ -163,10 +167,8 @@
                            . ,env))))))))))
 
          (let ((program ',program))
-             ;; TODO: this ordering isn't ideal: give constraints a lower
-             ;; guessing priority to avoid this ordering hack.
-             (let ((_ (match/lazy (term? program initial-env) (#t #t))))
-               (eval-term program initial-env)))))))
+           (let ((_ (match/lazy (term? program initial-env) (#t #t))))
+             (eval-term program initial-env)))))))
 
 (define (evalo program result)
   (let ((tm (letrec-eval-term program)))
