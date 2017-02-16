@@ -344,6 +344,10 @@
 (define (state-resume st)
   (bind (state-resume-pending st) state-resume-remaining))
 
+(define (state-var-domain-== st vr va dmn)
+  (let*/and ((dmn (domain-intersect (vattr-domain va) dmn)))
+    (state-var-set st vr (vattr-domain-set va dmn))))
+
 (define (state-var-type-== st vr va type)
   (and (domain-has-type? (vattr-domain va) type)
        (state-var-set st vr (vattr-domain-set va `(,type)))))
@@ -504,6 +508,12 @@
                   ('pair (pair? val))
                   (_ (eq? type val))))
            st))))
+
+(define (domainify st val dmn)
+  (let-values (((val va) (walk st val)))
+    (if (var? val)
+      (state-var-domain-== st val va dmn)
+      (and (domain-has-val? dmn val) st))))
 
 (define (succeed st) st)
 (define (fail st) #f)
