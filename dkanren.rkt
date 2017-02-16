@@ -805,30 +805,36 @@
               (values st2 penv (if (eq? p-any p) p-any `(,tag ,p)))
               (values #f #f #f)))
           (values #f #f #f)))))
-  (define (prune-and parity tag p1 p2)
+  (define (prune-and parity p1 p2)
     (let-values (((st penv p1) (pat-prune p1 parity st penv v)))
       (if st
         (let-values (((st penv p2) (pat-prune p2 parity st penv v)))
           (if st
             (values st penv (if (eq? p-any p1) p2
-                              (if (eq? p-any p2) p1 `(,tag ,p1 ,p2))))
+                              (if (eq? p-any p2) p1
+                                `(,(if parity 'and 'or) ,p1 ,p2))))
             (values #f #f #f)))
         (values #f #f #f))))
-  (define (prune-or parity tag penv? p1 p2)
-    (let-values (((st1 _ p1) (pat-prune p1 parity st penv v)))
+  (define (prune-or parity p1 p2)
+    (let-values (((st1 _ p1-new) (pat-prune p1 parity st penv v)))
       (if st1
-        (let-values (((nst1 penv1 _) (pat-prune p1 (not parity) st penv v)))
+        (let-values (((nst1 penv1 _) (pat-prune p1-new (not parity) st penv v)))
           (if nst1
             (let-values (((st2 penv2 p2)
-                          (pat-prune p2 parity nst1 (if penv? penv1 penv) v)))
+                          (pat-prune p2 parity nst1 (if parity penv penv1) v)))
               (if st2
                 (if (eq? p-any p2)
                   (values st penv p-any)
-                  (values st penv `(,tag ,p1 ,p2)))
-                (values st1 penv p1)))
+                  (values st penv `(,(if parity 'or 'and) ,p1-new ,p2)))
+                (values st1 penv p1-new)))
             (values st penv p-any)))
-        (let-values (((st2 penv2 p2) (pat-prune p2 parity st penv v)))
-          (values st2 penv p2)))))
+        (let-values (((nst1 penv1 _) (pat-prune p1 (not parity) st penv v)))
+          (if nst1
+            (let-values (((st2 penv2 p2)
+                          (pat-prune p2 parity nst1 (if parity penv penv1) v)))
+              (values st2 penv (if parity p2 `(and ,p1 ,p2))))
+            (error (format "this should never happen: parity=~v, p1=~v, p2=~v"
+                           parity p1 p2)))))))
   (match p
     ('(_) (if parity (values st penv p) (values #f #f #f)))
     (`(extend ,name)
@@ -841,11 +847,11 @@
     (`(car ,p) (prune-pair 'car car p))
     (`(cdr ,p) (prune-pair 'cdr cdr p))
     (`(and ,p1 ,p2) (if parity
-                      (prune-and parity 'and p1 p2)
-                      (prune-or parity 'and #t p1 p2)))
+                      (prune-and parity p1 p2)
+                      (prune-or parity p1 p2)))
     (`(or ,p1 ,p2) (if parity
-                     (prune-or parity 'or #f p1 p2)
-                     (prune-and parity 'or p1 p2)))
+                     (prune-or parity p1 p2)
+                     (prune-and parity p1 p2)))
     (`(not ,p)
       (let-values (((st1 penv1 p) (pat-prune p (not parity) st penv v)))
         (values st1 penv (if (eq? p-any p) p-any `(not ,p)))))
