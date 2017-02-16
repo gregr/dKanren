@@ -800,7 +800,8 @@
     (let/vars (va vd)
       (let ((v1 `(,va . ,vd)))
         (let/if (st1 (unify st v1 v))
-          (let-values (((st2 penv1 p) (pat-prune p parity st1 penv (trans v1))))
+          (let-values (((st2 penv1 p)
+                        (pat-prune p parity st1 penv (trans v1))))
             (if st2
               (if (eq? p-any p)
                 (pat-prune p-pair #t st penv v)
@@ -810,29 +811,45 @@
             (values #f #f #f)
             (pat-prune p-pair parity st penv v))))))
   (define (prune-and parity p1 p2)
-    (let-values (((st penv p1) (pat-prune p1 parity st penv v)))
-      (if st
-        (let-values (((st penv p2) (pat-prune p2 parity st penv v)))
-          (if st
-            (values st penv (if (eq? p-any p1) p2
-                              (if (eq? p-any p2) p1
-                                `(,(if parity 'and 'or) ,p1 ,p2))))
+    (let-values (((st1 penv1 p1) (pat-prune p1 parity st penv v)))
+      (if st1
+        (let-values (((st2 penv2 p2) (pat-prune p2 parity st1 penv1 v)))
+          (if st2
+            (values
+              st2 penv2 (if (eq? p-any p2) p1
+                          (let-values (((st2 _ __)
+                                        (pat-prune p2 parity st penv1 v)))
+                            (let-values (((_ __ p1)
+                                          (pat-prune p1 parity st2 penv v)))
+                              (if (eq? p-any p1) p2
+                                `(,(if parity 'and 'or) ,p1 ,p2))))))
             (values #f #f #f)))
         (values #f #f #f))))
   (define (prune-or parity p1 p2)
     (let-values (((st1 _ p1-new) (pat-prune p1 parity st penv v)))
       (if st1
-        (let-values (((nst1 penv1 _) (pat-prune p1-new (not parity) st penv v)))
+        (let-values (((nst1 penv1 _)
+                      (pat-prune p1-new (not parity) st penv v)))
           (if nst1
             (let-values (((st2 penv2 p2)
                           (pat-prune p2 parity nst1 (if parity penv penv1) v)))
               (if st2
-                (if (eq? p-any p2)
-                  (values st penv p-any)
-                  (values st penv `(,(if parity 'or 'and) ,p1-new ,p2)))
+                (if (eq? p-any p2) (values st penv p-any)
+                  (let-values
+                    (((nst2 _ __)
+                      (pat-prune
+                        p2 (not parity) st (if parity penv penv1) v)))
+                    (let-values (((st1 __ p1-new)
+                                  (pat-prune p1-new parity nst2 penv v)))
+                      (if st1
+                        (if (eq? p-any p1-new) (values st penv p-any)
+                          (values
+                            st penv `(,(if parity 'or 'and) ,p1-new ,p2)))
+                        (values st2 penv p2)))))
                 (values st1 penv p1-new)))
             (values st penv p-any)))
-        (let-values (((nst1 penv1 p1-new) (pat-prune p1 (not parity) st penv v)))
+        (let-values (((nst1 penv1 p1-new)
+                      (pat-prune p1 (not parity) st penv v)))
           (if nst1
             (let-values (((st2 penv2 p2)
                           (pat-prune p2 parity nst1 (if parity penv penv1) v)))
