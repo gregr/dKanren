@@ -21,6 +21,7 @@
   racket/control
   racket/list
   racket/match
+  racket/vector
   )
 
 (module+ test
@@ -726,6 +727,64 @@
       ((`(,a1 . ,d1) `(,a2 . ,d2))
        (list-append-unique (extract-svs st a1 a2) (extract-svs st d1 d2)))
       ((_ _) '()))))
+
+(define p-any '(_))
+(define (p-extend name) `(extend ,name))
+(define (p-lookup name) `(lookup ,name))
+(define (p-literal datum) `(literal ,datum))
+(define (p-type tag) `(type ,tag))
+(define p-symbol (p-type 'symbol))
+(define p-number (p-type 'number))
+(define p-pair (p-type 'pair))
+(define (p-car p) `(car ,p))
+(define (p-cdr p) `(cdr ,p))
+(define (p-and p1 p2) `(and ,p1 ,p2))
+(define (p-or p1 p2) `(or ,p1 ,p2))
+(define (p-not p) `(not ,p))
+(define (p-? pred) `(? ,pred))
+
+(define (datum->didx datum)
+  (match datum
+    (`(,_ . ,_) 0)
+    ((? symbol?) 1)
+    ((? number?) 2)
+    ('() 3)
+    (#t 4)
+    (#f 5)))
+(define (tag->didx tag)
+  (match tag
+    ('pair 0)
+    ('symbol 1)
+    ('number 2)))
+(define (p->domain p)
+  (match p
+    (`(literal ,datum) (pdomain-single (datum->didx datum)))
+    (`(type ,tag) (pdomain-single (tag->didx tag)))
+    ;; TODO: anything special for pair subdomains?  don't forget literal pairs
+    (`(car ,p) (pdomain-single (tag->didx 'pair)))
+    (`(cdr ,p) (pdomain-single (tag->didx 'pair)))
+    (`(and ,p1 ,p2) (pdomain-meet (p->domain p1) (p->domain p2)))
+    (`(or ,p1 ,p2) (pdomain-join (p->domain p1) (p->domain p2)))
+    (`(not ,p) (pdomain-complement (p->domain p)))
+    (_ pdomain-full)))
+
+(define (pdomain pair symbol number nil f t)
+  (vector pair symbol number nil f t))
+(define (pdomain-set pd idx v) (vector-set! (vector-copy pd) idx v))
+(define (pdomain-add pd idx) (pdomain-set pd idx #t))
+(define (pdomain-remove pd idx) (pdomain-set pd idx #f))
+(define (pdomain-complement pd) (vector-map not pd))
+(define (pdomain-meet pd1 pd2)
+  (vector-map (lambda (a b) (and a b)) pd1 pd2))
+(define (pdomain-join pd1 pd2)
+  (vector-map (lambda (a b) (or a b)) pd1 pd2))
+(define (pdomain-single idx) (pdomain-add pdomain-empty idx))
+(define pdomain-empty (pdomain #f #f #f #f #f #f))
+(define pdomain-full (pdomain-complement pdomain-empty))
+
+(defrec ppair-domain car cdr)
+(defrec pblock type c*)
+(defrec pindex domain->block rhs-domain->block c*)
 
 (define (pattern-assert-any parity st penv v)
   (if parity
