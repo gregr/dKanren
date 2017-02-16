@@ -879,6 +879,19 @@
         (values st1 penv (if (eq? p-any p) p-any `(not ,p)))))
     (`(? ,_) (values st penv p))))
 
+(define (match-compile c*)
+  (let loop ((c* c*) (p-context p-any))
+    (match c*
+      (`((,pat . (,rhs . ,rhspat)) . ,c*1)
+        (let-values (((st penv pat1)
+                      (pat-prune
+                        (p-and pat p-context) #t state-empty '() var-0)))
+          (if st
+            `((,pat1 . (,rhs . ,rhspat))
+              . ,(loop c*1 (p-and (p-not pat) p-context)))
+            (loop c*1 p-context))))
+      (_ '()))))
+
 (define (pattern-assert-any parity st penv v)
   (if parity
     (values st penv '())
