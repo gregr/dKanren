@@ -801,6 +801,22 @@
 (define pdomain-empty (pdomain #f #f #f #f #f #f))
 (define pdomain-full (pdomain-complement pdomain-empty))
 
+(define tag*didx
+  '((pair . 0)
+    (symbol . 1)
+    (number . 2)
+    (() . 3)
+    (#f . 4)
+    (#t . 5)))
+
+(define (pdomain->domain pd)
+  (let loop ((t*d tag*didx) (dmn domain-full))
+    (match t*d
+      (`((,tag . ,idx) . ,t*d)
+        (loop t*d (if (vector-ref pd idx) dmn
+                    (domain-remove dmn tag))))
+      (_ dmn))))
+
 (defrec ppair-domain car cdr)
 (defrec pblock type c*)
 (defrec pindex domain->block rhs-domain->block c*)
