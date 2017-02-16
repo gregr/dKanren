@@ -770,7 +770,10 @@
 
 (define (pdomain pair symbol number nil f t)
   (vector pair symbol number nil f t))
-(define (pdomain-set pd idx v) (vector-set! (vector-copy pd) idx v))
+(define (pdomain-set pd idx v)
+  (define pd1 (vector-copy pd))
+  (vector-set! pd1 idx v)
+  pd1)
 (define (pdomain-add pd idx) (pdomain-set pd idx #t))
 (define (pdomain-remove pd idx) (pdomain-set pd idx #f))
 (define (pdomain-complement pd) (vector-map not pd))
