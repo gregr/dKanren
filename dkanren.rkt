@@ -800,9 +800,11 @@
     (let/vars (va vd)
       (let ((v1 `(,va . ,vd)))
         (let/if (st1 (unify st v1 v))
-          (let-values (((st2 penv p) (pat-prune p parity st1 penv (trans v1))))
+          (let-values (((st2 penv1 p) (pat-prune p parity st1 penv (trans v1))))
             (if st2
-              (values st2 penv (if (eq? p-any p) p-any `(,tag ,p)))
+              (if (eq? p-any p)
+                (pat-prune p-pair parity st penv v)
+                (values st2 penv1 `(,tag ,p)))
               (values #f #f #f)))
           (values #f #f #f)))))
   (define (prune-and parity p1 p2)
