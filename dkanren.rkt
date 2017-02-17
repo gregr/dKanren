@@ -753,22 +753,30 @@
 (define (p-not p) `(not ,p))
 (define (p-? pred) `(? ,pred))
 
+;; TODO: pattern interpretations
+;; each analysis task gives an interpretation
+;; * assert, usual state update (use only prune for analysis?)
+;; * simplify, impossibility-detection
+;; * subsume
+;; * domain->block and index construction
+;; interpretation args: state, penv, parity, value
+
 (define (datum->didx datum)
   (match datum
     (`(,_ . ,_) 0)
     ((? symbol?) 1)
     ((? number?) 2)
     ('() 3)
-    (#t 4)
-    (#f 5)))
+    (#f 4)
+    (#t 5)))
 (define (tag->didx tag)
   (match tag
     ('pair 0)
     ('symbol 1)
     ('number 2)
     ('() 3)
-    (#t 4)
-    (#f 5)))
+    (#f 4)
+    (#t 5)))
 (define (p->domain parity p)
   (define (paritize parity pd) (if parity pd (pdomain-complement pd)))
   (match p
