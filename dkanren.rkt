@@ -765,7 +765,10 @@
   (match tag
     ('pair 0)
     ('symbol 1)
-    ('number 2)))
+    ('number 2)
+    ('() 3)
+    (#t 4)
+    (#f 5)))
 (define (p->domain parity p)
   (define (paritize parity pd) (if parity pd (pdomain-complement pd)))
   (match p
@@ -782,7 +785,9 @@
     (`(or ,p1 ,p2) ((if parity pdomain-join pdomain-meet)
                     (p->domain parity p1) (p->domain parity p2)))
     (`(not ,p) (p->domain (not parity) p))
-    (_ pdomain-full)))
+    ('(_) (if parity pdomain-full pdomain-empty))
+    (`(extend ,_) (if parity pdomain-full pdomain-empty))
+    (`(? ,_) pdomain-full)))
 
 (define (pdomain pair symbol number nil f t)
   (vector pair symbol number nil f t))
