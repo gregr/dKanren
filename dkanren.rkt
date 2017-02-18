@@ -778,16 +778,26 @@
     (#f 4)
     (#t 5)))
 (define (p->domain parity p)
+  (define not-pair (pdomain-complement (pdomain-single (tag->didx 'pair))))
   (define (paritize parity pd) (if parity pd (pdomain-complement pd)))
+  (define (paritize-pair parity ppd)
+    (if parity ppd (pdomain-join ppd not-pair)))
   (match p
     (`(literal ,datum)
       (match datum
         ((or '() #f #t) (p->domain parity (p-type datum)))
+        (`(,dcar . ,dcdr)
+          (paritize-pair parity (pdomain-single-pair
+                                  (cons (p->domain parity (p-literal dcar))
+                                        (p->domain parity (p-literal dcdr))))))
         (_ (if parity (pdomain-single (datum->didx datum)) pdomain-full))))
     (`(type ,tag) (paritize parity (pdomain-single (tag->didx tag))))
-    ;; TODO: anything special for pair subdomains?  don't forget literal pairs
-    (`(car ,p) (if parity (pdomain-single (tag->didx 'pair)) pdomain-full))
-    (`(cdr ,p) (if parity (pdomain-single (tag->didx 'pair)) pdomain-full))
+    (`(car ,p)
+      (paritize-pair parity (pdomain-single-pair
+                              (cons (p->domain parity p) pdomain-full))))
+    (`(cdr ,p)
+      (paritize-pair parity (pdomain-single-pair
+                              (cons pdomain-full (p->domain parity p)))))
     (`(and ,p1 ,p2) ((if parity pdomain-meet pdomain-join)
                      (p->domain parity p1) (p->domain parity p2)))
     (`(or ,p1 ,p2) ((if parity pdomain-join pdomain-meet)
@@ -795,6 +805,7 @@
     (`(not ,p) (p->domain (not parity) p))
     ('(_) (if parity pdomain-full pdomain-empty))
     (`(extend ,_) (if parity pdomain-full pdomain-empty))
+    (`(lookup ,_) pdomain-full)
     (`(? ,_) pdomain-full)))
 (define (p->subdomain path parity p)
   (if (null? path) (p->domain parity p)
