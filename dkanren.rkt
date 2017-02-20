@@ -1041,14 +1041,26 @@
                                  `(and ,p1-new ,p2))))
             (error (format "this should never happen: parity=~v, p1=~v, p2=~v"
                            parity p1 p2)))))))
+
+  (define (lookup->pat path st v1)
+    (let ((v1 (walk1 st v1)))
+      (and (not (var? v1))
+        (if (pair? v1)
+          (let* ((pcar (lookup->pat path st (car v1)))
+                 (pcdr (lookup->pat path st (cdr v1))))
+            (match* (pcar pcdr)
+              ((`(literal ,lcar) `(literal ,lcdr)) (p-literal (cons lcar lcdr)))
+              ((_ _) #f)))
+          (p-literal v1)))))
+
   (match p
     ('(_) (if parity (values st penv p) (values #f #f #f)))
     (`(lookup ,path)
       (let-values (((st1 v1) (path-lookup path st vtop)))
-        (let* ((v1 (walk1 st1 v1)))
-          (if (or (var? v1) (pair? v1)) ;; TODO: infer pair literals
-            (prune-cx st1 unify disunify v1)
-            (pat-prune (p-literal v1) parity st1 penv v vtop)))))
+        (let ((pat (lookup->pat path st1 v1)))
+          (if pat
+            (pat-prune pat parity st1 penv v vtop)
+            (prune-cx st1 unify disunify v1)))))
     (`(literal ,datum) (prune-cx st unify disunify datum))
     (`(type ,tag) (prune-cx st typify distypify tag))
     (`(car ,p) (prune-pair 'car car p))
