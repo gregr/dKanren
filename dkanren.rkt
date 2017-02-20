@@ -1032,7 +1032,11 @@
       (if parity
         (values st (cons (cons name (walk1 st v)) penv) p)
         (values #f #f #f)))
-    (`(lookup ,name) (prune-cx unify disunify (cdr (assoc name penv))))
+    (`(lookup ,name)
+      (let ((v1 (walk1 st (cdr (assoc name penv)))))
+        (if (or (var? v1) (pair? v1)) ;; TODO: infer pair literals
+          (prune-cx unify disunify v1)
+          (pat-prune (p-literal v1) parity st penv v))))
     (`(literal ,datum) (prune-cx unify disunify datum))
     (`(type ,tag) (prune-cx typify distypify tag))
     (`(car ,p) (prune-pair 'car car p))
