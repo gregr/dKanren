@@ -739,8 +739,7 @@
       ((_ _) '()))))
 
 (define p-any '(_))
-(define (p-extend name) `(extend ,name))
-(define (p-lookup name) `(lookup ,name))
+(define (p-lookup path) `(lookup ,path))
 (define (p-literal datum) `(literal ,datum))
 (define (p-type tag) `(type ,tag))
 (define p-symbol (p-type 'symbol))
@@ -804,7 +803,6 @@
                     (p->domain parity p1) (p->domain parity p2)))
     (`(not ,p) (p->domain (not parity) p))
     ('(_) (if parity pdomain-full pdomain-empty))
-    (`(extend ,_) (if parity pdomain-full pdomain-empty))
     (`(lookup ,_) pdomain-full)
     (`(? ,_) pdomain-full)))
 (define (p->subdomain path parity p)
@@ -830,13 +828,11 @@
          (p->subdomain path parity p1) (p->subdomain path parity p2)))
       (`(not ,p) (p->subdomain path (not parity) p))
       ('(_) (if parity pdomain-full pdomain-empty))
-      (`(extend ,_) (if parity pdomain-full pdomain-empty))
       (`(? ,_) pdomain-full)))))
 
 (define (p->subp access p)
   (match p
     ('(_) p)
-    (`(extend ,_) p-any)
     (`(lookup ,_) p-any)
     (`(literal ,datum) (and (pair? datum) (p-literal (access datum))))
     (`(type ,tag) (and (eq? 'pair tag) p-any))
@@ -862,8 +858,7 @@
 (define (p->nsubp p)
   (match p
     ('(_) p)
-    (`(extend ,_) p)
-    (`(lookup ,name) p)
+    (`(lookup ,_) p)
     (`(literal ,datum) p-any)
     (`(type ,tag) p-any)
     (`(car ,p) p-any)
@@ -958,8 +953,25 @@
 (defrec pblock type c*)
 (defrec pindex domain->block rhs-domain->block c*)
 
-(define (pat-prune p parity st penv v)
-  (define (prune-cx cx ncx arg)
+(define (lookup/access access st v)
+  (let/vars (va vd)
+    (let ((v1 `(,va . ,vd)))
+      (let ((st1 (unify st v1 v)))
+        (if st1
+          (values st1 (walk1 st1 (access v1)))
+          (values #f #f))))))
+(define (lookup/car st v) (lookup/access car st v))
+(define (lookup/cdr st v) (lookup/access cdr st v))
+(define (path-lookup path st v)
+    (if (null? path) (values st v)
+      (let-values (((st1 v1) ((car path) st v)))
+        (if st1
+          (path-lookup (cdr path) st1 v1)
+          (error (format "invalid access path ~v for ~v"
+                         path (walk1 st v)))))))
+
+(define (pat-prune p parity st penv v vtop)
+  (define (prune-cx st cx ncx arg)
     (let/if (st1 ((if parity cx ncx) st arg v))
       (let/if (nst ((if parity ncx cx) st arg v))
         (values st1 penv p)
@@ -970,46 +982,48 @@
       (let ((v1 `(,va . ,vd)))
         (let/if (st1 (unify st v1 v))
           (let-values (((st2 penv1 p)
-                        (pat-prune p parity st1 penv (trans v1))))
+                        (pat-prune p parity st1 penv (trans v1) vtop)))
             (if st2
               (if (eq? p-any p)
-                (pat-prune p-pair #t st penv v)
+                (pat-prune p-pair #t st penv v vtop)
                 (values st2 penv1 `(,tag ,p)))
               (values #f #f #f)))
           (if parity
             (values #f #f #f)
-            (pat-prune p-pair parity st penv v))))))
+            (pat-prune p-pair parity st penv v vtop))))))
   (define (prune-and parity p1 p2)
-    (let-values (((st1 penv1 p1) (pat-prune p1 parity st penv v)))
+    (let-values (((st1 penv1 p1) (pat-prune p1 parity st penv v vtop)))
       (if st1
-        (let-values (((st2 penv2 p2) (pat-prune p2 parity st1 penv1 v)))
+        (let-values (((st2 penv2 p2) (pat-prune p2 parity st1 penv1 v vtop)))
           (if st2
             (values
               st2 penv2 (if (eq? p-any p2) p1
                           (let-values (((st2 _ __)
-                                        (pat-prune p2 parity st penv1 v)))
+                                        (pat-prune p2 parity st penv1 v vtop)))
                             (let-values (((_ __ p1)
-                                          (pat-prune p1 parity st2 penv v)))
+                                          (pat-prune
+                                            p1 parity st2 penv v vtop)))
                               (if (eq? p-any p1) p2
                                 `(,(if parity 'and 'or) ,p1 ,p2))))))
             (values #f #f #f)))
         (values #f #f #f))))
   (define (prune-or parity p1 p2)
-    (let-values (((st1 _ p1-new) (pat-prune p1 parity st penv v)))
+    (let-values (((st1 _ p1-new) (pat-prune p1 parity st penv v vtop)))
       (if st1
         (let-values (((nst1 penv1 _)
-                      (pat-prune p1-new (not parity) st penv v)))
+                      (pat-prune p1-new (not parity) st penv v vtop)))
           (if nst1
             (let-values (((st2 penv2 p2)
-                          (pat-prune p2 parity nst1 (if parity penv penv1) v)))
+                          (pat-prune
+                            p2 parity nst1 (if parity penv penv1) v vtop)))
               (if st2
                 (if (eq? p-any p2) (values st penv p-any)
                   (let-values
                     (((nst2 _ __)
                       (pat-prune
-                        p2 (not parity) st (if parity penv penv1) v)))
+                        p2 (not parity) st (if parity penv penv1) v vtop)))
                     (let-values (((st1 __ p1-new)
-                                  (pat-prune p1-new parity nst2 penv v)))
+                                  (pat-prune p1-new parity nst2 penv v vtop)))
                       (if st1
                         (if (eq? p-any p1-new) (values st penv p-any)
                           (values
@@ -1018,27 +1032,25 @@
                 (values st1 penv p1-new)))
             (values st penv p-any)))
         (let-values (((nst1 penv1 p1-new)
-                      (pat-prune p1 (not parity) st penv v)))
+                      (pat-prune p1 (not parity) st penv v vtop)))
           (if nst1
             (let-values (((st2 penv2 p2)
-                          (pat-prune p2 parity nst1 (if parity penv penv1) v)))
+                          (pat-prune
+                            p2 parity nst1 (if parity penv penv1) v vtop)))
               (values st2 penv (if (or parity (eq? p1-new p-any)) p2
                                  `(and ,p1-new ,p2))))
             (error (format "this should never happen: parity=~v, p1=~v, p2=~v"
                            parity p1 p2)))))))
   (match p
     ('(_) (if parity (values st penv p) (values #f #f #f)))
-    (`(extend ,name)
-      (if parity
-        (values st (cons (cons name (walk1 st v)) penv) p)
-        (values #f #f #f)))
-    (`(lookup ,name)
-      (let ((v1 (walk1 st (cdr (assoc name penv)))))
-        (if (or (var? v1) (pair? v1)) ;; TODO: infer pair literals
-          (prune-cx unify disunify v1)
-          (pat-prune (p-literal v1) parity st penv v))))
-    (`(literal ,datum) (prune-cx unify disunify datum))
-    (`(type ,tag) (prune-cx typify distypify tag))
+    (`(lookup ,path)
+      (let-values (((st1 v1) (path-lookup path st vtop)))
+        (let* ((v1 (walk1 st1 v1)))
+          (if (or (var? v1) (pair? v1)) ;; TODO: infer pair literals
+            (prune-cx st1 unify disunify v1)
+            (pat-prune (p-literal v1) parity st1 penv v vtop)))))
+    (`(literal ,datum) (prune-cx st unify disunify datum))
+    (`(type ,tag) (prune-cx st typify distypify tag))
     (`(car ,p) (prune-pair 'car car p))
     (`(cdr ,p) (prune-pair 'cdr cdr p))
     (`(and ,p1 ,p2) (if parity
@@ -1048,7 +1060,7 @@
                      (prune-or parity p1 p2)
                      (prune-and parity p1 p2)))
     (`(not ,p)
-      (let-values (((st1 penv1 p) (pat-prune p (not parity) st penv v)))
+      (let-values (((st1 penv1 p) (pat-prune p (not parity) st penv v vtop)))
         (values st1 penv (if (eq? p-any p) p-any `(not ,p)))))
     (`(? ,_) (values st penv p))))
 
@@ -1071,7 +1083,7 @@
       (`((,pat . (,rhs . ,rhspat)) . ,c*1)
         (let-values (((st _ pat1)
                       (pat-prune
-                        (p-and pat p-context) #t state-empty '() var-0)))
+                        (p-and pat p-context) #t state-empty '() var-0 var-0)))
           (if st
             (let-values (((c*1 dmn pd1)
                           (loop c*1 (p-and (p-not pat) p-context))))
@@ -1082,7 +1094,8 @@
                 ;; pushed versions of patterns use narrow domain for even more subsumption
                 ;;   safe due to known-type dispatch
                 (let-values (((_ __ pat1-narrow)
-                              (pat-prune pat1 #t st-dmn-narrow '() var-0)))
+                              (pat-prune
+                                pat1 #t st-dmn-narrow '() var-0 var-0)))
                   (let* ((clause-narrow `(,pat1-narrow . (,rhs . ,rhspat)))
                          (pd1 (pdomain-push pd0 pd1 clause-narrow))
                          (dmn-new (pdomain->domain pd1))
@@ -1090,7 +1103,7 @@
                          (st-dmn (domainify state-empty var-0 dmn-new)))
                     ;; use tail-inclusive domain for more pattern subsumption
                     (let-values (((_ __ pat1)
-                                  (pat-prune pat1 #t st-dmn '() var-0)))
+                                  (pat-prune pat1 #t st-dmn '() var-0 var-0)))
                       (let ((clause `(,pat1 . (,rhs . ,rhspat))))
                         (values `(,dmn-new ,clause . ,c*1) dmn-new pd1)))))))
             (loop c*1 p-context))))
