@@ -970,75 +970,62 @@
           (error (format "invalid access path ~v for ~v"
                          path (walk1 st v)))))))
 
-(define (pat-prune p parity st penv v vtop)
+(define (pat-prune p parity st v vtop)
   (define (prune-cx st cx ncx arg)
     (let/if (st1 ((if parity cx ncx) st arg v))
       (let/if (nst ((if parity ncx cx) st arg v))
-        (values st1 penv p)
-        (values st penv p-any))
-      (values #f #f #f)))
+        (values st1 p)
+        (values st p-any))
+      (values #f #f)))
   (define (prune-pair tag trans p)
     (let/vars (va vd)
       (let ((v1 `(,va . ,vd)))
         (let/if (st1 (unify st v1 v))
-          (let-values (((st2 penv1 p)
-                        (pat-prune p parity st1 penv (trans v1) vtop)))
+          (let-values (((st2 p) (pat-prune p parity st1 (trans v1) vtop)))
             (if st2
               (if (eq? p-any p)
-                (pat-prune p-pair #t st penv v vtop)
-                (values st2 penv1 `(,tag ,p)))
-              (values #f #f #f)))
+                (pat-prune p-pair #t st v vtop)
+                (values st2 `(,tag ,p)))
+              (values #f #f)))
           (if parity
-            (values #f #f #f)
-            (pat-prune p-pair parity st penv v vtop))))))
+            (values #f #f)
+            (pat-prune p-pair parity st v vtop))))))
   (define (prune-and parity p1 p2)
-    (let-values (((st1 penv1 p1) (pat-prune p1 parity st penv v vtop)))
+    (let-values (((st1 p1) (pat-prune p1 parity st v vtop)))
       (if st1
-        (let-values (((st2 penv2 p2) (pat-prune p2 parity st1 penv1 v vtop)))
+        (let-values (((st2 p2) (pat-prune p2 parity st1 v vtop)))
           (if st2
             (values
-              st2 penv2 (if (eq? p-any p2) p1
-                          (let-values (((st2 _ __)
-                                        (pat-prune p2 parity st penv1 v vtop)))
-                            (let-values (((_ __ p1)
-                                          (pat-prune
-                                            p1 parity st2 penv v vtop)))
-                              (if (eq? p-any p1) p2
-                                `(,(if parity 'and 'or) ,p1 ,p2))))))
-            (values #f #f #f)))
-        (values #f #f #f))))
+              st2 (if (eq? p-any p2) p1
+                    (let-values (((st2 _) (pat-prune p2 parity st v vtop)))
+                      (let-values (((_ p1) (pat-prune p1 parity st2 v vtop)))
+                        (if (eq? p-any p1) p2
+                          `(,(if parity 'and 'or) ,p1 ,p2))))))
+            (values #f #f)))
+        (values #f #f))))
   (define (prune-or parity p1 p2)
-    (let-values (((st1 _ p1-new) (pat-prune p1 parity st penv v vtop)))
+    (let-values (((st1 p1-new) (pat-prune p1 parity st v vtop)))
       (if st1
-        (let-values (((nst1 penv1 _)
-                      (pat-prune p1-new (not parity) st penv v vtop)))
+        (let-values (((nst1 _) (pat-prune p1-new (not parity) st v vtop)))
           (if nst1
-            (let-values (((st2 penv2 p2)
-                          (pat-prune
-                            p2 parity nst1 (if parity penv penv1) v vtop)))
+            (let-values (((st2 p2) (pat-prune p2 parity nst1 v vtop)))
               (if st2
-                (if (eq? p-any p2) (values st penv p-any)
+                (if (eq? p-any p2) (values st p-any)
                   (let-values
-                    (((nst2 _ __)
-                      (pat-prune
-                        p2 (not parity) st (if parity penv penv1) v vtop)))
-                    (let-values (((st1 __ p1-new)
-                                  (pat-prune p1-new parity nst2 penv v vtop)))
+                    (((nst2 _) (pat-prune p2 (not parity) st v vtop)))
+                    (let-values (((st1 p1-new)
+                                  (pat-prune p1-new parity nst2 v vtop)))
                       (if st1
-                        (if (eq? p-any p1-new) (values st penv p-any)
-                          (values
-                            st penv `(,(if parity 'or 'and) ,p1-new ,p2)))
-                        (values st2 penv p2)))))
-                (values st1 penv p1-new)))
-            (values st penv p-any)))
-        (let-values (((nst1 penv1 p1-new)
-                      (pat-prune p1 (not parity) st penv v vtop)))
+                        (if (eq? p-any p1-new) (values st p-any)
+                          (values st `(,(if parity 'or 'and) ,p1-new ,p2)))
+                        (values st2 p2)))))
+                (values st1 p1-new)))
+            (values st p-any)))
+        (let-values (((nst1 p1-new) (pat-prune p1 (not parity) st v vtop)))
           (if nst1
-            (let-values (((st2 penv2 p2)
-                          (pat-prune
-                            p2 parity nst1 (if parity penv penv1) v vtop)))
-              (values st2 penv (if (or parity (eq? p1-new p-any)) p2
-                                 `(and ,p1-new ,p2))))
+            (let-values (((st2 p2) (pat-prune p2 parity nst1  v vtop)))
+              (values st2 (if (or parity (eq? p1-new p-any)) p2
+                            `(and ,p1-new ,p2))))
             (error (format "this should never happen: parity=~v, p1=~v, p2=~v"
                            parity p1 p2)))))))
 
@@ -1054,12 +1041,12 @@
           (p-literal v1)))))
 
   (match p
-    ('(_) (if parity (values st penv p) (values #f #f #f)))
+    ('(_) (if parity (values st p) (values #f #f)))
     (`(lookup ,path)
       (let-values (((st1 v1) (path-lookup path st vtop)))
         (let ((pat (lookup->pat path st1 v1)))
           (if pat
-            (pat-prune pat parity st1 penv v vtop)
+            (pat-prune pat parity st1 v vtop)
             (prune-cx st1 unify disunify v1)))))
     (`(literal ,datum) (prune-cx st unify disunify datum))
     (`(type ,tag) (prune-cx st typify distypify tag))
@@ -1072,9 +1059,9 @@
                      (prune-or parity p1 p2)
                      (prune-and parity p1 p2)))
     (`(not ,p)
-      (let-values (((st1 penv1 p) (pat-prune p (not parity) st penv v vtop)))
-        (values st1 penv (if (eq? p-any p) p-any `(not ,p)))))
-    (`(? ,_) (values st penv p))))
+      (let-values (((st1 p) (pat-prune p (not parity) st v vtop)))
+        (values st1 (if (eq? p-any p) p-any `(not ,p)))))
+    (`(? ,_) (values st p))))
 
 (define (match-compile c*)
   (define (didx-push idx pat pd0 pd1)
@@ -1093,9 +1080,9 @@
   (let loop ((c* c*) (p-context p-any))
     (match c*
       (`((,pat . (,rhs . ,rhspat)) . ,c*1)
-        (let-values (((st _ pat1)
+        (let-values (((st pat1)
                       (pat-prune
-                        (p-and pat p-context) #t state-empty '() var-0 var-0)))
+                        (p-and pat p-context) #t state-empty var-0 var-0)))
           (if st
             (let-values (((c*1 dmn pd1)
                           (loop c*1 (p-and (p-not pat) p-context))))
@@ -1105,17 +1092,16 @@
                      (st-dmn-narrow (domainify state-empty var-0 dmn-narrow)))
                 ;; pushed versions of patterns use narrow domain for even more subsumption
                 ;;   safe due to known-type dispatch
-                (let-values (((_ __ pat1-narrow)
-                              (pat-prune
-                                pat1 #t st-dmn-narrow '() var-0 var-0)))
+                (let-values (((_ pat1-narrow)
+                              (pat-prune pat1 #t st-dmn-narrow var-0 var-0)))
                   (let* ((clause-narrow `(,pat1-narrow . (,rhs . ,rhspat)))
                          (pd1 (pdomain-push pd0 pd1 clause-narrow))
                          (dmn-new (pdomain->domain pd1))
                          (dmn-new (if (equal? dmn-new dmn) dmn dmn-new))
                          (st-dmn (domainify state-empty var-0 dmn-new)))
                     ;; use tail-inclusive domain for more pattern subsumption
-                    (let-values (((_ __ pat1)
-                                  (pat-prune pat1 #t st-dmn '() var-0 var-0)))
+                    (let-values (((_ pat1)
+                                  (pat-prune pat1 #t st-dmn var-0 var-0)))
                       (let ((clause `(,pat1 . (,rhs . ,rhspat))))
                         (values `(,dmn-new ,clause . ,c*1) dmn-new pd1)))))))
             (loop c*1 p-context))))
