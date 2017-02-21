@@ -831,6 +831,54 @@
       ('(_) (if parity pdomain-full pdomain-empty))
       (`(? ,_) pdomain-full)))))
 
+(define (ps->index cs st vs vtop)
+  (define (extract-pair cs st path v vs)
+    (let ((pr (walk1 st v)))
+      (ps->index cs st (list* (cons (cons 'car path) (car pr))
+                              (cons (cons 'cdr path) (cdr pr)) vs) vtop)))
+  (define (extract-literals cs st path v vs)
+    ;; TODO: extract, then partition on literals
+    ;; Profile to determine if this is necessary (assoc could make this faster)
+    (finish cs st path v vs))
+  (define (finish cs st path v vs) (and (pair? vs) (ps->index cs st vs vtop)))
+  (let ((path (caar vs)) (v (cdar vs)) (v* (cdr vs)))
+    (let part ((cs cs)
+               (st st)
+               (parts '())
+               (tag*cont
+                 `((pair ,extract-pair)
+                   (symbol ,extract-literals)
+                   (number ,extract-literals)
+                   (() ,finish)
+                   (#f ,finish)
+                   (#t ,finish))))
+      (match (and (< 1 (length cs)) tag*cont)
+        (`((,tag ,cont) . ,t*c)
+          (let ((st0 (typify st tag v)) (nst0 (distypify st tag v)))
+            (if (and st0 nst0)
+              (let loop ((c* cs) (sc* '()) (nc* '()))
+                ;; TODO: bring in bottom up domain calculation on sc* nc*
+                (match c*
+                  (`((,p . ,rhs) . ,c*1)
+                    (loop
+                      c*1
+                      (let-values (((st1 p1) (pat-prune p #t st0 vtop vtop)))
+                        (if st1 (cons (cons p1 rhs) sc*) sc*))
+                      (let-values (((nst1 p1) (pat-prune p #t nst0 vtop vtop)))
+                        (if nst1 (cons (cons p1 rhs) nc*) nc*))))
+                  (_ (if (or (null? sc*) (null? nc*)
+                             (and (= (length cs) (length sc*))
+                                  (= (length cs) (length nc*))))
+                       (part cs st parts '())
+                       (let* ((sc* (reverse sc*))
+                              (nc* (reverse nc*))
+                              (more (and (< 1 (length sc*))
+                                         (cont sc* st0 path v v*))))
+                         (part nc* nst0 (cons (list tag sc* more) parts)
+                               t*c))))))
+              (part cs st v vtop parts t*c))))
+        (_ (list path (reverse parts) cs))))))
+
 (define (p->subp access p)
   (match p
     ('(_) p)
@@ -950,9 +998,6 @@
         (loop t*d (if (vector-ref pd idx) dmn
                     (domain-remove dmn tag))))
       (_ dmn))))
-
-(defrec pblock type c*)
-(defrec pindex domain->block rhs-domain->block c*)
 
 (define (lookup/access access st v)
   (let/vars (va vd)
