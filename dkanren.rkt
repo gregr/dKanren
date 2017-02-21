@@ -344,20 +344,21 @@
 (define (state-resume st)
   (bind (state-resume-pending st) state-resume-remaining))
 
-(define (state-var-domain-== st vr va dmn)
-  (let*/and ((dmn (domain-intersect (vattr-domain va) dmn)))
-    (state-var-set st vr (vattr-domain-set va dmn))))
-
-(define (state-var-type-== st vr va type)
-  (and (domain-has-type? (vattr-domain va) type)
-       (state-var-set st vr (vattr-domain-set va `(,type)))))
-(define (state-var-type-=/= st vr va type)
-  (match (domain-remove (vattr-domain va) type)
+(define (state-var-domain-set st vr va dmn)
+  (match dmn
     (`(,(and (not 'symbol) (not 'number) singleton))
       (state-var-== st vr va (if (eq? 'pair singleton)
                                `(,(var 'pair-a) . ,(var 'pair-d)) singleton)))
     ('() #f)
     (dmn (state-var-set st vr (vattr-domain-set va dmn)))))
+(define (state-var-domain-== st vr va dmn)
+  (let*/and ((dmn (domain-intersect (vattr-domain va) dmn)))
+    (state-var-domain-set st vr va dmn)))
+(define (state-var-type-== st vr va type)
+  (and (domain-has-type? (vattr-domain va) type)
+       (state-var-domain-set st vr va `(,type))))
+(define (state-var-type-=/= st vr va type)
+  (state-var-domain-set st vr va (domain-remove (vattr-domain va) type)))
 
 ;; Ideally we would notify any vars in =/=s that they can drop 'vr' from their
 ;; own =/=s, but not doing so shouldn't be a big deal.  Same story when
