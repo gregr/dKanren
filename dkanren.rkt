@@ -124,6 +124,11 @@
 
 (defrec var name)
 (define var-0 (var 'initial))
+(define (value->vars st val)
+  (match (walk1 st val)
+    (`(,a . ,d) (list-append-unique (value->vars st a) (value->vars st d)))
+    ((? var? vr) (list vr))
+    (_ '())))
 
 (define domain-full '(pair symbol number () #f #t))
 (define (domain-remove dmn type) (remove type dmn))
@@ -1407,7 +1412,7 @@
                   (match-chain-guess goal-ref st mc (walk1 st rhs))))
          (goal (goal-suspended
                  #f rhs svs retry guess (mc-active? mc))))
-    (state-suspend* st svs (if (var? rhs) (list rhs) '()) goal-ref goal)))
+    (state-suspend* st svs (value->vars st rhs) goal-ref goal)))
 
 (define (rhs->goal rhs? rhs)
   (lambda (svs penv env st drhs)
