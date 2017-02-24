@@ -32,7 +32,7 @@
      ((_ name expr expecteds)
       (let* ((actual expr)
              (found (member actual expecteds))
-             (expected (if (null? found) (car expecteds) (car found))))
+             (expected (if (not found) (car expecteds) (car found))))
         (test name actual expected)))))
   (define-syntax test-time-any
     (syntax-rules ()
