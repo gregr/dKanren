@@ -311,7 +311,7 @@
 (define (state-resume-nondet1 st)
   (let* ((sgoals (state-goals st))
          (nondet (schedule-nondet (state-schedule st))))
-    (let/list loop ((goals nondet nondet) (vs (state-vs st)))
+    (let/list loop ((goals nondet (reverse nondet)) (vs (state-vs st)))
       (let/list loop1 ((goal goals1 goals))
         (let/if (gsusp (store-ref sgoals goal #f))
           (let/list loop2 ((blocker blockers (goal-suspended-blockers gsusp)))
@@ -321,7 +321,7 @@
                   (loop
                     (cons deps (cons (cons goal goals1) nondet))
                     (vattrs-set vs blocker (vattr-dependencies-clear va))))))
-            (let ((sch-next (schedule '() (cons (cons goal goals1) nondet))))
+            (let ((sch-next (schedule '() (reverse (cons (cons goal goals1) nondet)))))
               (bind
                 (bind ((goal-suspended-guess gsusp)
                        (state vs sgoals schedule-empty))
