@@ -168,4 +168,30 @@
     `(((,thrine0 ,thrine1 ,thrine2))
       ((,thrine2 ,thrine0 ,thrine1))
       ((,thrine1 ,thrine2 ,thrine0))))
+
+  ;(time
+    ;(test "tetrine"
+      ;(run 1 (p q r s) (=/= s p) (=/= s q) (=/= s r) (=/= p q) (=/= q r) (=/= r p)
+        ;(evalo p q) (evalo q r) (evalo r s) (evalo s p))
+      ;`(ok)))
+  ;(time
+    ;(test "pentine"
+      ;(run 1 (p q r s t) (=/= t p) (=/= t q) (=/= t r) (=/= t s) (=/= s p) (=/= s q) (=/= s r) (=/= p q) (=/= q r) (=/= r p)
+        ;(evalo p q) (evalo q r) (evalo r s) (evalo s t) (evalo t p))
+      ;`(ok)))
+  ;(time
+    ;(test "hexine"
+      ;(run 1 (p q r s t u) (=/= u p) (=/= u q) (=/= u r) (=/= u s) (=/= u t) (=/= t p) (=/= t q) (=/= t r) (=/= t s) (=/= s p) (=/= s q) (=/= s r) (=/= p q) (=/= q r) (=/= r p)
+        ;(evalo p q) (evalo q r) (evalo r s) (evalo s t) (evalo t u) (evalo u p))
+      ;`(ok)))
+  ;(time
+    ;(test "heptine"
+      ;(run 1 (p q r s t u v) (=/= v p) (=/= v q) (=/= v r) (=/= v s) (=/= v t) (=/= v u) (=/= u p) (=/= u q) (=/= u r) (=/= u s) (=/= u t) (=/= t p) (=/= t q) (=/= t r) (=/= t s) (=/= s p) (=/= s q) (=/= s r) (=/= p q) (=/= q r) (=/= r p)
+        ;(evalo p q) (evalo q r) (evalo r s) (evalo s t) (evalo t u) (evalo u v) (evalo v p))
+      ;`(ok)))
+  ;(time
+    ;(test "octine"
+      ;(run 1 (p q r s t u v w) (=/= w p) (=/= w q) (=/= w r) (=/= w s) (=/= w t) (=/= w u) (=/= w v) (=/= v p) (=/= v q) (=/= v r) (=/= v s) (=/= v t) (=/= v u) (=/= u p) (=/= u q) (=/= u r) (=/= u s) (=/= u t) (=/= t p) (=/= t q) (=/= t r) (=/= t s) (=/= s p) (=/= s q) (=/= s r) (=/= p q) (=/= q r) (=/= r p)
+        ;(evalo p q) (evalo q r) (evalo r s) (evalo s t) (evalo t u) (evalo u v) (evalo v w) (evalo w p))
+      ;`(ok)))
   )
