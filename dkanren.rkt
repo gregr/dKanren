@@ -858,30 +858,6 @@
     ('(_) (if parity pdomain-full pdomain-empty))
     (`(lookup ,_) pdomain-full)
     (`(? ,_) pdomain-full)))
-(define (p->subdomain path parity p)
-  (if (null? path) (p->domain parity p)
-    (let ((access (car path)) (path1 (cdr path)))
-      (match p
-      (`(literal ,datum)
-        (if (pair? datum)
-          (p->subdomain path1 parity (p-literal (access datum)))
-          (if parity pdomain-empty pdomain-full)))
-      (`(type ,tag)
-        (if (if parity (eq? 'pair tag) (not (eq? 'pair tag)))
-          pdomain-full pdomain-empty))
-      (`(car ,p) (if (eq? car access)
-                   (p->subdomain path1 parity p) pdomain-full))
-      (`(cdr ,p) (if (eq? cdr access)
-                   (p->subdomain path1 parity p) pdomain-full))
-      (`(and ,p1 ,p2)
-        ((if parity pdomain-meet pdomain-join)
-         (p->subdomain path parity p1) (p->subdomain path parity p2)))
-      (`(or ,p1 ,p2)
-        ((if parity pdomain-join pdomain-meet)
-         (p->subdomain path parity p1) (p->subdomain path parity p2)))
-      (`(not ,p) (p->subdomain path (not parity) p))
-      ('(_) (if parity pdomain-full pdomain-empty))
-      (`(? ,_) pdomain-full)))))
 
 (define (ps->index cs st vs vtop)
   (define (extract-pair cs st path v vs)
@@ -930,56 +906,6 @@
                                t*c))))))
               (part cs st v vtop parts t*c))))
         (_ (list path (reverse parts) cs))))))
-
-(define (p->subp access p)
-  (match p
-    ('(_) p)
-    (`(lookup ,_) p-any)
-    (`(literal ,datum) (and (pair? datum) (p-literal (access datum))))
-    (`(type ,tag) (and (eq? 'pair tag) p-any))
-    (`(car ,p) (if (eq? car access) p p-any))
-    (`(cdr ,p) (if (eq? cdr access) p p-any))
-    (`(and ,p1 ,p2)
-      (let*/and ((sp1 (p->subp access p1)) (sp2 (p->subp access p2)))
-        (if (eq? p-any sp1) sp2
-          (if (eq? p-any sp2) sp1
-            (p-and sp1 sp2)))))
-    (`(or ,p1 ,p2)
-      (let ((sp1 (p->subp access p1)) (sp2 (p->subp access p2)))
-        (if sp1
-          (if (eq? p-any sp1) p-any
-            (if sp2
-              (if (eq? p-any sp2) p-any
-                (p-or sp1 sp2))
-              sp1))
-          sp2)))
-    (`(not ,p) (p-not (p->subp access p)))
-    (`(? ,_) p-any)))
-
-(define (p->nsubp p)
-  (match p
-    ('(_) p)
-    (`(lookup ,_) p)
-    (`(literal ,datum) p-any)
-    (`(type ,tag) p-any)
-    (`(car ,p) p-any)
-    (`(cdr ,p) p-any)
-    (`(and ,p1 ,p2)
-      (let*/and ((sp1 (p->nsubp p1)) (sp2 (p->nsubp p2)))
-        (if (eq? p-any sp1) sp2
-          (if (eq? p-any sp2) sp1
-            (p-and sp1 sp2)))))
-    (`(or ,p1 ,p2)
-      (let ((sp1 (p->nsubp p1)) (sp2 (p->nsubp p2)))
-        (if sp1
-          (if (eq? p-any sp1) p-any
-            (if sp2
-              (if (eq? p-any sp2) p-any
-                (p-or sp1 sp2))
-              sp1))
-          sp2)))
-    (`(not ,p) (p-not (p->nsubp p)))
-    (`(? ,_) p)))
 
 (define (pdomain pair symbol number nil f t)
   (vector pair symbol number nil f t))
