@@ -91,6 +91,29 @@
 ;   match/r, reversible match: manually describe a reversed computation
 ;     should be much better than falling back to denote-rhs-pattern-unknown
 
+; profiling results
+; quine:
+;   match-chain-try loop: 58.6%, 27.0%
+;   pattern-exec-and: 54.2%, 2.1%
+; thrine:
+;   match-chain-try loop: 84.3%, 23.1%
+;   pattern-exec-and: 77.5%, 4.6%
+;   pattern-assert-==: 32.1%, 21.4%
+; append (cdr xs):
+;   state-resume-det loop1 94.6%, 0%
+;   match-chain-try loop: 79.7%, 45.5%
+; append more:
+;   match-chain-try loop: 92.1%, 75.8%
+; arithmetic:
+;   retry: 73.6%, 1.4%
+;   match-chain-try loop: 69.3%, 16.3%
+;   pattern-exec-and: 42.8%, 13.3%
+;   pattern-assert-or: 31.8%, 1.4%
+;   pattern-assert-==: 28.5%, 12.3%
+;   pattern-assert-pair: 27.6%, 0%
+;   unify: 17.6%, 10.8%
+;   val-depend: 6.8%
+
 (define-syntax defrec
   (syntax-rules ()
     ((_ name fnames ...) (struct name (fnames ...) #:transparent))))
