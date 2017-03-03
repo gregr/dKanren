@@ -30,6 +30,19 @@
     ))
 
 ; TODO:
+; pattern compilation
+;   don't forget to wrap ps->index result with outer guessing list
+;   add domains (and sub-domains for pairs) to guessing lists, bottom up
+;   new pattern matching procedure
+;     follow full indices for known values
+;     otherwise
+;       try each guessing list entry
+;       use rhs patterns only for ambiguity pruning, not indexing
+;       domainify upon ambiguity
+;   fix =/= svs, which don't really work at the moment
+;   possibly improve pattern assertion definitions
+;   manual low level conde-like match construction
+
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
 ; unlike normal mk, all vars in =/=* should be tracked for earliest access to determinism
 ;   these constraints can shrink domains, which may trigger new unifications, and so on
