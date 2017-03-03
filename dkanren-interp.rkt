@@ -31,6 +31,16 @@
 ;     what about generating lambdas/letrecs?
 ;       (aggressive/permissive) union type system?
 
+; related work
+;   escher
+;   myth
+;   http://leon.epfl.ch/doc/
+;   https://emina.github.io/rosette/
+;   https://people.eecs.berkeley.edu/~bodik/research/pldi07-sketching-stencils.pdf
+;   http://acypher.com/wwid/Chapters/07Metamouse.html
+;   http://web.media.mit.edu/~lieber/Lieberary/Mondrian/Mondrian.html
+;   Chimera?
+
 (define (letrec-eval-term program)
   `(let ((closure-tag ',(gensym "#%closure"))
          (prim-tag ',(gensym "#%primitive"))
