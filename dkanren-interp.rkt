@@ -7,6 +7,30 @@
   "dkanren.rkt"
   )
 
+; TODO
+; profile to see what terms are getting all the attention
+; nest all literals under a single match clause to compress their mostly-useless scheduling
+; can a weighted match prioritize symbol lookup unraveling?
+; additional predicates: procedure?, boolean?
+
+; evalo solver
+;   tag match statements
+;   recognize tag groups (confirm via debug printing)
+;   design partitions and env analysis
+;     force fresh variable names as needed
+;   rules
+;     unshadowed env
+;     literals
+;     car/cdr reachables
+;     pair? before car/cdr when input type is ambiguous in env/partition
+;       rather, car/cdr only allowed on unambiguous pairs
+;       conditionals on other type/equality witnesses may create partitions with reduced ambiguity
+;     never car/cdr a cons result
+;     never type-witness a literal
+;     never equate two literals
+;     what about generating lambdas/letrecs?
+;       (aggressive/permissive) union type system?
+
 (define (letrec-eval-term program)
   `(let ((closure-tag ',(gensym "#%closure"))
          (prim-tag ',(gensym "#%primitive"))
