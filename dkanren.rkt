@@ -804,6 +804,7 @@
 (define (p-or p1 p2) `(or ,p1 ,p2))
 (define (p-not p) `(not ,p))
 (define (p-? pred) `(? ,pred))
+(define p-none (p-not p-any))
 
 ;; TODO: pattern interpretations
 ;; each analysis task gives an interpretation
@@ -995,11 +996,16 @@
                          path (walk1 st v)))))))
 
 (define (pat-prune p parity st v vtop)
+  (define always (if parity p-any p-none))
+  (define never (if parity p-none p-any))
+  (define (always? p) (eq? always p))
+  (define (never? p) (eq? never p))
+
   (define (prune-cx st cx ncx arg)
     (let/if (st1 ((if parity cx ncx) st arg v))
       (let/if (nst ((if parity ncx cx) st arg v))
         (values st1 p)
-        (values st p-any))
+        (values st always))
       (values #f #f)))
   (define (prune-pair tag trans p)
     (let/vars (va vd)
@@ -1007,51 +1013,47 @@
         (let/if (st1 (unify st v1 v))
           (let-values (((st2 p) (pat-prune p parity st1 (trans v1) vtop)))
             (if st2
-              (if (eq? p-any p)
-                (pat-prune p-pair #t st v vtop)
+              (if (always? p)
+                (if parity
+                  (pat-prune p-pair #t st v vtop)
+                  (values st p))
                 (values st2 `(,tag ,p)))
               (values #f #f)))
           (if parity
             (values #f #f)
-            (pat-prune p-pair parity st v vtop))))))
-  (define (prune-and parity p1 p2)
+            (pat-prune p-pair #f st v vtop))))))
+  (define (prune-and p1 p2)
     (let-values (((st1 p1) (pat-prune p1 parity st v vtop)))
       (if st1
         (let-values (((st2 p2) (pat-prune p2 parity st1 v vtop)))
           (if st2
             (values
-              st2 (if (eq? p-any p2) p1
+              st2 (if (always? p2) p1
                     (let-values (((st2 _) (pat-prune p2 parity st v vtop)))
                       (let-values (((_ p1) (pat-prune p1 parity st2 v vtop)))
-                        (if (eq? p-any p1) p2
+                        (if (always? p1) p2
                           `(,(if parity 'and 'or) ,p1 ,p2))))))
             (values #f #f)))
         (values #f #f))))
-  (define (prune-or parity p1 p2)
+  (define (prune-or p1 p2)
     (let-values (((st1 p1-new) (pat-prune p1 parity st v vtop)))
       (if st1
         (let-values (((nst1 _) (pat-prune p1-new (not parity) st v vtop)))
           (if nst1
             (let-values (((st2 p2) (pat-prune p2 parity nst1 v vtop)))
               (if st2
-                (if (eq? p-any p2) (values st p-any)
+                (if (always? p2) (values st always)
                   (let-values
                     (((nst2 _) (pat-prune p2 (not parity) st v vtop)))
                     (let-values (((st1 p1-new)
                                   (pat-prune p1-new parity nst2 v vtop)))
                       (if st1
-                        (if (eq? p-any p1-new) (values st p-any)
+                        (if (always? p1-new) (values st always)
                           (values st `(,(if parity 'or 'and) ,p1-new ,p2)))
                         (values st2 p2)))))
                 (values st1 p1-new)))
-            (values st p-any)))
-        (let-values (((nst1 p1-new) (pat-prune p1 (not parity) st v vtop)))
-          (if nst1
-            (let-values (((st2 p2) (pat-prune p2 parity nst1  v vtop)))
-              (values st2 (if (or parity (eq? p1-new p-any)) p2
-                            `(and ,p1-new ,p2))))
-            (error (format "this should never happen: parity=~v, p1=~v, p2=~v"
-                           parity p1 p2)))))))
+            (values st always)))
+        (pat-prune p2 parity st v vtop))))
 
   (define (lookup->pat path st v1)
     (let ((v1 (walk1 st v1)))
@@ -1076,15 +1078,13 @@
     (`(type ,tag) (prune-cx st typify distypify tag))
     (`(car ,p) (prune-pair 'car car p))
     (`(cdr ,p) (prune-pair 'cdr cdr p))
-    (`(and ,p1 ,p2) (if parity
-                      (prune-and parity p1 p2)
-                      (prune-or parity p1 p2)))
-    (`(or ,p1 ,p2) (if parity
-                     (prune-or parity p1 p2)
-                     (prune-and parity p1 p2)))
+    (`(and ,p1 ,p2) (if parity (prune-and p1 p2) (prune-or p1 p2)))
+    (`(or ,p1 ,p2) (if parity (prune-or p1 p2) (prune-and p1 p2)))
     (`(not ,p)
       (let-values (((st1 p) (pat-prune p (not parity) st v vtop)))
-        (values st1 (if (eq? p-any p) p-any `(not ,p)))))
+        (if st1
+          (values st1 (if (never? p) always `(not ,p)))
+          (values #f #f))))
     (`(? ,_) (values st p))))
 
 (define (match-compile c*)
