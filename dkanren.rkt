@@ -1109,6 +1109,22 @@
             (loop c*1 p-context))))
       (_ '()))))
 
+(define (clauses&domains c*)
+  (let-values
+    (((result _ __)
+      (let loop ((c* c*))
+        (match c*
+          (`((,pat . ,rhs) . ,c*1)
+            (let-values (((c*1 dmn pd1) (loop c*1)))
+              (let ((pd0 (p->domain #t pat)))
+                (let* ((pd1 (pdomain-join pd0 pd1))
+                       (dmn-new (pdomain->domain* pd1))
+                       (dmn-new (if (equal? dmn-new dmn) dmn dmn-new)))
+                  (let ((clause `(,pat . ,rhs)))
+                    (values `((,dmn-new ,clause) . ,c*1) dmn-new pd1))))))
+          (_ (values '() '() pdomain-empty))))))
+    result))
+
 (define (pattern-assert-any parity st penv v)
   (if parity
     (values st penv '())
