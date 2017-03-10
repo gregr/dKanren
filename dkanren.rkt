@@ -31,8 +31,8 @@
 
 ; TODO:
 ; pattern compilation
-;   don't forget to wrap ps->index result with outer guessing list
-;   add domains (and sub-domains for pairs) to guessing lists, bottom up
+;   are dynamically generated match chains supported?
+;   include rhs patterns
 ;   new pattern matching procedure
 ;     follow full indices for known values
 ;     otherwise
