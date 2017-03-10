@@ -964,8 +964,97 @@
       (let-values (((st1 v1) ((car path) st v)))
         (if st1
           (path-lookup (cdr path) st1 v1)
-          (error (format "invalid access path ~v for ~v"
-                         path (walk1 st v)))))))
+          (values #f #f)))))
+
+(define p-any-assert (lambda (env st v vtop) (values st '())))
+(define p-none-assert (lambda (env st v vtop) (values #f #f)))
+(define (p->assert p parity)
+  (define (cx->assert cx ncx)
+    (define cx0 (if parity cx ncx))
+    (define cx1 (if parity ncx cx))
+    (lambda (arg)
+      (lambda (env st v vtop)
+        (let/if (st1 (cx0 st arg v))
+          (let/if (nst (cx1 st arg v))
+            (values st1 (extract-svs st arg v))
+            (values st '()))
+          (values #f #f)))))
+  (define (pair->assert tag trans p)
+    (define assert (p->assert p parity))
+    (lambda (env st v vtop)
+      (let/vars (va vd)
+        (let ((v1 `(,va . ,vd)))
+          (let/if (st1 (unify st v1 v))
+            (let-values (((st2 svs) (assert env st1 (trans v1) vtop)))
+              (values st2 (and svs (list-subtract svs (list va vd)))))
+            (if parity (values #f #f) (values st '())))))))
+  (define (and->assert p1 p2)
+    (define a1 (p->assert p1 parity))
+    (define a2 (p->assert p2 parity))
+    (lambda (env st v vtop)
+      (let-values (((st1 svs1) (a1 env st v vtop)))
+        (if st1
+          (let-values (((st2 svs2) (a2 env st1 v vtop)))
+            (if st2
+              (values st2 (list-append-unique svs1 svs2))
+              (values #f #f)))
+          (values #f #f)))))
+  (define (or->assert p1 p2)
+    (define a1 (p->assert p1 parity))
+    (define a2 (p->assert p2 parity))
+    ;; TODO: compile new match-chain
+    (lambda (env st v vtop)
+      (values #f #f)))
+
+  (define (pred->assert dpred)
+    (define assert-not-false (p->assert (not parity) (p-literal #f)))
+    (lambda (env st v vtop)
+      (let-values (((st0 vpred) ((dpred env) #t)))
+        (if (not st0)
+          (error (format "invalid predicate: ~a" dpred))
+          (let-values (((st result) ((vpred v) st)))
+            (if (not st)
+              ; TODO: if (not st), the entire computation needs to fail, not just this
+              ; particular pattern assertion.  This failure needs to cooperate with
+              ; nondeterministic search, which makes things more complex and likely
+              ; less efficient (negations of conjunctions containing predicates become
+              ; mandatory, to verify that the predicate invocation, if reached, returns
+              ; a value).  For now, we'll assume a predicate can never fail in this
+              ; manner.
+              (error (format "predicate failed: ~a" dpred))
+              (if (match-chain? result)
+                (let-values (((st svs result)
+                              ;; TODO: match-chain-try may be replaced
+                              (match-chain-try st result #f #f)))
+                  (if (match-chain? result)
+                    (let-values (((st rhs)
+                                  (if parity
+                                    (let/vars (notf)
+                                      (values (disunify st notf #f) notf))
+                                    (values st #f))))
+                      (let-values (((st result)
+                                    (actual-value st result #t rhs)))
+                        (if st (values st svs) (values #f #f))))
+                    (assert-not-false st result)))
+                (assert-not-false st result))))))))
+
+  (match p
+    ('(_) (if parity p-any-assert p-none-assert))
+    (`(lookup ,path)
+      (let ((arg->assert (cx->assert unify disunify)))
+        (lambda (env st v vtop)
+          (let-values (((st1 v1) (path-lookup path st vtop)))
+            (if st1
+              ((arg->assert v1) env st1 v vtop)
+              (if parity (values #f #f) (values st '())))))))
+    (`(literal ,datum) ((cx->assert unify disunify) datum))
+    (`(type ,tag) ((cx->assert typify distypify) tag))
+    (`(car ,p) (pair->assert 'car car p))
+    (`(cdr ,p) (pair->assert 'cdr cdr p))
+    (`(and ,p1 ,p2) (if parity (and->assert p1 p2) (or->assert p1 p2)))
+    (`(or ,p1 ,p2) (if parity (or->assert p1 p2) (and->assert p1 p2)))
+    (`(not ,p) (p->assert p (not parity)))
+    (`(? ,dpred) (pred->assert dpred))))
 
 (define (pat-prune p parity st v vtop)
   (define always (if parity p-any p-none))
