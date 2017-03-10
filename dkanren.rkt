@@ -970,6 +970,7 @@
     (#f . 4)
     (#t . 5)))
 
+(define domain*-full (cons domain-full #t))
 (define (pdomain->domain pd)
   (let loop ((t*d tag*didx) (dmn domain-full))
     (match t*d
@@ -977,6 +978,14 @@
         (loop t*d (if (vector-ref pd idx) dmn
                     (domain-remove dmn tag))))
       (_ dmn))))
+(define (pdomain->domain* pd)
+  (define dmn (pdomain->domain pd))
+  (if (eq? domain-full dmn) domain*-full
+    (cons dmn
+          (let*/and ((pd-pair (vector-ref pd 0)))
+            (or (eq? #t pd-pair)
+                (cons (pdomain->domain* (car pd-pair))
+                      (pdomain->domain* (cdr pd-pair))))))))
 
 (define (lookup/access access st v)
   (let/vars (va vd)
