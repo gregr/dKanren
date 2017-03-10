@@ -1096,49 +1096,18 @@
           (values #f #f))))
     (`(? ,_) (values st p))))
 
-(define (match-compile c*)
-  (define (didx-push idx pat pd0 pd1)
-    (if (vector-ref pd0 idx)
-      (let ((p*1 (vector-ref pd1 idx)))
-        (pdomain-set pd1 idx (if p*1 (cons pat p*1) (list pat))))
-      pd1))
-  (define (pdomain-push pd0 pd1 pat)
-    ;; TODO: treat pair push specially, for sub-indexing
-    (didx-push 5 pat pd0
-      (didx-push 4 pat pd0
-        (didx-push 3 pat pd0
-          (didx-push 2 pat pd0
-            (didx-push 1 pat pd0
-              (didx-push 0 pat pd0 pd1)))))))
+
+(define (simplify-clauses c*)
   (let loop ((c* c*) (p-context p-any))
     (match c*
-      (`((,pat . (,rhs . ,rhspat)) . ,c*1)
+      (`((,pat . ,rhs) . ,c*1)
         (let-values (((st pat1)
                       (pat-prune
                         (p-and pat p-context) #t state-empty var-0 var-0)))
           (if st
-            (let-values (((c*1 dmn pd1)
-                          (loop c*1 (p-and (p-not pat) p-context))))
-              ;; TODO: define the rest of this recursively, to allow pair indexing
-              (let* ((pd0 (p->domain #t pat1))
-                     (dmn-narrow (pdomain->domain pd0))
-                     (st-dmn-narrow (domainify state-empty var-0 dmn-narrow)))
-                ;; pushed versions of patterns use narrow domain for even more subsumption
-                ;;   safe due to known-type dispatch
-                (let-values (((_ pat1-narrow)
-                              (pat-prune pat1 #t st-dmn-narrow var-0 var-0)))
-                  (let* ((clause-narrow `(,pat1-narrow . (,rhs . ,rhspat)))
-                         (pd1 (pdomain-push pd0 pd1 clause-narrow))
-                         (dmn-new (pdomain->domain pd1))
-                         (dmn-new (if (equal? dmn-new dmn) dmn dmn-new))
-                         (st-dmn (domainify state-empty var-0 dmn-new)))
-                    ;; use tail-inclusive domain for more pattern subsumption
-                    (let-values (((_ pat1)
-                                  (pat-prune pat1 #t st-dmn var-0 var-0)))
-                      (let ((clause `(,pat1 . (,rhs . ,rhspat))))
-                        (values `(,dmn-new ,clause . ,c*1) dmn-new pd1)))))))
+            (cons (cons pat1 rhs) (loop c*1 (p-and (p-not pat) p-context)))
             (loop c*1 p-context))))
-      (_ (values '() '() pdomain-empty))))) ;; TODO: rhs index if not intermediate
+      (_ '()))))
 
 (define (pattern-assert-any parity st penv v)
   (if parity
