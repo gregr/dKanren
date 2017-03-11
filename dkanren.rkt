@@ -1007,7 +1007,7 @@
       (values #f #f)))
 
   (define (pred->assert dpred)
-    (define assert-not-false (p->assert (not parity) (p-literal #f)))
+    (define assert-not-false (p->assert (p-literal #f) (not parity)))
     (lambda (env st v vtop)
       (let-values (((st0 vpred) ((dpred env) #t)))
         (if (not st0)
