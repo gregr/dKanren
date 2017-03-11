@@ -1228,7 +1228,7 @@
                            (part nc* nst0 (cons (list tag scd* more) parts)
                                  t*c))))))
                 (part cs st v vtop parts t*c))))
-          (_ (list (reverse path) (reverse parts) cs))))))
+          (_ (and (pair? parts) (list (reverse path) (reverse parts) cs)))))))
   (list (clauses&domains c*)
         (ps->index c* state-empty (list (cons '() var-0)) var-0)))
 
