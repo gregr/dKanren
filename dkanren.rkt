@@ -1250,6 +1250,183 @@
   (list (clauses&domains c*)
         (ps->index c* state-empty (list (cons '() var-0)) var-0)))
 
+;; TODO: update match-chain definition
+(define (mc-try mc) (error "TODO: mc-try"))
+(define (mc-try-run mc st rhs? rhs) ((mc-try mc) st rhs? rhs))
+(define (run-rhs svs env st drhs rhs? rhs)
+    (let-values (((st result) ((drhs env) st)))
+      (if (match-chain? result)
+        (mc-try-run result st rhs? rhs)
+        (values (if rhs? (and st (unify st result rhs)) st) svs result))))
+
+(define (false? x) (eq? #f x))
+(define (true? x) (eq? #t x))
+(define (index->dmc index active?)
+  (define (scan cs&ds)
+    (let loop ((cs&ds cs&ds))
+      (match cs&ds
+        (`((,dmn (,pat . (,prhs . ,drhs))) . ,cs&ds)
+          (cons (list dmn (p->assert pat #t) prhs drhs) (loop cs&ds)))
+        ('() '()))))
+  (define (dispatch path parts cs)
+    (let ((find-part
+            (let loop ((parts parts))
+              (match parts
+                (`((,tag . (,cs&ds ,table)) . ,parts)
+                  (let ((found? (match tag
+                                  ('pair pair?)
+                                  ('symbol symbol?)
+                                  ('number number?)
+                                  ('() null?)
+                                  (#f false?)
+                                  (#t true?)))
+                        (yes (part cs&ds table))
+                        (no (loop parts)))
+                    (lambda (v) (if (found? v) yes (no v)))))
+                ('()
+                 (let ((yes (part (map (lambda (c) (list domain*-full c)) cs)
+                                  #f)))
+                   (lambda (v) yes))))))
+          (path (map (lambda (tag)
+                       (match tag
+                         ('car lookup/car)
+                         ('cdr lookup/cdr))) path)))
+      (lambda (env st vtop rhs? rhs)
+        (let-values (((st1 v) (path-lookup path st vtop)))
+          (and st1 (part-continue (find-part v) env st1 vtop rhs? rhs))))))
+
+  (define (part-continue part env st vtop rhs? rhs)
+    (define a* (car part))
+    (define try (cadr part))
+    ((try env vtop a*) st rhs? rhs))
+
+  (define (mc-build env vtop a* try guess)
+    (define retry
+      (lambda (st rhs? rhs)
+        (let* ((vtop (walk1 st vtop))
+               (rhs (if rhs? (walk1 st rhs) rhs)))
+          ((try env vtop a*) st rhs? rhs))))
+    (mc-new retry
+            (guess env vtop a*)
+            active?))
+
+  (define (part cs table)
+    (define all (scan cs))
+    (define dt (and table (dispatch (car table) (cadr table) (caddr table))))
+    (define try
+      (if dt
+        (lambda (env vtop a*)
+          (lambda (st rhs? rhs)
+            (if (var? vtop)
+              (try-unknown a* env st vtop rhs? rhs)
+              (dt env st vtop))))
+        (lambda (env vtop a*)
+          (lambda (st rhs? rhs)
+            (try-unknown a* env st vtop rhs? rhs)))))
+
+    (define (guess env vtop a*)
+      (lambda (goal-ref st rhs? rhs)
+        (define vtop (walk1 st vtop))
+        (define rhs (walk1 st rhs))
+        (define (commit-without next-a* assert)
+          (let-values (((st svs result) ((try env vtop next-a*) st rhs? rhs)))
+            (if (match-chain? result)
+              ;; TODO: suspend
+              (match-chain-suspend st goal-ref result svs rhs)
+              (and st (state-remove-goal st goal-ref)))))
+        (define (commit-with assert drhs)
+          (let-values
+            (((st svs) (assert env (state-remove-goal st goal-ref) vtop vtop)))
+            (and st (let-values (((st svs result)
+                                  (run-rhs svs env st drhs rhs? rhs)))
+                      (if (match-chain? result)
+                        ;; TODO: suspend
+                        (match-chain-suspend st #f result svs rhs)
+                        st)))))
+        (and (pair? a*)
+             (zzz (let* ((next-a* (cdr a*))
+                         (assert ((cadar a*) env))
+                         (drhs (cadddr (car a*)))
+                         (ss (reset-cost (commit-with assert drhs))))
+                    (if (pair? next-a*)
+                      (mplus ss (zzz (reset-cost
+                                       (commit-without next-a* assert))))
+                      ss))))))
+
+    (define (try-unknown a* env st vtop rhs? rhs)
+      ;; TODO: domainify* at start
+      (let loop ((a* a*))
+        (if (null? a*) (values #f #f #f)
+          (let ((dmn (caar a*))
+                (assert (cadar a*))
+                (prhs (caddar a*))
+                (drhs (cadddr (car a*))))
+            (let-values (((st1 svs1) (assert env st vtop vtop)))
+              (let ((commit (lambda () (run-rhs svs1 env st1 drhs rhs? rhs))))
+                ;; Is the first pattern satisfiable?
+                (if st1
+                  ;; If we only have a single option, commit to it.
+                  (if (null? (cdr a*)) (commit)
+                    (begin (det-pay 1)
+                      ;; If no vars were scrutinized (svs1) while checking
+                      ;; satisfiability, then we have an irrefutable match, so
+                      ;; commit to it.
+                      (if (null? svs1) (commit)
+                        (begin (det-pay 5)
+                          ;; Check whether we can rule out this clause by
+                          ;; matching its right-hand-side with the expected
+                          ;; result of the entire match expression.
+                          (if (and rhs? (not (prhs env st1 rhs vtop)))
+                            (loop st (cdr a*))
+                            ;; Otherwise, we're not sure whether to commit to
+                            ;; this clause yet.  If there are no other
+                            ;; satisfiable patterns, we can.  If there is at
+                            ;; least one other satisfiable pattern, we should
+                            ;; wait until later, when we either have more
+                            ;; information, or we're forced to guess.
+                            (let ambiguous ((a*2 (cdr a*)))
+                              (let ((assert2 (cadar a*))
+                                    (prhs2 (caddar a*)))
+                                ;; Is the next pattern satisfiable?
+                                (let-values (((st2 svs2)
+                                              (assert2 env st vtop vtop)))
+                                  (if st2
+                                    ;; If it is, try ruling it out by matching
+                                    ;; its right-hand-side with the expected
+                                    ;; result.
+                                    (if (and rhs?
+                                             (not (prhs2 env st2 rhs vtop)))
+                                      ;; If we rule it out and there are no
+                                      ;; patterns left to try, the first clause
+                                      ;; is the only option.  Commit to it.
+                                      (if (null? (cdr a*2)) (commit)
+                                        (ambiguous (cdr a*2)))
+                                      ;; If we can't rule it out, then we've
+                                      ;; established ambiguity.  Retry later.
+                                      (values
+                                        ;; TODO: domainify* with dmn if it differs from start dmn
+                                        st
+                                        (list-append-unique svs1 svs2)
+                                        (mc-build env vtop (cons (car a*) a*2)
+                                                  try guess)))
+                                    ;; Otherwise, if we have no other clauses
+                                    ;; available, then the first clause happens
+                                    ;; to be the only option.  Commit to it.
+                                    (if (null? (cdr a*2)) (commit)
+                                      ;; If the there still are other clauses,
+                                      ;; keep checking.
+                                      (ambiguous (cdr a*2))))))))))))
+                  (loop st (cdr a*)))))))))
+
+    (list all try guess))
+
+  (let* ((start (part (car index) (cdr index)))
+         (start-a* (car start))
+         (start-try (cadr start))
+         (start-guess (caddr start)))
+    (lambda (env st vtop)
+      (values st (mc-build env vtop start-a* start-try start-guess)))))
+
 (define (pattern-assert-any parity st penv v)
   (if parity
     (values st penv '())
