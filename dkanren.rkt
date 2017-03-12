@@ -1289,23 +1289,24 @@
                        (match tag
                          ('car lookup/car)
                          ('cdr lookup/cdr))) path)))
-      (lambda (env st vtop rhs? rhs)
+      (lambda (env st v vtop rhs? rhs)
         (let-values (((st1 v) (path-lookup path st vtop)))
-          (and st1 (part-continue (find-part v) env st1 vtop rhs? rhs))))))
+          (and st1 (part-continue (find-part v) env st1 v vtop rhs? rhs))))))
 
-  (define (part-continue part env st vtop rhs? rhs)
+  (define (part-continue part env st v vtop rhs? rhs)
     (define a* (car part))
     (define try (cadr part))
-    ((try env vtop a*) st rhs? rhs))
+    ((try env v vtop a*) st rhs? rhs))
 
-  (define (mc-build env vtop a* try guess)
+  (define (mc-build env v vtop a* try guess)
     (define retry
       (lambda (st rhs? rhs)
         (let* ((vtop (walk1 st vtop))
+               (v (walk1 st v))
                (rhs (if rhs? (walk1 st rhs) rhs)))
-          ((try env vtop a*) st rhs? rhs))))
+          ((try env v vtop a*) st rhs? rhs))))
     (mc-new retry
-            (guess env vtop a*)
+            (guess env v vtop a*)
             active?))
 
   (define (part cs table)
@@ -1313,28 +1314,30 @@
     (define dt (and table (dispatch (car table) (cadr table) (caddr table))))
     (define try
       (if dt
-        (lambda (env vtop a*)
+        (lambda (env v vtop a*)
           (lambda (st rhs? rhs)
-            (if (var? vtop)
-              (try-unknown a* env st vtop rhs? rhs)
-              (dt env st vtop))))
-        (lambda (env vtop a*)
+            (if (var? v)
+              (try-unknown a* env st v vtop rhs? rhs)
+              (dt env st v))))
+        (lambda (env v vtop a*)
           (lambda (st rhs? rhs)
-            (try-unknown a* env st vtop rhs? rhs)))))
+            (try-unknown a* env st v vtop rhs? rhs)))))
 
-    (define (guess env vtop a*)
+    (define (guess env v vtop a*)
       (lambda (goal-ref st rhs? rhs)
         (define vtop (walk1 st vtop))
+        (define v (walk1 st v))
         (define rhs (walk1 st rhs))
         (define (commit-without next-a* assert)
-          (let-values (((st svs result) ((try env vtop next-a*) st rhs? rhs)))
+          (let-values (((st svs result)
+                        ((try env v vtop next-a*) st rhs? rhs)))
             (if (match-chain? result)
               ;; TODO: suspend
               (match-chain-suspend st goal-ref result svs rhs)
               (and st (state-remove-goal st goal-ref)))))
         (define (commit-with assert drhs)
           (let-values
-            (((st svs) (assert env (state-remove-goal st goal-ref) vtop vtop)))
+            (((st svs) (assert env (state-remove-goal st goal-ref) v vtop)))
             (and st (let-values (((st svs result)
                                   (run-rhs svs env st drhs rhs? rhs)))
                       (if (match-chain? result)
@@ -1351,7 +1354,7 @@
                                        (commit-without next-a* assert))))
                       ss))))))
 
-    (define (try-unknown a* env st vtop rhs? rhs)
+    (define (try-unknown a* env st v vtop rhs? rhs)
       ;; TODO: domainify* at start
       (let loop ((a* a*))
         (if (null? a*) (values #f #f #f)
@@ -1359,7 +1362,7 @@
                 (assert (cadar a*))
                 (prhs (caddar a*))
                 (drhs (cadddr (car a*))))
-            (let-values (((st1 svs1) (assert env st vtop vtop)))
+            (let-values (((st1 svs1) (assert env st v vtop)))
               (let ((commit (lambda () (run-rhs svs1 env st1 drhs rhs? rhs))))
                 ;; Is the first pattern satisfiable?
                 (if st1
@@ -1387,7 +1390,7 @@
                                     (prhs2 (caddar a*)))
                                 ;; Is the next pattern satisfiable?
                                 (let-values (((st2 svs2)
-                                              (assert2 env st vtop vtop)))
+                                              (assert2 env st v vtop)))
                                   (if st2
                                     ;; If it is, try ruling it out by matching
                                     ;; its right-hand-side with the expected
@@ -1405,7 +1408,7 @@
                                         ;; TODO: domainify* with dmn if it differs from start dmn
                                         st
                                         (list-append-unique svs1 svs2)
-                                        (mc-build env vtop (cons (car a*) a*2)
+                                        (mc-build env v vtop (cons (car a*) a*2)
                                                   try guess)))
                                     ;; Otherwise, if we have no other clauses
                                     ;; available, then the first clause happens
@@ -1422,8 +1425,8 @@
          (start-a* (car start))
          (start-try (cadr start))
          (start-guess (caddr start)))
-    (lambda (env st vtop)
-      (values st (mc-build env vtop start-a* start-try start-guess)))))
+    (lambda (env st v vtop)
+      (values st (mc-build env v vtop start-a* start-try start-guess)))))
 
 (define (pattern-assert-any parity st penv v)
   (if parity
