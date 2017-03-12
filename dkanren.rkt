@@ -31,17 +31,8 @@
 
 ; TODO:
 ; pattern compilation
-;   are dynamically generated match chains supported?
-;   include rhs patterns
-;   new pattern matching procedure
-;     follow full indices for known values
-;     otherwise
-;       try each guessing list entry
-;       use rhs patterns only for ambiguity pruning, not indexing
-;       domainify upon ambiguity
-;   fix =/= svs, which don't really work at the moment
-;   possibly improve pattern assertion definitions
-;   manual low level conde-like match construction
+;   update denote-match
+;     process right-hand-sides to make use of lookup instead of penv
 
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
 ; unlike normal mk, all vars in =/=* should be tracked for earliest access to determinism
@@ -817,14 +808,6 @@
 (define (p-? pred) `(? ,pred))
 (define p-none (p-not p-any))
 
-;; TODO: pattern interpretations
-;; each analysis task gives an interpretation
-;; * assert, usual state update (use only prune for analysis?)
-;; * simplify, impossibility-detection
-;; * subsume
-;; * domain->block and index construction
-;; interpretation args: state, penv, parity, value
-
 (define (datum->didx datum)
   (match datum
     (`(,_ . ,_) 0)
@@ -1374,7 +1357,6 @@
                       ss))))))
 
     (define (try-unknown a* env st v vtop rhs? rhs)
-      ;; TODO: domainify* at start
       (let loop ((a* a*))
         (if (null? a*) (values #f #f #f)
           (let ((dmn (caar a*))
@@ -1424,7 +1406,7 @@
                                       ;; If we can't rule it out, then we've
                                       ;; established ambiguity.  Retry later.
                                       (values
-                                        ;; TODO: domainify* with dmn if it differs from start dmn
+                                        ;; TODO: domainify* with dmn
                                         st
                                         (list-append-unique svs1 svs2)
                                         (mc-build env v vtop (cons (car a*) a*2)
@@ -1623,6 +1605,7 @@
       (let*-values (((penv d0) (denote-pattern pat penv senv))
                     ((penv d*) (denote-pattern* pat* penv senv)))
         (values penv (lambda (env) (pattern-assert-and (d0 env) (d* env))))))))
+;; TODO: This is wrong, (not a b ...) ==> (and (not a) (not b) ...)
 (define (denote-pattern-not pat* penv senv)
   (let-values (((_ dp) (denote-pattern* pat* penv senv)))
     (values penv (lambda (env) (pattern-assert-not (dp env))))))
@@ -1856,6 +1839,7 @@
                      ((st v) (actual-value st v #f #f)))
           (values st (mc-new penv env v pc* active?)))))))
 
+;; TODO: compatible use of new patterns
 (define (denote-match pt*-all vt senv active?)
   (let ((dv (denote-term vt senv))
         (pc* (let loop ((pt* pt*-all))
@@ -1872,6 +1856,7 @@
                        (cons (cons dpat (cons drhs drhspat)) pc*))))))))
     (pattern-match '() dv pc* active?)))
 
+;; TODO: fix mc construction
 (define and-rhs (cons denote-false denote-rhs-pattern-false))
 (define (denote-and t* senv)
   (match t*
