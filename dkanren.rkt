@@ -1041,9 +1041,7 @@
               ; manner.
               (error (format "predicate failed: ~a" dpred))
               (if (match-chain? result)
-                (let-values (((st svs result)
-                              ;; TODO: match-chain-try may be replaced
-                              (match-chain-try st result #f #f)))
+                (let-values (((st svs result) (mc-try-run result st #f #f)))
                   (if (match-chain? result)
                     (let-values (((st rhs)
                                   (if parity
