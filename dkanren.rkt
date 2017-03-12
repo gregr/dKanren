@@ -1018,10 +1018,19 @@
               (values #f #f)))
           (values #f #f)))))
   (define (or->assert p1 p2)
-    (define a1 (p->assert p1 parity))
-    (define a2 (p->assert p2 parity))
-    ;; TODO: compile new match-chain
+    ;; TODO: lift or-rhs once conflicting definition is gone
+    (define or-rhs (cons prhs-unknown denote-true))
+    (define clause* `((,p1 . ,or-rhs) (,p2 . ,or-rhs)))
+    (define dmc (index->dmc (clauses->index clause*) #f))
     (lambda (env st v vtop)
+      (let-values (((st mc) (dmc env st v vtop)))
+        (let-values (((st svs result) (mc-try-run mc st #f #t)))
+          (if (match-chain? result)
+            (values
+              ;; TODO: suspend
+              (match-chain-suspend st #f result svs #t)
+              svs)
+            (values st svs))))
       (values #f #f)))
 
   (define (pred->assert dpred)
