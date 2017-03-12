@@ -1333,13 +1333,13 @@
             (try-unknown a* env st v vtop rhs? rhs)))))
 
     (define (guess env v vtop a*)
-      (lambda (goal-ref st rhs? rhs)
+      (lambda (goal-ref st rhs)
         (define vtop (walk1 st vtop))
         (define v (walk1 st v))
         (define rhs (walk1 st rhs))
         (define (commit-without next-a* assert)
           (let-values (((st svs result)
-                        ((try env v vtop next-a*) st rhs? rhs)))
+                        ((try env v vtop next-a*) st #t rhs)))
             (if (match-chain? result)
               ;; TODO: suspend
               (match-chain-suspend st goal-ref result svs rhs)
@@ -1348,7 +1348,7 @@
           (let-values
             (((st svs) (assert env (state-remove-goal st goal-ref) v vtop)))
             (and st (let-values (((st svs result)
-                                  (run-rhs svs env st drhs rhs? rhs)))
+                                  (run-rhs svs env st drhs #t rhs)))
                       (if (match-chain? result)
                         ;; TODO: suspend
                         (match-chain-suspend st #f result svs rhs)
