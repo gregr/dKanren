@@ -1253,8 +1253,8 @@
 (define (mc-try mc) (error "TODO: mc-try"))
 (define (mc-guess mc) (error "TODO: mc-guess"))
 (define (mc-try-run mc st rhs? rhs) ((mc-try mc) st rhs? rhs))
-(define (run-rhs svs env st drhs rhs? rhs)
-    (let-values (((st result) ((drhs env) st)))
+(define (run-rhs svs env st vtop drhs rhs? rhs)
+    (let-values (((st result) ((drhs vtop env) st)))
       (if (match-chain? result)
         (mc-try-run result st rhs? rhs)
         (values (if rhs? (and st (unify st result rhs)) st) svs result))))
@@ -1352,7 +1352,7 @@
           (let-values
             (((st svs) (assert env (state-remove-goal st goal-ref) v vtop)))
             (and st (let-values (((st svs result)
-                                  (run-rhs svs env st drhs #t rhs)))
+                                  (run-rhs svs env st vtop drhs #t rhs)))
                       (if (match-chain? result)
                         (mc-suspend st #f result svs rhs)
                         st)))))
@@ -1374,7 +1374,8 @@
                 (prhs (caddar a*))
                 (drhs (cadddr (car a*))))
             (let-values (((st1 svs1) (assert env st v vtop)))
-              (let ((commit (lambda () (run-rhs svs1 env st1 drhs rhs? rhs))))
+              (let ((commit (lambda ()
+                              (run-rhs svs1 env st1 vtop drhs rhs? rhs))))
                 ;; Is the first pattern satisfiable?
                 (if st1
                   ;; If we only have a single option, commit to it.
