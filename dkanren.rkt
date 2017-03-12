@@ -951,12 +951,14 @@
                       (pdomain->domain* (cdr pd-pair))))))))
 
 (define (lookup/access access st v)
-  (let/vars (va vd)
-    (let ((v1 `(,va . ,vd)))
-      (let ((st1 (unify st v1 v)))
-        (if st1
-          (values st1 (walk1 st1 (access v1)))
-          (values #f #f))))))
+  (if (pair? v)
+    (values st (walk1 st (access v)))
+    (let/vars (va vd)
+      (let ((v1 `(,va . ,vd)))
+        (let ((st1 (unify st v1 v)))
+          (if st1
+            (values st1 (walk1 st1 (access v1)))
+            (values #f #f)))))))
 (define (lookup/car st v) (lookup/access car st v))
 (define (lookup/cdr st v) (lookup/access cdr st v))
 (define (path-lookup path st v)
