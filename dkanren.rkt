@@ -1027,8 +1027,7 @@
         (let-values (((st svs result) (mc-try-run mc st #f #t)))
           (if (match-chain? result)
             (values
-              ;; TODO: suspend
-              (match-chain-suspend st #f result svs #t)
+              (mc-suspend st #f result svs #t)
               svs)
             (values st svs))))
       (values #f #f)))
@@ -1259,12 +1258,25 @@
 
 ;; TODO: update match-chain definition
 (define (mc-try mc) (error "TODO: mc-try"))
+(define (mc-guess mc) (error "TODO: mc-guess"))
 (define (mc-try-run mc st rhs? rhs) ((mc-try mc) st rhs? rhs))
 (define (run-rhs svs env st drhs rhs? rhs)
     (let-values (((st result) ((drhs env) st)))
       (if (match-chain? result)
         (mc-try-run result st rhs? rhs)
         (values (if rhs? (and st (unify st result rhs)) st) svs result))))
+(define (mc-suspend st goal-ref mc svs rhs)
+  (let* ((rhs (walk1 st rhs))
+         (goal-ref (or goal-ref (goal-ref-new)))
+         (retry (lambda (st)
+                  (let ((rhs (walk1 st rhs)))
+                    (let-values (((st svs result) (mc-try-run mc st #t rhs)))
+                      (if (match-chain? result)
+                        (mc-suspend st goal-ref result svs rhs)
+                        (and st (state-remove-goal st goal-ref)))))))
+         (guess (lambda (st) ((mc-guess mc) (goal-ref st (walk1 st rhs)))))
+         (goal (goal-suspended #f rhs svs retry guess (mc-active? mc))))
+    (state-suspend* st svs (value->vars st rhs) goal-ref goal)))
 
 (define (false? x) (eq? #f x))
 (define (true? x) (eq? #t x))
@@ -1341,8 +1353,7 @@
           (let-values (((st svs result)
                         ((try env v vtop next-a*) st #t rhs)))
             (if (match-chain? result)
-              ;; TODO: suspend
-              (match-chain-suspend st goal-ref result svs rhs)
+              (mc-suspend st goal-ref result svs rhs)
               (and st (state-remove-goal st goal-ref)))))
         (define (commit-with assert drhs)
           (let-values
@@ -1350,8 +1361,7 @@
             (and st (let-values (((st svs result)
                                   (run-rhs svs env st drhs #t rhs)))
                       (if (match-chain? result)
-                        ;; TODO: suspend
-                        (match-chain-suspend st #f result svs rhs)
+                        (mc-suspend st #f result svs rhs)
                         st)))))
         (and (pair? a*)
              (zzz (let* ((next-a* (cdr a*))
