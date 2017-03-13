@@ -794,37 +794,6 @@
                            ((st val) (actual-value st val #f #f)))
                 (loop st (cons val xs) (cdr g*))))))))))
 
-(define (denote-rhs-pattern-unknown env st v) st)
-(define (denote-rhs-pattern-literal literal)
-  (lambda (env st v) (unify st literal v)))
-(define (denote-rhs-pattern-var vname senv)
-  (let ((dv (denote-term vname senv)))
-    (lambda (env st rhs)
-      (let*/state (((st v) ((dv env) st))) (unify st v rhs)))))
-(define (denote-rhs-pattern-qq qq senv)
-  (match qq
-    (`(,'unquote ,pat) (denote-rhs-pattern pat senv))
-    (`(,a . ,d)
-      (let ((da (denote-rhs-pattern-qq a senv))
-            (dd (denote-rhs-pattern-qq d senv)))
-        (lambda (env st v)
-          (let/vars (va vd)
-            (let ((v1 `(,va . ,vd)))
-              (let*/and ((st (unify st v v1)) (st (da env st va)))
-                (dd env st vd)))))))
-    ((? quotable? datum) (denote-rhs-pattern-literal datum))))
-(define denote-rhs-pattern-true (denote-rhs-pattern-literal #t))
-(define denote-rhs-pattern-false (denote-rhs-pattern-literal #f))
-(define (denote-rhs-pattern pat senv)
-  (match pat
-    (`(quote ,(? quotable? datum)) (denote-rhs-pattern-literal datum))
-    (`(quasiquote ,qq) (denote-rhs-pattern-qq qq senv))
-    ((? symbol? vname) (denote-rhs-pattern-var vname senv))
-    ((? number? datum) (denote-rhs-pattern-literal datum))
-    (#t denote-rhs-pattern-true)
-    (#f denote-rhs-pattern-false)
-    (_ denote-rhs-pattern-unknown)))
-
 (define (extract-svs st v1 v2)
   (let-values (((v1 va1) (walk st v1))
                ((v2 va2) (walk st v2)))
@@ -1020,6 +989,7 @@
     (let-values (((st1 v1) (path-lookup path st vtop)))
       (and st1 (unify st1 v1 rhs)))))
 
+(define or-rhs (cons prhs-unknown denote-true))
 (define p-any-assert (lambda (env st v vtop) (values st '())))
 (define p-none-assert (lambda (env st v vtop) (values #f #f)))
 (define (p->assert p parity)
@@ -1291,9 +1261,12 @@
   (list (clauses&domains c*)
         (ps->index c* state-empty (list (cons '() var-0)) var-0)))
 
-;; TODO: update match-chain definition
-(define (mc-try mc) (error "TODO: mc-try"))
-(define (mc-guess mc) (error "TODO: mc-guess"))
+(defrec match-chain try guess active?)
+(define mc-new match-chain)
+(define mc-try match-chain-try)
+(define mc-guess match-chain-guess)
+(define mc-active? match-chain-active?)
+
 (define (mc-try-run mc st rhs? rhs) ((mc-try mc) st rhs? rhs))
 (define (run-rhs svs env st vtop drhs rhs? rhs)
     (let-values (((st result) (drhs vtop env st)))
@@ -1613,135 +1586,37 @@
                        ((st v) (actual-value st v #f #f)))
             (dmc env st v v)))))))
 
-(define (pattern-assert-any parity st penv v)
-  (if parity
-    (values st penv '())
-    (values #f #f #f)))
-(define (pattern-assert-none parity st penv v)
-  (if parity
-    (values #f #f #f)
-    (values st penv '())))
-
-(define (pattern-value-literal literal) (lambda (st penv) literal))
-(define (pattern-value-ref index)
-  (lambda (st penv) (walk1 st (list-ref penv index))))
-(define (pattern-var-extend parity st penv v)
-  (if parity
-    (values st (cons (walk1 st v) penv) '())
-    (values #f #f #f)))
-
-(define (pattern-transform f assert)
-  (lambda (parity st penv v) (assert parity st penv (f v))))
-(define (pattern-replace v assert) (pattern-transform (lambda (_) v) assert))
-
-(define (pattern-assert-not assert)
-  (lambda (parity st penv v)
-    (let-values (((st _ svs) (assert (not parity) st penv v)))
-      (values st penv svs))))
-(define (pattern-assert-== pvalue)
-  (lambda (parity st penv v)
-    (let ((pval (pvalue st penv)))
-      (let/if (st1 ((if parity unify disunify) st pval v))
-        (values st1 penv (extract-svs st pval v))
-        (values #f #f #f)))))
-(define (pattern-assert-=/= pvalue)
-  (pattern-assert-not (pattern-assert-== pvalue)))
-(define (pattern-assert-type-== type-tag)
-  (lambda (parity st penv v)
-    (let/if (st1 ((if parity typify distypify) st type-tag v))
-      (let ((v1 (walk1 st v)))
-        (values st1 penv (if (var? v1) (list v1) '())))
-      (values #f #f #f))))
-
-(define pattern-assert-pair-== (pattern-assert-type-== 'pair))
-(define pattern-assert-symbol-== (pattern-assert-type-== 'symbol))
-(define pattern-assert-number-== (pattern-assert-type-== 'number))
-(define (pattern-assert-pair assert-car assert-cdr)
-  (define assert (pattern-assert-and (pattern-transform car assert-car)
-                                     (pattern-transform cdr assert-cdr)))
-  (lambda (parity st penv v)
-    (let ((v (walk1 st v)))
-      ((cond
-         ((pair? v) assert)
-         ((var? v)
+;; TODO: process lookups with penv
+(define (denote-rhs-pattern-unknown env st v) st)
+(define (denote-rhs-pattern-literal literal)
+  (lambda (env st v) (unify st literal v)))
+(define (denote-rhs-pattern-var vname senv)
+  (let ((dv (denote-term vname senv)))
+    (lambda (env st rhs)
+      (let*/state (((st v) ((dv env) st))) (unify st v rhs)))))
+(define (denote-rhs-pattern-qq qq senv)
+  (match qq
+    (`(,'unquote ,pat) (denote-rhs-pattern pat senv))
+    (`(,a . ,d)
+      (let ((da (denote-rhs-pattern-qq a senv))
+            (dd (denote-rhs-pattern-qq d senv)))
+        (lambda (env st v)
           (let/vars (va vd)
             (let ((v1 `(,va . ,vd)))
-              (lambda (parity st penv v)
-                (let-values
-                  (((st penv svs)
-                    ((pattern-assert-and
-                       (lambda (parity st penv v)
-                         ((if parity
-                            (pattern-assert-== (pattern-value-literal v1))
-                            pattern-assert-pair-==)
-                          parity st penv v))
-                       (pattern-replace v1 assert))
-                     parity st penv v)))
-                  (values st penv (and svs (list-subtract
-                                             svs (list va vd)))))))))
-         (else pattern-assert-none))
-       parity st penv v))))
-
-(define pattern-assert-false
-  (pattern-assert-== (pattern-value-literal #f)))
-(define pattern-assert-not-false
-  (pattern-assert-=/= (pattern-value-literal #f)))
-(define (pattern-assert-predicate pred)
-  (lambda (parity st penv v)
-    (let-values (((st result) (pred st v)))
-      ; TODO: if (not st), the entire computation needs to fail, not just this
-      ; particular pattern assertion.  This failure needs to cooperate with
-      ; nondeterministic search, which makes things more complex and likely
-      ; less efficient (negations of conjunctions containing predicates become
-      ; mandatory, to verify that the predicate invocation, if reached, returns
-      ; a value).  For now, we'll assume a predicate can never fail in this
-      ; manner.  In this implementation, such a failure leads to unsound
-      ; behavior by being unpredictable in the granularity of failure.
-      (if (match-chain? result)
-        (let-values (((st svs result) (match-chain-try st result #f #f)))
-          (if (match-chain? result)
-            (let-values (((st rhs) (if parity
-                                     (let/vars (notf)
-                                       (values (disunify st notf #f) notf))
-                                     (values st #f))))
-              (let-values (((st result) (actual-value st result #t rhs)))
-                (if st
-                  (values st penv svs)
-                  (values #f #f #f))))
-            (pattern-assert-not-false parity st penv result)))
-        (pattern-assert-not-false parity st penv result)))))
-
-(define (pattern-exec-and a1 a2 st penv v)
-  (let-values (((st penv svs1) (a1 #t st penv v)))
-    (if st
-      (let-values (((st penv svs2) (a2 #t st penv v)))
-        (if st
-          (values st penv (list-append-unique svs1 svs2))
-          (values #f #f #f)))
-      (values #f #f #f))))
-(define (pattern-assert-and a1 a2)
-  (define (nassert)
-    (pattern-assert-or (pattern-assert-not a1)
-                       (pattern-assert-and a1 (pattern-assert-not a2))))
-  (lambda (parity st penv v)
-    (if parity
-      (pattern-exec-and a1 a2 st penv v)
-      ((nassert) #t st penv v))))
-
-(define or-rhs (cons denote-true denote-rhs-pattern-unknown))
-(define (pattern-assert-or a1 a2)
-  (define na1 (pattern-assert-not a1))
-  (define na2 (pattern-assert-not a2))
-  (define clause* (list (cons (lambda (env) a1) or-rhs)
-                        (cons (lambda (env) a2) or-rhs)))
-  (lambda (parity st penv v)
-    (if parity
-      (let-values (((st svs result)
-                    (match-chain-try st (mc-new penv '() v clause* #f) #f #t)))
-        (if (match-chain? result)
-          (values (match-chain-suspend st #f result svs #t) penv svs)
-          (values st penv svs)))
-      (pattern-exec-and na1 na2 st penv v))))
+              (let*/and ((st (unify st v v1)) (st (da env st va)))
+                (dd env st vd)))))))
+    ((? quotable? datum) (denote-rhs-pattern-literal datum))))
+(define denote-rhs-pattern-true (denote-rhs-pattern-literal #t))
+(define denote-rhs-pattern-false (denote-rhs-pattern-literal #f))
+(define (denote-rhs-pattern pat senv)
+  (match pat
+    (`(quote ,(? quotable? datum)) (denote-rhs-pattern-literal datum))
+    (`(quasiquote ,qq) (denote-rhs-pattern-qq qq senv))
+    ((? symbol? vname) (denote-rhs-pattern-var vname senv))
+    ((? number? datum) (denote-rhs-pattern-literal datum))
+    (#t denote-rhs-pattern-true)
+    (#f denote-rhs-pattern-false)
+    (_ denote-rhs-pattern-unknown)))
 
 (define (denote-pattern-succeed env) pattern-assert-any)
 (define (denote-pattern-fail env) pattern-assert-none)
@@ -1836,185 +1711,16 @@
     ((? symbol? vname) (denote-pattern-var penv vname penv))
     ((? quotable? datum) (denote-pattern-literal datum penv))))
 
-(defrec match-chain scrutinee penv env clauses active?)
-(define (mc-new penv0 env scrutinee clauses active?)
-  (match-chain scrutinee penv0 env clauses active?))
-(define mc-scrutinee match-chain-scrutinee)
-(define mc-penv match-chain-penv)
-(define mc-env match-chain-env)
-(define mc-clauses match-chain-clauses)
-(define mc-active? match-chain-active?)
-
 (define (actual-value st result rhs? rhs)
   (if (match-chain? result)
-    (let-values (((st svs result) (match-chain-try st result rhs? rhs)))
+    (let-values (((st svs result) (mc-try-run result st rhs? rhs)))
       (if (match-chain? result)
         (let ((rhs (if rhs? rhs (let/vars (rhs) rhs))))
-          (values (match-chain-suspend st #f result svs rhs) rhs))
+          (values (mc-suspend st #f result svs rhs) rhs))
         (values st result)))
     (values (if rhs? (and st (unify st result rhs)) st) result)))
 
-(define (match-chain-suspend st goal-ref mc svs rhs)
-  (let* ((rhs (walk1 st rhs))
-         (goal-ref (or goal-ref (goal-ref-new)))
-         (retry (lambda (st)
-                  (let ((rhs (walk1 st rhs)))
-                    (let-values (((st svs result)
-                                (match-chain-try st mc #t rhs)))
-                      (if (match-chain? result)
-                        (match-chain-suspend st goal-ref result svs rhs)
-                        (and st (state-remove-goal st goal-ref)))))))
-         (guess (lambda (st)
-                  (match-chain-guess goal-ref st mc (walk1 st rhs))))
-         (goal (goal-suspended
-                 #f rhs svs retry guess (mc-active? mc))))
-    (state-suspend* st svs (value->vars st rhs) goal-ref goal)))
-
-(define (rhs->goal rhs? rhs)
-  (lambda (svs penv env st drhs)
-    (let-values (((st result) ((drhs (append penv env)) st)))
-      (if (match-chain? result)
-        (match-chain-try st result rhs? rhs)
-        (values (if rhs? (and st (unify st result rhs)) st) svs result)))))
-
-(define (match-chain-guess goal-ref st mc rhs)
-  (define v (walk1 st (mc-scrutinee mc)))
-  (define penv0 (mc-penv mc))
-  (define env (mc-env mc))
-  (define pc* (mc-clauses mc))
-  (define active? (mc-active? mc))
-  (define run-rhs (rhs->goal #t rhs))
-  (define (commit-without next-pc* assert)
-    (let-values (((st penv _) (assert #f st penv0 v)))
-      (and st
-           (let-values (((st svs result)
-                         (match-chain-try
-                           st (mc-new penv0 env v next-pc* active?) #t rhs)))
-             (if (match-chain? result)
-               (match-chain-suspend st goal-ref result svs rhs)
-               (and st (state-remove-goal st goal-ref)))))))
-  (define (commit-with assert drhs)
-    (let-values (((st penv svs)
-                  (assert #t (state-remove-goal st goal-ref) penv0 v)))
-      (and st (let-values (((st svs result) (run-rhs svs penv env st drhs)))
-                (if (match-chain? result)
-                  (match-chain-suspend st #f result svs rhs)
-                  st)))))
-  (and (pair? pc*)
-       (zzz (let* ((next-pc* (cdr pc*))
-                   (assert ((caar pc*) env))
-                   (drhs (cadar pc*))
-                   (ss (reset-cost (commit-with assert drhs))))
-              (if (pair? next-pc*)
-                  (mplus ss (zzz (reset-cost (commit-without next-pc* assert))))
-                  ss)))))
-
-(define (match-chain-try st mc rhs? rhs)
-  (let* ((rhs (if rhs? (walk1 st rhs) rhs))
-         (run-rhs (rhs->goal rhs? rhs))
-         (v (mc-scrutinee mc))
-         (penv0 (mc-penv mc))
-         (env (mc-env mc))
-         (pc* (mc-clauses mc))
-         (active? (mc-active? mc)))
-    (let ((v (walk1 st v)))
-      (let loop ((st st) (pc* pc*))
-        (if (null? pc*) (values #f #f #f)
-          (let* ((assert ((caar pc*) env))
-                 (drhs (cadar pc*))
-                 (drhspat (cddar pc*)))
-            (let-values (((st1 penv1 svs) (assert #t st penv0 v)))
-              (let ((commit (lambda () (run-rhs svs penv1 env st1 drhs))))
-                ;; Is the first pattern satisfiable?
-                (if st1
-                  ;; If we only have a single option, commit to it.
-                  (if (null? (cdr pc*)) (commit)
-                    (begin (det-pay 1)
-                      ;; If no vars were scrutinized (svs) while checking
-                      ;; satisfiability, then we have an irrefutable match, so
-                      ;; commit to it.
-                      (if (null? svs) (commit)
-                        ;; If vars were scrutinized, there is room for doubt.
-                        ;; Check whether the negated pattern is satisfiable.
-                        (begin (det-pay 5)
-                          (let-values (((nst _ nsvs) (assert #f st penv0 v)))
-                            (if nst
-                              ;; If the negation is also satisfiable, check whether
-                              ;; we can still rule out this clause by matching its
-                              ;; right-hand-side with the expected result of the
-                              ;; entire match expression.
-                              (if (and rhs? (not (drhspat
-                                                   (append penv1 env) st1 rhs)))
-                                ;; If we can rule it out, permanently learn the
-                                ;; negated state.
-                                (loop nst (cdr pc*))
-                                ;; Otherwise, we're not sure whether to commit to
-                                ;; this clause yet.  If there are no other
-                                ;; satisfiable patterns, we can.  If there is at
-                                ;; least one other satisfiable pattern, we should
-                                ;; wait until later, when we either have more
-                                ;; information, or we're forced to guess.
-                                (let ambiguous ((nst nst) (pc*1 (cdr pc*)) (nc* '()))
-                                  (let ((assert1 ((caar pc*1) env))
-                                        (drhspat1 (cddar pc*1)))
-                                    ;; Is the next pattern satisfiable?
-                                    (let-values (((st1 penv1 svs1)
-                                                  (assert1 #t nst penv0 v)))
-                                      (if st1
-                                        ;; If it is, check whether we can rule it out
-                                        ;; by matching its right-hand-side with the
-                                        ;; expected result.
-                                        (if (and rhs?
-                                                 (not (drhspat1
-                                                        (append penv1 env) st1 rhs)))
-                                          ;; If we rule it out and there are no
-                                          ;; patterns left to try, the first clause
-                                          ;; is the only option.  Commit to it.
-                                          (if (null? (cdr pc*1)) (commit)
-                                            ;; If we rule it out and there are other
-                                            ;; patterns to try, learn the negation
-                                            ;; and continue the search.
-                                            (let-values (((nst1 _ __)
-                                                          (assert1 #f nst penv0 v)))
-                                              (if nst1
-                                                ;; Clauses that were ruled out (nc*)
-                                                ;; need to be tracked so that retries
-                                                ;; can relearn their negated
-                                                ;; patterns.
-                                                (ambiguous
-                                                  nst1 (cdr pc*1) (cons (car pc*1)
-                                                                        nc*))
-                                                ;; Unless the negation is impossible,
-                                                ;; in which case nothing else could
-                                                ;; succeed, meaning the first clause
-                                                ;; is the only option after all!
-                                                ;; Commit to it.
-                                                (commit))))
-                                          ;; If we can't rule it out, then we've
-                                          ;; established ambiguity.  Try again later.
-                                          (values st
-                                                  (list-append-unique
-                                                    svs1 (list-append-unique
-                                                           nsvs svs))
-                                                  (mc-new
-                                                    penv0 env v (cons (car pc*)
-                                                                      (rev-append
-                                                                        nc* pc*1))
-                                                    active?)))
-                                        ;; Otherwise, if we have no other clauses
-                                        ;; available, then the first clause happens
-                                        ;; to be the only option.  Commit to it.
-                                        (if (null? (cdr pc*1)) (commit)
-                                          ;; If the there still are other clauses,
-                                          ;; keep checking.
-                                          (ambiguous nst (cdr pc*1) nc*)))))))
-                              ;; If the negated pattern wasn't satisfiable, this
-                              ;; pattern was irrefutable after all.  Commit.
-                              (commit)))))))
-                      ;; If the first pattern wasn't satisfiable, throw that clause
-                      ;; away and try the next.
-                      (loop st (cdr pc*)))))))))))
-
+;; TODO: mc-new
 (define (pattern-match penv dv pc* active?)
   (lambda (env)
     (let ((gv (dv env)))
