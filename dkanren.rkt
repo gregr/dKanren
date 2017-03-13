@@ -1432,7 +1432,7 @@
 
     (list all try guess))
 
-  (let* ((start (part (car index) (cdr index)))
+  (let* ((start (part (car index) (cadr index)))
          (start-a* (car start))
          (start-try (cadr start))
          (start-guess (caddr start)))
