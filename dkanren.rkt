@@ -1011,8 +1011,7 @@
               (values #f #f)))
           (values #f #f)))))
   (define (or->assert p1 p2)
-    ;; TODO: lift or-rhs once conflicting definition is gone
-    (define or-rhs (cons prhs-unknown denote-true))
+    (define or-rhs (cons prhs-unknown (rhs->drhs #t '() '())))
     (define clause* `((,p1 . ,or-rhs) (,p2 . ,or-rhs)))
     (define dmc (index->dmc (clauses->index clause*) #f))
     (lambda (env st v vtop)
