@@ -1548,6 +1548,25 @@
     (#f prhs-false)
     (_ prhs-unknown)))
 
+(define (denote-pattern-match pt*-all vt senv active?)
+  (let* ((dv (denote-term vt senv))
+         (pc* (let loop ((pt* pt*-all))
+                (match pt*
+                  ('() '())
+                  (`((,pat ,rhs) . ,clause*)
+                    (let-values (((penv dpat) (pstx->p pat '() '() senv)))
+                      (let* ((drhs (rhs->drhs rhs penv senv))
+                             (drhspat (rhs->p rhs penv senv))
+                             (pc* (loop clause*)))
+                        (cons (cons dpat (cons drhspat drhs)) pc*)))))))
+         (dmc (index->dmc (clauses->index pc*) active?)))
+    (lambda (env)
+      (let ((gv (dv env)))
+        (lambda (st)
+          (let*/state (((st v) (gv st))
+                       ((st v) (actual-value st v #f #f)))
+            (dmc env st v v)))))))
+
 (define (pattern-assert-any parity st penv v)
   (if parity
     (values st penv '())
