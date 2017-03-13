@@ -807,6 +807,16 @@
 (define (p-not p) `(not ,p))
 (define (p-? pred) `(? ,pred))
 (define p-none (p-not p-any))
+(define (p-and* p*)
+  (match p*
+    ('() p-any)
+    (`(,p) p)
+    (`(,p . ,p*) (p-and p (p-and* p*)))))
+(define (p-or* p*)
+  (match p*
+    ('() p-none)
+    (`(,p) p)
+    (`(,p . ,p*) (p-or p (p-or* p*)))))
 
 (define (datum->didx datum)
   (match datum
