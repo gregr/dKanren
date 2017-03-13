@@ -1528,6 +1528,27 @@
     (#f (drhs-simple))
     (_ (drhs-complex))))
 
+(define prhs-true (prhs-literal #t))
+(define prhs-false (prhs-literal #f))
+(define (rhs->p-var vname penv senv)
+  (let/if (binding (assoc vname penv))
+    (prhs-lookup (cadr binding))
+    (prhs-var (denote-term vname senv))))
+(define (rhs->p-qq qq penv senv)
+  (match qq
+    (`(,'unquote ,pat) (rhs->p pat penv senv))
+    (`(,a . ,d) (prhs-cons (rhs->p-qq a penv senv) (rhs->p-qq d penv senv)))
+    ((? quotable? datum) (prhs-literal datum))))
+(define (rhs->p rhs penv senv)
+  (match rhs
+    (`(quote ,(? quotable? datum)) (prhs-literal datum))
+    (`(quasiquote ,qq) (rhs->p-qq qq penv senv))
+    ((? symbol? vname) (rhs->p-var vname penv senv))
+    ((? number? datum) (prhs-literal datum))
+    (#t prhs-true)
+    (#f prhs-false)
+    (_ prhs-unknown)))
+
 (define (pattern-assert-any parity st penv v)
   (if parity
     (values st penv '())
