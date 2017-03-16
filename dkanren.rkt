@@ -1331,7 +1331,7 @@
           (lambda (st rhs? rhs)
             (if (var? v)
               (try-unknown a* env st v vtop rhs? rhs)
-              (dt env st v))))
+              (dt env st v vtop rhs? rhs))))
         (lambda (env v vtop a*)
           (lambda (st rhs? rhs)
             (try-unknown a* env st v vtop rhs? rhs)))))
