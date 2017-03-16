@@ -1389,7 +1389,7 @@
                           ;; matching its right-hand-side with the expected
                           ;; result of the entire match expression.
                           (if (and rhs? (not (prhs env st1 rhs vtop)))
-                            (loop st (cdr a*))
+                            (loop (cdr a*))
                             ;; Otherwise, we're not sure whether to commit to
                             ;; this clause yet.  If there are no other
                             ;; satisfiable patterns, we can.  If there is at
@@ -1428,7 +1428,7 @@
                                       ;; If the there still are other clauses,
                                       ;; keep checking.
                                       (ambiguous (cdr a*2))))))))))))
-                  (loop st (cdr a*)))))))))
+                  (loop (cdr a*)))))))))
 
     (list all try guess))
 
