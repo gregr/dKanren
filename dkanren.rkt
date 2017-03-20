@@ -30,10 +30,6 @@
     ))
 
 ; TODO:
-; pattern compilation
-;   update denote-match
-;     process right-hand-sides to make use of lookup instead of penv
-
 ; force remaining goals that are mentioned only in vattrs (e.g. disunify-or-suspend)
 ; unlike normal mk, all vars in =/=* should be tracked for earliest access to determinism
 ;   these constraints can shrink domains, which may trigger new unifications, and so on
