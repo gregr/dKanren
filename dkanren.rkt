@@ -101,6 +101,7 @@
 ;   unify: 17.6%, 10.8%
 ;   val-depend: 6.8%
 
+; "define record" for portability to chez
 (define-syntax defrec
   (syntax-rules ()
     ((_ name fnames ...) (struct name (fnames ...) #:transparent))))
@@ -182,7 +183,24 @@
                     (if (null? di) #f (reverse di))
                     (loop d1d d2d di)))))))
 
-(defrec vattr domain =/=s goals dependencies)
+; The state-vs will contain either vattr records or terms on the right hand side
+(defrec vattr
+        domain ; type constraints, but not concrete values. Because we don't use vattrs for known terms, this domain
+               ; will never be just #f or just #t or just ().
+
+        =/=s   ; Disequality constraint information. Only has individual pairs, not =/=* info as in faster-miniKanren.
+
+        goals  ; (list symbol) identifying entries in state-goals. (This indirection saves us from running a goal
+               ; multiple times when it appears attached to different variables or otherwise is multiply scheduled).
+               ; Includes any goal for which this variable is a blocker, or for which this variable represents the result of
+               ; the match statement represented by the goal
+
+        dependencies  ; (list symbol) identifying entries in state-goals
+                      ; A subset of goals, just including the goals for which this variable represents the result of
+                      ; the match statement represented by the goal except for those that have not been scheduled
+                      ; as a result of dependency analysis. Gets smaller as scheduling sets up execution with binds.
+        )
+
 (define (vattrs-get vs vr) (store-ref vs vr vattr-empty))
 (define vattrs-set store-set)
 (define vattr-empty (vattr domain-full '() '() '()))
@@ -244,7 +262,27 @@
            (append (vattr-dependencies va1)
                    (vattr-dependencies va2)))))
 
-(defrec goal-suspended tag result blockers retry guess active?)
+; These appear as values in state-goals
+; All goal-suspendeds are created as the result of a suspended match
+(defrec goal-suspended
+        tag ; Not yet used. Intent is that user could tag match statements with a symbol that says
+            ; what kind of expression it is. Then a meta-process could inspect the goal store and group goals
+            ; by type for its reasoning and rescheduling purposes, or solving with a domain-specific solver
+
+        result ; Not currently used, but being filled. Should go away.
+
+        blockers ; Variables, that if bound, may allow this goal to run deterministically. Any that are unified will
+                 ; trigger this goal for a deterministic attempt.
+
+        retry ; Goal (function taking state) to run to resume the goal execution. This one will only attempt deterministic
+              ; computation, and will suspend if a guess must be made.
+
+        guess ; Goal (function taking state) to run to resume the goal execution. This one will make a guess and create an
+              ; mplus subtree.
+
+        active? ; If #f, then this is a lazy match
+        )
+
 (define (goal-ref-new) (gensym))
 (define (goal-retry goals goal)
   (if (procedure? goal) goal
@@ -345,6 +383,10 @@
                     (cons deps (cons (cons goal goals1) nondet))
                     (vattrs-set vs blocker (vattr-dependencies-clear va))))))
             (let ((sch-next (schedule '() (reverse (cons (cons goal goals1) nondet)))))
+              ; Interesting bit for (demanded) search tree structure!
+              ; Greg thinks this would better as a left-associative bind instead of
+              ; the right-associative one resulting from the current recursion structure.
+              ; That is,  (bind (bind (bind guess resume-pending) sch-next(0)) sch-next(1)) etc
               (bind
                 (bind ((goal-suspended-guess gsusp)
                        (state vs sgoals schedule-empty))
@@ -356,6 +398,8 @@
       (state vs sgoals schedule-empty))))
 (define (state-resume-pending st)
   (bind (reset-cost (state-resume-det1 st)) state-resume-nondet1))
+
+; This runs goals that are not demanded
 (define (state-resume-remaining st)
   (define sgoals (state-goals st))
   (define all (store-keys sgoals))
@@ -371,9 +415,12 @@
           (state-resume-nondet1
             (state-schedule-set st (schedule '() (list all))))
           state-resume-remaining))
+      ; If there's undemanded by not lazy stuff, do it. Currently no hierarchy between them.
       (bind (state-resume-nondet1
               (state-schedule-set st (schedule '() (list active))))
             state-resume-remaining))))
+
+; First run everything demanded; only after those and those they generate are done, then do undemanded
 (define (state-resume st)
   (bind (state-resume-pending st) state-resume-remaining))
 
