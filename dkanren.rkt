@@ -19,8 +19,8 @@
 
 (require
   racket/control
-  racket/list
-  racket/match
+  (except-in racket/list take)
+  (except-in racket/match ==)
   racket/vector
   )
 
