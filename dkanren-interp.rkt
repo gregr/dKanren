@@ -31,6 +31,31 @@
 ;     what about generating lambdas/letrecs?
 ;       (aggressive/permissive) union type system?
 
+; other performance enhancement ideas
+;   pre-synthesis analysis
+;     partially evaluate known portions of program
+;     immediately commit to letrec/begin definitions for unknown procedures
+;       providing fixed param counts where possible
+;       generating unique, concrete parameter names
+;         (if desired, these can be converted to logic variables later)
+;     type inference and environment analysis of calls to unknown/partially-known procedures
+;       group applications by procedure
+;       while comparing argument values across applications:
+;         identify basic values, then sensible uses of primitives on these
+;         suggest conditionals that partition applications
+;           i.e., condition must evaluate to:
+;             `#f` in at least one env
+;             and to `not #f` in at least one other env
+;           maybe also use return values/types to identify desirable partitions
+;         also see "evalo solver" notes
+;   synthesize within post-syntactic-analysis representation to avoid redundant parsing overhead
+;     parse initial program to produce something like a de Bruijn program representation
+;       maybe also support other streamlining, such as inlined primitive ops
+;     perform synthesis
+;     project synthesized program back into surface syntax
+;       maybe intertwine this projection with synthesis, to get faster feedback
+;         when playing tricky syntactic constraint games, like quining
+
 ; related work
 ;   escher
 ;   myth
