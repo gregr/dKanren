@@ -265,11 +265,11 @@
 ; These appear as values in state-goals
 ; All goal-suspendeds are created as the result of a suspended match
 (defrec goal-suspended
-        tag ; Not yet used. Intent is that user could tag match statements with a symbol that says
+        tag ; Not yet used. Intent is that user could tag match statements with arbitrary data that says
             ; what kind of expression it is. Then a meta-process could inspect the goal store and group goals
             ; by type for its reasoning and rescheduling purposes, or solving with a domain-specific solver
 
-        result ; Not currently used, but being filled. Should go away.
+        result ; Used for the same purpose as tag, but stores the result of the underlying match statement.
 
         blockers ; Variables, that if bound, may allow this goal to run deterministically. Any that are unified will
                  ; trigger this goal for a deterministic attempt.
