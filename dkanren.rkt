@@ -77,6 +77,26 @@
 ;       in contrast factoring only the final clauses will not affect priorities (since nothing follows them)
 ;   match/r, reversible match: manually describe a reversed computation
 ;     should be much better than falling back to denote-rhs-pattern-unknown
+;   auto-compacting, left-associative binds
+;     Left-associative binds are preferred because they allow rewards to be
+;     doled out every time a new conjunct is reached.  The downside is that
+;     left-associative tree structures involve longer paths between the root
+;     and active leaf nodes of the search, and these paths are traversed down
+;     and up for every resumption/suspension.  To mitigate this overhead we
+;     can compress contiguous left-associative conjunction chains into a single
+;     node, unpacking the next conjunct only once it's needed by a successful
+;     child result.  This avoids the overhead along any portion of a chain that
+;     hasn't yet encountered a child success disjunction, but we'd also like to
+;     recognize when we can safely recompact.  It's safe to recompact
+;     left-associative conjuncts when there are no intervening disjunctions.
+;     Intervening disjunctions may come and go either due to branch failure, or
+;     to a successful branch continually being promoted (it was originally
+;     promoted in, causing the disruption, but now succeeded again, so it's
+;     promoted up and out).  If we track the type of suspension thunks that are
+;     returned to bind, to differentiate between (outermost) conjunction and
+;     disjunction thunks, we can gradually recompact: when returning a
+;     conjunction thunk to a conjunction, incorporate the chain of the returned
+;     conjunction into the parent.
 
 ; profiling results
 ; quine:
