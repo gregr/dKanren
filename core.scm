@@ -44,3 +44,21 @@
            (eval `(define (,name datum) (vector-ref datum ,idx))))
          (let ((fns (range-assoc 1 '(field ...))))
            (begin (define-field-getter 'field fns) ...)))))))
+
+;; TODO: hash
+(define store-empty '())
+(define (store-ref store key . default)
+  (let ((binding (assoc key store)))
+    (if binding
+      (cdr binding)
+      (if (null? default)
+        (error 'store-ref (format "missing key ~s in ~s" key store))
+        (car default)))))
+(define (store-set store key value) `((,key . ,value) . ,store))
+(define (store-remove store key)
+  (if (null? store)
+    '()
+    (if (eqv? key (caar store))
+      (store-remove (cdr store) key)
+      (cons (car store) (store-remove (cdr store) key)))))
+(define (store-keys store) (map car store))
