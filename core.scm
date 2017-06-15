@@ -62,3 +62,38 @@
       (store-remove (cdr store) key)
       (cons (car store) (store-remove (cdr store) key)))))
 (define (store-keys store) (map car store))
+
+(define (list-add-unique xs v) (if (member v xs) xs (cons v xs)))
+(define (list-append-unique xs ys)
+  (if (null? xs)
+    ys
+    (let ((zs (list-append-unique (cdr xs) ys))
+          (x0 (car xs)))
+      (if (member x0 ys) zs (cons x0 zs)))))
+(define (list-remove-unique xs v)
+  (cond
+    ((null? xs) '())
+    ((equal? v (car xs)) (cdr xs))
+    (else (let ((xs1 (list-remove-unique (cdr xs))))
+            (if (eq? xs1 (cdr xs))
+              xs
+              (cons (car xs) xs1))))))
+(define (list-subtract xs ys)
+  (if (null? xs)
+    '()
+    (let ((x0 (car xs))
+          (xs1 (list-subtract (cdr xs) ys)))
+     (if (member x0 ys)
+       xs1
+       (if (eq? xs1 (cdr xs))
+         xs
+         (cons x0 xs1))))))
+(define (list-overlap? xs ys)
+  (and (pair? xs)
+       (or (member (car xs) ys))
+       (list-overlap? (cdr xs) ys)))
+(define (list-intersect xs ys)
+  (define rest (list-intersect (cdr xs) ys))
+  (if (member (car xs) ys)
+    (cons (car xs) rest)
+    rest))
