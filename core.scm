@@ -224,3 +224,35 @@
                   ((eqv? (caar full) (caar d1)) (loop (cdr d1) d2 (cdr full)))
                   ((eqv? (caar full) (caar d2)) (loop d1 (cdr d2) (cdr full)))
                   (else (loop d1 d2 (cdr full))))))))
+
+(defrecord watched
+           watched?
+           (watched-=/=v set-watched-=/=v)
+           (watched-=/=* set-watched-=/=*))
+(define watched-empty (watched '() '()))
+
+(defrecord vattr
+           vattr?
+           (vattr-domain set-vattr-domain)
+           (vattr-watched set-vattr-watched))
+(define vattr-empty (vattr domain-full watched-empty))
+
+(define scope
+  (let ((index -1))
+    (lambda ()
+      (set! index (+ 1 index))
+      index)))
+(define scope-bound #f)
+(define scope-nonlocal #t)
+
+(defrecord var var? var-scope var-value)
+(define var/scope
+  (let ((index -1))
+    (lambda (scope)
+      (set! index (+ 1 index))
+      (_var scope index))))
+(define var=? eq?)
+(define (var-bound? vr) (eq? scope-bound (var-scope vr)))
+(define (set-var-value! vr value)
+  (vector-set! vr 1 scope-bound)
+  (vector-set! vr 2 value))
