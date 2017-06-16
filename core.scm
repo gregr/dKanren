@@ -171,6 +171,7 @@
 (define (domain-has-value? dmn value)
   (define (domain-type-has-value? dmn type value)
     (define dt (domain-type-ref dmn type))
+    ;; TODO: this is wrong for pairs containing vars.
     (and dt (let ((=/=? (cadr dt)) (present? (member value (caddr dt))))
               (if =/=? (not present?) present?))))
   (or (eq? domain-full dmn)
@@ -286,6 +287,18 @@
 (define (state-var-set st vr value)
   (state (state-scope st) (vattrs-set (state-vs st) vr value)))
 
+;; TODO: manage existing constraints.
+(define (state-var-== st vr va value)
+  (cond
+    ((eq? vattr-empty va) (state-var-set st vr value))
+    ;; TODO: pair disequalities are an issue here.
+    ;((domain-has-value? (vattr-domain va) value)
+     ;)
+    (else #f)))
+;; TODO: manage existing constraints.
+(define (state-var-==-var st v1 va1 v2 va2)
+  (state-var-set st v1 v2))
+
 (define (walk st tm)
   (if (var? tm)
     (if (var-bound? tm)
@@ -294,3 +307,27 @@
         (let-values (((vs-new value va) (walk-vs vs tm)))
           (values (if (eq? vs vs-new) st (set-state-vs st vs-new)) value va))))
     (values st tm #f)))
+
+(define (not-occurs? st vr tm)
+  (if (pair? tm)
+    (let-values (((st ta _) (walk st (car tm))))
+      (let*/and ((st (not-occurs? st vr ta)))
+        (let-values (((st td _) (walk st (cdr tm))))
+          (not-occurs? st vr td))))
+    (and (not (var=? vr tm)) st)))
+
+(define (unify st t1 t2)
+  (let*-values (((st t1 va1) (walk st t1)) ((st t2 va2) (walk st t2)))
+    (cond ((eqv? t1 t2) st)
+          ((var? t1)
+           (if (var? t2)
+             (state-var-==-var st t1 va1 t2 va2)
+             (let*/and ((st (not-occurs? st t1 t2)))
+               (state-var-== st t1 va1 t2))))
+          ((var? t2)
+           (let*/and ((st (not-occurs? st t2 t1)))
+             (state-var-== st t2 va2 t1)))
+          ((and (pair? t1) (pair? t2))
+           (let*/and ((st (unify st (car t1) (car t2))))
+             (unify st (cdr t1) (cdr t2))))
+          (else #f))))
