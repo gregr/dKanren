@@ -125,3 +125,57 @@
 (defrecord singleton singleton? singleton-value)
 (define bottom #f)
 (define bottom? not)
+
+;; These are only intended as intermediate states for lattices.  Simplification
+;; will convert full lattices to top and empty lattices to bottom.
+(define type-union-full (type-union top top top top top top))
+(define type-union-empty
+  (type-union bottom bottom bottom bottom bottom bottom))
+(define type-pair-full
+  (type-pair top top #t finite-set-empty finite-set-empty))
+(define type-pair-empty
+  (type-pair bottom bottom #f finite-set-empty finite-set-empty))
+(define type-symbol-full (type-symbol #t finite-set-empty))
+(define type-symbol-empty (type-symbol #f finite-set-empty))
+(define type-number-full
+  (type-number #f numeric-set-full finite-set-empty))
+(define type-number-empty
+  (type-number #f numeric-set-empty finite-set-empty))
+
+(define (simplify nested? a)
+  (cond
+    ((type-union? a)
+     (let ((tu (type-union
+                 (simplify #t (tu-pair a))
+                 (simplify #t (tu-symbol a))
+                 (simplify #t (tu-number a))
+                 (tu-nil a)
+                 (tu-false a)
+                 (tu-true a))))
+       (cond
+         ((equal? type-union-full tu) top)
+         ((equal? type-union-empty tu) bottom)
+         (else tu))))
+    ((type-pair? a)
+     (let ((tp-car (simplify #t (type-pair-car a)))
+           (tp-cdr (simplify #t (type-pair-cdr a))))
+       (cond
+         ((and nested? (equal? type-pair-full a)) top)
+         ((or (bottom? tp-car) (bottom? tp-cdr)) bottom)
+         (else (type-pair
+                 tp-car
+                 tp-cdr
+                 (type-pair-complement-fd? a)
+                 (type-pair-fd a)
+                 (type-pair-absents a))))))
+    ((type-symbol? a)
+     (cond
+       ((and nested? (equal? type-symbol-full a)) top)
+       ((equal? type-symbol-empty a) bottom)
+       (else a)))
+    ((type-number? a)
+     (cond
+       ((and nested? (equal? type-number-full a)) top)
+       ((equal? numeric-set-empty (type-number-set a)) bottom)
+       (else a)))
+    (else a)))
