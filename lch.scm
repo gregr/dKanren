@@ -8,22 +8,21 @@
 ;; new combinations should help reduce new sources of incompleteness.
 
 ;; Supported typed lattices:
-;; * bottom: represents failure
+;; * bottom: nothing, represents failure
 ;; * singleton: #t, #f, ()
 ;; * symbol:
 ;;   finite complement domain (fcd)
 ;;   > finite domain
 ;;   > singleton
 ;; * number:
-;;   int? + closed intervals (infinity endpoints allowed) + fcd + arithmetic
+;;   int? + numeric-set + arithmetic
 ;;   > singleton
 ;; * pair:
 ;;   car, cdr sub-lattices + finite complement shape domain + absents
 ;;   > car, cdr sub-lattices + finite shape domain
 ;;   > singleton + released finite [complement] shape constraints
 ;; * type-union: join of typed lattices
-;; * near-top (unbound variable w/ optional =/= and absento constraints):
-;;   fcd + absents
+;; * top: anything
 
 ;; Supported constraints:
 ;; ==, =/=, typeo, integero, +o, *o, <=o
@@ -45,3 +44,12 @@
 
 ;; Worries:
 ;; Is this going to end up gravitating towards being a general SMT solver?
+
+;; A numeric-set stores sorted, open intervals of the form (lb . ub) where lb
+;; is the lower bound and ub is the upper bound.  The bounds may be #f,
+;; representing negative and positive infinity, depending on which side they
+;; are placed.  Individual numbers are stored sorted alongside the intervals,
+;; and these represent included points.  e.g., the set (2 (4 . 8) 8 (10 . f))
+;; represents a union of the point or the closed interval [2 2] with the
+;; half-closed interval (4 8] and the open interval (10 +infinity), i.e., all
+;; numbers x such that either x = 2 OR 4 < x <= 8 OR 10 < x).
