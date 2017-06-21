@@ -110,6 +110,7 @@
     ((not (car x)) `(,(cdr x) (,(cdr x) . #f)))
     ((not (cdr x)) `((#f . ,(car x)) ,(car x)))
     (else `((#f . ,(car x)) (,(cdr x) . #f)))))
+(define (interval-overlap-join a b) `(,(car a) . ,(cdr b)))
 
 (define (interval-compare a b
                           lt
@@ -167,6 +168,42 @@
 
 (define numeric-set-empty '())
 (define numeric-set-full `(,interval-full))
+
+(define (numeric-set-join a b)
+  (define (loop a b)
+    (cond
+      ((null? a) b)
+      ((null? b) a)
+      (else
+        (let ((ia (car a)) (ib (car b)))
+          ((interval-compare
+             ia ib
+             (lambda ()  ;; lt
+               (cons ia (loop (cdr a) b)))
+             (lambda ()  ;; lt-overlap
+               (loop (cdr a) (cons (interval-overlap-join ia ib) (cdr b))))
+             (lambda ()  ;; a-in-b
+               (loop (cdr a) b))
+             (lambda ()  ;; eq
+               (cons ia (loop (cdr a) (cdr b))))
+             (lambda ()  ;; b-in-a
+               (loop (cdr b) a))
+             (lambda ()  ;; gt-overlap
+               (loop (cdr b) (cons (interval-overlap-join ib ia) (cdr a))))
+             (lambda ()  ;; gt
+               (cons ib (loop (cdr b) a)))))))))
+  ;; Consolidate remaining adjacent interval-point-intervals.
+  ;; (A . n) n (n . B) becomes (A . B)
+  (let loop ((ns (loop a b)))
+    (cond
+      ((null? ns) ns)
+      ((and (pair? (cdr ns)) (pair? (cddr ns))
+            (pair? (car ns)) (number? (cadr ns)) (pair? (caddr ns)))
+       (let ((i0 (car ns)) (i1 (cadr ns)) (i2 (caddr ns)))
+         (if (and (= (cdr i0) i1) (= i1 (car i2)))
+           (loop (cons (cons (car i0) (cdr i2)) (cdddr ns)))
+           (cons i0 (loop (cdr ns))))))
+      (else (cons (car ns) (loop (cdr ns)))))))
 
 (define top #t)
 (define (top? a) (eq? top a))
