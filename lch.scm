@@ -117,7 +117,7 @@
     ((number? x) `((#f . ,x) (,x . #f)))
     ((not (car x)) `(,(cdr x) (,(cdr x) . #f)))
     ((not (cdr x)) `((#f . ,(car x)) ,(car x)))
-    (else `((#f . ,(car x)) (,(cdr x) . #f)))))
+    (else `((#f . ,(car x)) ,(car x) ,(cdr x) (,(cdr x) . #f)))))
 (define (interval-overlap-join a b) `(,(car a) . ,(cdr b)))
 (define (interval-overlap-meet a b) `(,(car b) . ,(cdr a)))
 
