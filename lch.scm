@@ -102,8 +102,70 @@
 ;; represents a union of the point or the closed interval [2 2] with the
 ;; half-closed interval (4 8] and the open interval (10 +infinity), i.e., all
 ;; numbers x such that either x = 2 OR 4 < x <= 8 OR 10 < x).
+(define interval-full '(#f . #f))
+(define (interval-invert x)
+  (cond
+    ((equal? interval-full x) '())
+    ((number? x) `((#f . ,x) (,x . #f)))
+    ((not (car x)) `(,(cdr x) (,(cdr x) . #f)))
+    ((not (cdr x)) `((#f . ,(car x)) ,(car x)))
+    (else `((#f . ,(car x)) (,(cdr x) . #f)))))
+
+(define (interval-compare a b
+                          lt
+                          lt-overlap
+                          a-in-b
+                          eq
+                          b-in-a
+                          gt-overlap
+                          gt)
+  (cond
+    ((and (number? a) (number? b))
+     (cond
+       ((< a b) lt)
+       ((> a b) gt)
+       (else eq)))
+    ((number? a)
+     (let ((ba (car b)) (bd (cdr b)))
+       (cond
+         ((and ba (<= a ba)) lt)
+         ((and bd (>= a bd)) gt)
+         (else a-in-b))))
+    ((number? b)
+     (let ((aa (car a)) (ad (cdr a)))
+       (cond
+         ((and aa (<= b aa)) gt)
+         ((and ad (>= b ad)) lt)
+         (else b-in-a))))
+    (else
+      (let ((aa (car a)) (ad (cdr a)) (ba (car b)) (bd (cdr b)))
+        (cond
+          ((and (eqv? aa ba) (eqv? ad bd)) eq)
+          ((number? aa)
+           (cond
+             ((and bd (>= aa bd)) gt)
+             ((number? ad)
+              (cond
+                ((and ba (<= ad ba)) lt)
+                ((and ba (<= aa ba))
+                 (cond
+                   ((and bd (>= ad bd)) b-in-a)
+                   ((and ba (< aa ba)) lt-overlap)
+                   (else a-in-b)))
+                ((and bd (> ad bd)) gt-overlap)
+                (else a-in-b)))
+             ((and ba (<= aa ba)) b-in-a)
+             ((not bd) a-in-b)
+             (else gt-overlap)))
+          ((number? ad)
+           (cond
+             ((and bd (>= ad bd)) b-in-a)
+             ((not ba) a-in-b)
+             (else lt-overlap)))
+          (else b-in-a))))))
+
 (define numeric-set-empty '())
-(define numeric-set-full '((#f . #f)))
+(define numeric-set-full `(,interval-full))
 
 (define top #t)
 (define (top? a) (eq? top a))
