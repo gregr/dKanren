@@ -239,6 +239,9 @@
     '()
     a))
 
+(define (numeric-set-complement ns)
+  (list-foldr numeric-set-meet numeric-set-full (map interval-invert ns)))
+
 (define top #t)
 (define (top? a) (eq? top a))
 (defrecord type-union type-union?
