@@ -160,6 +160,7 @@
           ((number? ad)
            (cond
              ((and bd (>= ad bd)) b-in-a)
+             ((and ba (<= ad ba)) lt)
              ((not ba) a-in-b)
              (else lt-overlap)))
           (else b-in-a))))))
