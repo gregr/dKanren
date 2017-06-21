@@ -45,6 +45,14 @@
 ;; Worries:
 ;; Is this going to end up gravitating towards being a general SMT solver?
 
+(define (list-foldr f acc xs)
+  (if (null? xs)
+    acc
+    (let ((ns (f (car xs) (list-foldr f acc (cdr xs)))))
+      (if (and (pair? ns) (pair? (car ns)) (eq? #t (caar ns)))
+        (cons (cons #f (cdar ns)) (cdr ns))
+        ns))))
+
 (define-syntax defrecord
   (syntax-rules ()
     ((_ name name?)
