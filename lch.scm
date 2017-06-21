@@ -119,6 +119,7 @@
     ((not (cdr x)) `((#f . ,(car x)) ,(car x)))
     (else `((#f . ,(car x)) (,(cdr x) . #f)))))
 (define (interval-overlap-join a b) `(,(car a) . ,(cdr b)))
+(define (interval-overlap-meet a b) `(,(car b) . ,(cdr a)))
 
 (define (interval-compare a b
                           lt
@@ -212,6 +213,31 @@
            (loop (cons (cons (car i0) (cdr i2)) (cdddr ns)))
            (cons i0 (loop (cdr ns))))))
       (else (cons (car ns) (loop (cdr ns)))))))
+
+(define (numeric-set-meet-interval x ns)
+  (if (null? ns)
+    '()
+    (let ((i (car ns)))
+      ((interval-compare
+         x i
+         (lambda () '())                                 ;; lt
+         (lambda () (list (interval-overlap-meet x i)))  ;; lt-overlap
+         (lambda () (list x))                            ;; a-in-b
+         (lambda () (list x))                            ;; eq
+         (lambda ()  ;; b-in-a
+           (cons i (numeric-set-meet-interval x (cdr ns))))
+         (lambda ()  ;; gt-overlap
+           (cons (interval-overlap-meet i x)
+                 (numeric-set-meet-interval x (cdr ns))))
+         (lambda ()  ;; gt
+           (numeric-set-meet-interval x (cdr ns))))))))
+
+(define (numeric-set-meet a b)
+  (list-foldr
+    (lambda (x ns)
+      (numeric-set-join (numeric-set-meet-interval x b) ns))
+    '()
+    a))
 
 (define top #t)
 (define (top? a) (eq? top a))

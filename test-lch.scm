@@ -175,3 +175,48 @@
   (numeric-set-join '((-50 . -3) 5 (8 . 10) (10 . 100) (200 . 900))
                     '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
   '((-50 . 900)))
+
+(test 'numeric-set-meet-1
+  (numeric-set-meet '((#f . #f))
+                    '((#f . #f)))
+  '((#f . #f)))
+(test 'numeric-set-meet-2
+  (numeric-set-meet '((#f . #f))
+                    '((#f . 8)))
+  '((#f . 8)))
+(test 'numeric-set-meet-3
+  (numeric-set-meet '((9 . #f))
+                    '((#f . #f)))
+  '((9 . #f)))
+(test 'numeric-set-meet-4
+  (numeric-set-meet '((#f . 12))
+                    '((7 . #f)))
+  '((7 . 12)))
+(test 'numeric-set-meet-5
+  (numeric-set-meet '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
+                    '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
+  '())
+(test 'numeric-set-meet-6
+  (numeric-set-meet '((-4 . 6))
+                    '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
+  '((-4 . -3) 5))
+(test 'numeric-set-meet-7
+  (numeric-set-meet '(-8 (-4 . 6))
+                    '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
+  '(-8 (-4 . -3) 5))
+(test 'numeric-set-meet-8
+  (numeric-set-meet '(-8 (-4 . 6) 15)
+                    '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
+  '(-8 (-4 . -3) 5 15))
+(test 'numeric-set-meet-9
+  (numeric-set-meet '(-8 (-4 . 6) (15 . 20))
+                    '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
+  '(-8 (-4 . -3) 5 (15 . 20)))
+(test 'numeric-set-meet-10
+  (numeric-set-meet '(-8 (-4 . 6) (15 . 200))
+                    '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
+  '(-8 (-4 . -3) 5 (15 . 100)))
+(test 'numeric-set-meet-11
+  (numeric-set-meet '(-8 (-4 . 6) (15 . 201))
+                    '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
+  '(-8 (-4 . -3) 5 (15 . 100) (200 . 201)))
