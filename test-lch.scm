@@ -220,3 +220,11 @@
   (numeric-set-meet '(-8 (-4 . 6) (15 . 201))
                     '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
   '(-8 (-4 . -3) 5 (15 . 100) (200 . 201)))
+
+(test 'numeric-set-complement-1
+  (numeric-set-complement '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
+  '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
+(test 'numeric-set-complement-2
+  (numeric-set-complement
+    (numeric-set-complement '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))))
+  '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
