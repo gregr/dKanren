@@ -90,7 +90,7 @@
 (define (state-var-== st vr value)
   (let*/and ((st (not-occurs? st vr value)))
     (state-var-set st vr value)))
-(define (state-var-==-var st v1 va1 v2 va2)
+(define (state-var-==-var st v1 v2)
   (if (var<? v1 v2)  ;; Pointing new to old may yield flatter substitutions.
     (state-var-set st v2 v1)
     (state-var-set st v1 v2)))
