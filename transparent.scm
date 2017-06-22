@@ -190,4 +190,21 @@
 
 (define (run-goal n st goal) (stream-take n (start st goal)))
 
-;; TODO: reify, run
+(define (reify st)
+  (define (k-final rvs index tm) tm)
+  (let loop ((rvs store-empty) (index 0) (tm var-initial) (k k-final))
+    (let ((tm (walk st tm)))
+      (cond
+        ((var? tm)
+         (let* ((idx (store-ref rvs tm index))
+                (n (string->symbol (string-append "_." (number->string idx)))))
+           (if (= index idx)
+             (k (store-set rvs tm index) (+ 1 index) n)
+             (k rvs index n))))
+        ((pair? tm) (loop rvs index (car tm)
+                          (lambda (r i a)
+                            (loop r i (cdr tm)
+                                  (lambda (r i d) (k r i `(,a . ,d)))))))
+        (else (k rvs index tm))))))
+
+;; TODO: run
