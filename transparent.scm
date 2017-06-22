@@ -215,3 +215,41 @@
 (define-syntax run*
   (syntax-rules ()
     ((_ body ...) (run #f body ...))))
+
+
+(define-syntax test
+  (syntax-rules ()
+    ((_ name expr expected-expr)
+     (begin
+       (printf "Testing ~s: " name)
+       (let* ((expected expected-expr) (actual expr))
+         (if (equal? expected actual)
+           (printf "Succeeded.\n")
+           (printf "\nFailed: ~a\nExpected: ~a\nActual: ~a\n"
+                   'expr expected actual)))))))
+
+(define-relation (appendo l s ls)
+  (conde
+    ((== '() l) (== s ls))
+    ((fresh (a d res)
+       (== `(,a . ,d) l)
+       (== `(,a . ,res) ls)
+       (appendo d s res)))))
+
+(test 'appendo-1
+  (run* (q) (appendo '(a b c) '(d e) q))
+  '(((a b c d e))))
+(test 'appendo-2
+  (run* (q) (appendo '(a b c) q '(a b c d e)))
+  '(((d e))))
+(test 'appendo-3
+  (run* (q) (appendo q '(d e) '(a b c d e)))
+  '(((a b c))))
+(test 'appendo-4
+  (run* (p q) (appendo p q '(a b c d e)))
+  '((() (a b c d e))
+    ((a) (b c d e))
+    ((a b) (c d e))
+    ((a b c) (d e))
+    ((a b c d) (e))
+    ((a b c d e) ())))
