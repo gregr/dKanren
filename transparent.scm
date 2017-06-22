@@ -138,3 +138,97 @@
        (let*/and ((st (unify st (car t1) (car t2))))
          (unify st (cdr t1) (cdr t2))))
       (else #f))))
+
+(defrecord fresh-vars fresh? fresh-prepare)
+(defrecord scoped scoped? scoped-scope scoped-c)
+(defrecord conj conj? conj-c1 conj-c2)
+(defrecord disj disj? disj-c1 disj-c2)
+(defrecord zzz zzz? zzz-metadata zzz-wake)
+(defrecord pause pause? pause-state pause-goal)
+(defrecord == ==? ==-t1 ==-t2)
+
+(define-syntax define-relation
+  (syntax-rules ()
+    ((_ (name param ...) body ...)
+     (define (name param ...)
+       (zzz `(name ,param ...) (lambda () body ...))))))
+
+(define (bind ss goal)
+  (cond
+    ((not ss) #f)
+    ((state? ss) (start ss goal))
+    ((pair? ss) (mplus (start (car ss) goal) (conj (cdr ss) goal)))
+    (else (conj ss goal))))
+(define (mplus s1 s2)
+  (cond
+    ((not s1) s2)
+    ((state? s1) (cons s1 s2))
+    ((pair? s1) (cons (car s1) (disj s2 (cdr s1))))
+    (else (disj s2 s1))))
+
+(define (prepare scope goal)
+  (cond
+    ((fresh? goal) ((fresh-prepare goal) scope))
+    ((conj? goal) (conj (prepare scope (conj-c1 goal))
+                        (prepare scope (conj-c2 goal))))
+    ((disj? goal)
+     (let ((scope (scope-new)))
+       (scoped scope (disj (prepare scope (disj-c1 goal))
+                           (prepare scope (disj-c2 goal))))))
+    (else goal)))
+
+(define (start st goal)
+  (cond
+    ((scoped? goal)
+     (start (set-state-scope st (scoped-scope goal)) (scoped-c goal)))
+    ((conj? goal) (bind (start st (conj-c1 goal)) (conj-c2 goal)))
+    ((disj? goal) (disj (pause st (disj-c1 goal)) (pause st (disj-c2 goal))))
+    ((zzz? goal) (start st (prepare (state-scope st) ((zzz-wake goal)))))
+    ((==? goal) (unify st (==-t1 goal) (==-t2 goal)))))
+
+(define (continue ss)
+  (cond
+    ((conj? ss) (bind (continue (conj-c1 ss)) (conj-c2 ss)))
+    ((disj? ss) (mplus (continue (disj-c1 ss)) (disj-c2 ss)))
+    ((pause? ss) (start (pause-state ss) (pause-goal ss)))))
+
+(define (stream-take n ss)
+  (cond
+    ((and n (= 0 n)) '())
+    ((not ss) '())
+    ((state? ss) (list ss))
+    ((pair? ss) (cons (car ss) (stream-take (and n (- n 1))
+                                            (continue (cdr ss)))))
+    (else (stream-take n (continue ss)))))
+
+;; TODO: steer, a continue that prompts for choices.
+
+(define succeed (== #t #t))
+(define fail (== #f #t))
+
+(define-syntax conj*
+  (syntax-rules ()
+    ((_) succeed)
+    ((_ g) g)
+    ((_ gs ... g-final) (conj (conj* gs ...) g-final))))
+(define-syntax disj*
+  (syntax-rules ()
+    ((_) fail)
+    ((_ g) g)
+    ((_ g0 gs ...) (disj g0 (disj* gs ...)))))
+
+(define-syntax fresh
+  (syntax-rules ()
+    ((_ (vr ...) g0 gs ...)
+     (fresh-vars (lambda (scope)
+                   (let ((vr (var/scope scope)) ...)
+                     (prepare scope (conj* g0 gs ...))))))))
+(define-syntax conde
+  (syntax-rules ()
+    ((_ (g0 gs ...)) (conj* g0 gs ...))
+    ((_ c0 cs ...) (disj* (conde c0) (conde cs ...)))))
+
+(define (run-goal n st goal)
+  (stream-take n (start (set-state-scope st scope-nonlocal) (prepare (state-scope st) goal))))
+
+;; TODO: reify, run
