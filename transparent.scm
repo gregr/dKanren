@@ -61,62 +61,32 @@
         (error 'store-ref (format "missing key ~s in ~s" key store))
         (car default)))))
 (define (store-set store key value) `((,key . ,value) . ,store))
-(define (store-remove store key)
-  (if (null? store)
-    '()
-    (if (eqv? key (caar store))
-      (store-remove (cdr store) key)
-      (cons (car store) (store-remove (cdr store) key)))))
-(define (store-keys store) (map car store))
 
-(define scope-new
+(defrecord var var? var-index)
+(define var/fresh
   (let ((index -1))
     (lambda ()
       (set! index (+ 1 index))
-      index)))
-(define scope-bound #f)
-(define scope-nonlocal #t)
-
-(defrecord var var? var-scope var-value)
-(define var/scope
-  (let ((index -1))
-    (lambda (scope)
-      (set! index (+ 1 index))
-      (var scope index))))
+      (var index))))
 (define var=? eq?)
-(define (var<? v1 v2) (< (var-value v1) (var-value v2)))
-(define (var-bound? vr) (eq? scope-bound (var-scope vr)))
-(define (set-var-value! vr value)
-  (vector-set! vr 1 scope-bound)
-  (vector-set! vr 2 value))
+(define (var<? v1 v2) (< (var-index v1) (var-index v2)))
+(define var-initial (var/fresh))
 
 (define (vattrs-get vs vr) (store-ref vs vr vr))
 (define (vattrs-set vs vr value) (store-set vs vr value))
 (define (walk-vs vs tm)
   (if (var? tm)
-    (if (var-bound? tm)
-      (walk-vs vs (var-value tm))
-      (let ((va (vattrs-get vs tm)))
-        (if (var=? tm va)
-          tm
-          (walk-vs vs va))))
+    (let ((va (vattrs-get vs tm)))
+      (if (var=? tm va)
+        tm
+        (walk-vs vs va)))
     tm))
 
-(defrecord state state? (state-scope set-state-scope) (state-vs set-state-vs))
-(define (walk st tm) (walk-vs (state-vs st) tm))
-(define (var/state st) (var/scope (state-scope st)))
-(define (state-empty) (state (scope-new) store-empty))
+(defrecord state state? (state-vs set-state-vs))
+(define state-empty (state store-empty))
 (define (state-var-get st vr) (vattrs-get (state-vs st) vr))
 (define (state-var-set st vr value)
-  (if (eqv? (state-scope st) (var-scope vr))
-    (begin (set-var-value! vr value) st)
-    (set-state-vs st (vattrs-set (state-vs st) vr value))))
-
-(define (not-occurs? st vr tm)
-  (if (pair? tm)
-    (let*/and ((st (not-occurs? st vr (walk st (car tm)))))
-      (not-occurs? st vr (walk st (cdr tm))))
-    (and (not (var=? vr tm)) st)))
+  (set-state-vs st (vattrs-set (state-vs st) vr value)))
 (define (state-var-== st vr value)
   (let*/and ((st (not-occurs? st vr value)))
     (state-var-set st vr value)))
@@ -124,6 +94,14 @@
   (if (var<? v1 v2)
     (state-var-set st v2 v1)
     (state-var-set st v1 v2)))
+
+(define (walk st tm) (walk-vs (state-vs st) tm))
+
+(define (not-occurs? st vr tm)
+  (if (pair? tm)
+    (let*/and ((st (not-occurs? st vr (walk st (car tm)))))
+      (not-occurs? st vr (walk st (cdr tm))))
+    (and (not (var=? vr tm)) st)))
 
 (define (unify st t1 t2)
   (let ((t1 (walk st t1)) (t2 (walk st t2)))
@@ -139,8 +117,6 @@
          (unify st (cdr t1) (cdr t2))))
       (else #f))))
 
-(defrecord fresh-vars fresh? fresh-prepare)
-(defrecord scoped scoped? scoped-scope scoped-c)
 (defrecord conj conj? conj-c1 conj-c2)
 (defrecord disj disj? disj-c1 disj-c2)
 (defrecord zzz zzz? zzz-metadata zzz-wake)
@@ -166,24 +142,11 @@
     ((pair? s1) (cons (car s1) (disj s2 (cdr s1))))
     (else (disj s2 s1))))
 
-(define (prepare scope goal)
-  (cond
-    ((fresh? goal) ((fresh-prepare goal) scope))
-    ((conj? goal) (conj (prepare scope (conj-c1 goal))
-                        (prepare scope (conj-c2 goal))))
-    ((disj? goal)
-     (let ((scope (scope-new)))
-       (scoped scope (disj (prepare scope (disj-c1 goal))
-                           (prepare scope (disj-c2 goal))))))
-    (else goal)))
-
 (define (start st goal)
   (cond
-    ((scoped? goal)
-     (start (set-state-scope st (scoped-scope goal)) (scoped-c goal)))
     ((conj? goal) (bind (start st (conj-c1 goal)) (conj-c2 goal)))
     ((disj? goal) (disj (pause st (disj-c1 goal)) (pause st (disj-c2 goal))))
-    ((zzz? goal) (start st (prepare (state-scope st) ((zzz-wake goal)))))
+    ((zzz? goal) (start st ((zzz-wake goal))))
     ((==? goal) (unify st (==-t1 goal) (==-t2 goal)))))
 
 (define (continue ss)
@@ -219,16 +182,12 @@
 
 (define-syntax fresh
   (syntax-rules ()
-    ((_ (vr ...) g0 gs ...)
-     (fresh-vars (lambda (scope)
-                   (let ((vr (var/scope scope)) ...)
-                     (prepare scope (conj* g0 gs ...))))))))
+    ((_ (vr ...) g0 gs ...) (let ((vr (var/fresh)) ...) (conj* g0 gs ...)))))
 (define-syntax conde
   (syntax-rules ()
     ((_ (g0 gs ...)) (conj* g0 gs ...))
-    ((_ c0 cs ...) (disj* (conde c0) (conde cs ...)))))
+    ((_ c0 cs ...) (disj (conde c0) (conde cs ...)))))
 
-(define (run-goal n st goal)
-  (stream-take n (start (set-state-scope st scope-nonlocal) (prepare (state-scope st) goal))))
+(define (run-goal n st goal) (stream-take n (start st goal)))
 
 ;; TODO: reify, run
