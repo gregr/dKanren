@@ -207,4 +207,11 @@
                                   (lambda (r i d) (k r i `(,a . ,d)))))))
         (else (k rvs index tm))))))
 
-;; TODO: run
+(define-syntax run
+  (syntax-rules ()
+    ((_ n (vr ...) g0 gs ...)
+     (let ((goal (fresh (vr ...) (== (list vr ...) var-initial) g0 gs ...)))
+       (map reify (stream-take n (start state-empty goal)))))))
+(define-syntax run*
+  (syntax-rules ()
+    ((_ body ...) (run #f body ...))))
