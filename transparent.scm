@@ -164,6 +164,13 @@
                                             (continue (cdr ss)))))
     (else (stream-take n (continue ss)))))
 
+(define (step n ss)
+  (cond
+    ((= 0 n) ss)
+    ((not ss) #f)
+    ((pair? ss) (cons (car ss) (step n (cdr ss))))
+    (else (step (- n 1) (continue ss)))))
+
 ;; TODO: steer, a continue that prompts for choices.
 
 (define succeed (== #t #t))
