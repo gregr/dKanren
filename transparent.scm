@@ -372,3 +372,17 @@
        ;(== `(lambda ,body) rator)
        ;(eval-expo rand env arg)
        ;(eval-expo body `(,arg . ,env) value)))))
+
+(time (test 'evalo-1
+  (run 1 (q) (evalo q q))
+  '(((app
+       (lambda (list 'app (var ()) (list 'quote (var ()))))
+       '(lambda (list 'app (var ()) (list 'quote (var ())))))))))
+(time (test 'evalo-step-1
+  (car (stream-pretty (step 11811 (query (q) (evalo q q)))))
+  '()))
+(time (test 'evalo-step-2
+  (car (stream-pretty (step 11812 (query (q) (evalo q q)))))
+  '(((app
+       (lambda (list 'app (var ()) (list 'quote (var ()))))
+       '(lambda (list 'app (var ()) (list 'quote (var ())))))))))
