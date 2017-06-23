@@ -190,9 +190,8 @@
 
 (define (run-goal n st goal) (stream-take n (start st goal)))
 
-(define (reify st)
-  (define (k-final rvs index tm) tm)
-  (let loop ((rvs store-empty) (index 0) (tm var-initial) (k k-final))
+(define (reify st tm)
+  (let loop ((rvs store-empty) (index 0) (tm tm) (k (lambda (rvs i tm) tm)))
     (let ((tm (walk st tm)))
       (cond
         ((var? tm)
@@ -206,12 +205,13 @@
                             (loop r i (cdr tm)
                                   (lambda (r i d) (k r i `(,a . ,d)))))))
         (else (k rvs index tm))))))
+(define (reify-initial st) (reify st var-initial))
 
 (define-syntax run
   (syntax-rules ()
     ((_ n (vr ...) g0 gs ...)
      (let ((goal (fresh (vr ...) (== (list vr ...) var-initial) g0 gs ...)))
-       (map reify (stream-take n (start state-empty goal)))))))
+       (map reify-initial (stream-take n (start state-empty goal)))))))
 (define-syntax run*
   (syntax-rules ()
     ((_ body ...) (run #f body ...))))
