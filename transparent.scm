@@ -176,7 +176,9 @@
       ((conj? ss)
        `(conj ,(pretty (conj-c1 ss)) ,(reify state-empty (goal-pretty (conj-c2 ss)))))
       ((disj? ss) `(disj ,(pretty (disj-c1 ss)) ,(pretty (disj-c2 ss))))
-      ((pause? ss) (reify (pause-state ss) `(pause ,(goal-pretty (pause-goal ss)))))
+      ((pause? ss)
+       `(pause (state ,(reify-initial (pause-state ss)))
+               ,(reify (pause-state ss) (goal-pretty (pause-goal ss)))))
       (else ss)))
   (let loop ((ss ss) (states '()))
     (cond
