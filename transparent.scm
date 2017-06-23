@@ -207,11 +207,14 @@
         (else (k rvs index tm))))))
 (define (reify-initial st) (reify st var-initial))
 
+(define-syntax query
+  (syntax-rules ()
+    ((_ (vr ...) g0 gs ...)
+     (let ((goal (fresh (vr ...) (== (list vr ...) var-initial) g0 gs ...)))
+       (start state-empty goal)))))
 (define-syntax run
   (syntax-rules ()
-    ((_ n (vr ...) g0 gs ...)
-     (let ((goal (fresh (vr ...) (== (list vr ...) var-initial) g0 gs ...)))
-       (map reify-initial (stream-take n (start state-empty goal)))))))
+    ((_ n body ...) (map reify-initial (stream-take n (query body ...))))))
 (define-syntax run*
   (syntax-rules ()
     ((_ body ...) (run #f body ...))))
