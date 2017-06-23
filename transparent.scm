@@ -164,6 +164,26 @@
                                             (continue (cdr ss)))))
     (else (stream-take n (continue ss)))))
 
+(define (goal-pretty goal)
+  (cond
+    ((conj? goal) `(conj ,(goal-pretty (conj-c1 goal)) ,(goal-pretty (conj-c2 goal))))
+    ((disj? goal) `(disj ,(goal-pretty (disj-c1 goal)) ,(goal-pretty (disj-c2 goal))))
+    ((zzz? goal) (zzz-metadata goal))
+    ((==? goal) `(== ,(==-t1 goal) ,(==-t2 goal)))))
+(define (stream-pretty ss)
+  (define (pretty ss)
+    (cond
+      ((conj? ss)
+       `(conj ,(pretty (conj-c1 ss)) ,(reify state-empty (goal-pretty (conj-c2 ss)))))
+      ((disj? ss) `(disj ,(pretty (disj-c1 ss)) ,(pretty (disj-c2 ss))))
+      ((pause? ss) (reify (pause-state ss) `(pause ,(goal-pretty (pause-goal ss)))))
+      (else ss)))
+  (let loop ((ss ss) (states '()))
+    (cond
+      ((state? ss) (loop #f (cons ss states)))
+      ((pair? ss) (loop (cdr ss) (cons (car ss) states)))
+      (else (list (map reify-initial (reverse states)) (pretty ss))))))
+
 (define (step n ss)
   (cond
     ((= 0 n) ss)
