@@ -173,12 +173,12 @@
 (define (stream-pretty ss)
   (define (pretty ss)
     (cond
-      ((conj? ss)
-       `(conj ,(pretty (conj-c1 ss)) ,(reify state-empty (goal-pretty (conj-c2 ss)))))
+      ((conj? ss) `(conj ,(pretty (conj-c1 ss))
+                         ,(reify #f state-empty (goal-pretty (conj-c2 ss)))))
       ((disj? ss) `(disj ,(pretty (disj-c1 ss)) ,(pretty (disj-c2 ss))))
       ((pause? ss)
-       `(pause (state ,(reify-initial (pause-state ss)))
-               ,(reify (pause-state ss) (goal-pretty (pause-goal ss)))))
+       (reify #f (pause-state ss)
+              `(pause (state ,var-initial) ,(goal-pretty (pause-goal ss)))))
       (else ss)))
   (let loop ((ss ss) (states '()))
     (cond
@@ -219,14 +219,15 @@
 
 (define (run-goal n st goal) (stream-take n (start st goal)))
 
-(define (reify st tm)
-  (let loop ((rvs store-empty) (index 0) (tm tm) (k (lambda (rvs i tm) tm)))
+(define (reify index st tm)
+  (let loop
+    ((rvs store-empty) (index index) (tm tm) (k (lambda (rvs i tm) tm)))
     (let ((tm (walk st tm)))
       (cond
         ((var? tm)
-         (let* ((idx (store-ref rvs tm index))
+         (let* ((idx (store-ref rvs tm (or index (var-index tm))))
                 (n (string->symbol (string-append "_." (number->string idx)))))
-           (if (= index idx)
+           (if (eqv? index idx)
              (k (store-set rvs tm index) (+ 1 index) n)
              (k rvs index n))))
         ((pair? tm) (loop rvs index (car tm)
@@ -234,7 +235,7 @@
                             (loop r i (cdr tm)
                                   (lambda (r i d) (k r i `(,a . ,d)))))))
         (else (k rvs index tm))))))
-(define (reify-initial st) (reify st var-initial))
+(define (reify-initial st) (reify 0 st var-initial))
 
 (define-syntax query
   (syntax-rules ()
