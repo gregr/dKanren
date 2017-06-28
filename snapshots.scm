@@ -67,6 +67,531 @@
            (eval-expo _.19 () (_.20 . _.21))))))))))))
 
 
+;; (stream-pretty (step 1 q-1p))
+;; Snapshot 1 step in
+
+'(()
+  (pause
+   (state ((lambda _.2)))
+   (disj
+    (conj
+     (== '_.4 (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+     (== _.4 ((1 x) (1 y))))
+    (disj
+     (conj
+      (== (list . _.5) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+      (eval-listo _.5 () ((1 x) (1 y))))
+     (disj
+      (conj
+       (== (var _.6) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+       (lookupo _.6 () ((1 x) (1 y))))
+      (disj
+       (conj
+        (conj
+         (conj
+          (==
+           (app _.7 _.8)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (eval-expo _.7 () (closure _.11 _.10)))
+         (eval-expo _.8 () _.9))
+        (eval-expo _.11 (_.9 . _.10) ((1 x) (1 y))))
+       (disj
+        (conj
+         (conj
+          (conj
+           (==
+            (cons _.12 _.13)
+            (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+           (== (_.14 . _.15) ((1 x) (1 y))))
+          (eval-expo _.12 () _.14))
+         (eval-expo _.13 () _.15))
+        (disj
+         (conj
+          (conj
+           (==
+            (car _.16)
+            (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+           (== _.17 ((1 x) (1 y))))
+          (eval-expo _.16 () (_.17 . _.18)))
+         (conj
+          (conj
+           (==
+            (cdr _.19)
+            (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+           (== _.21 ((1 x) (1 y))))
+          (eval-expo _.19 () (_.20 . _.21)))))))))))
+
+
+;; (stream-pretty (step 2 q-1p))
+
+'(()
+  (disj
+   (pause
+    (state ((lambda _.2)))
+    (conj
+     (== '_.4 (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+     (== _.4 ((1 x) (1 y)))))
+   (pause
+    (state ((lambda _.2)))
+    (disj
+     (conj
+      (== (list . _.5) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+      (eval-listo _.5 () ((1 x) (1 y))))
+     (disj
+      (conj
+       (== (var _.6) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+       (lookupo _.6 () ((1 x) (1 y))))
+      (disj
+       (conj
+        (conj
+         (conj
+          (==
+           (app _.7 _.8)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (eval-expo _.7 () (closure _.11 _.10)))
+         (eval-expo _.8 () _.9))
+        (eval-expo _.11 (_.9 . _.10) ((1 x) (1 y))))
+       (disj
+        (conj
+         (conj
+          (conj
+           (==
+            (cons _.12 _.13)
+            (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+           (== (_.14 . _.15) ((1 x) (1 y))))
+          (eval-expo _.12 () _.14))
+         (eval-expo _.13 () _.15))
+        (disj
+         (conj
+          (conj
+           (==
+            (car _.16)
+            (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+           (== _.17 ((1 x) (1 y))))
+          (eval-expo _.16 () (_.17 . _.18)))
+         (conj
+          (conj
+           (==
+            (cdr _.19)
+            (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+           (== _.21 ((1 x) (1 y))))
+          (eval-expo _.19 () (_.20 . _.21)))))))))))
+
+
+;; (stream-pretty (step 3 q-1p))
+
+'(()
+  (pause
+   (state ((lambda _.2)))
+   (disj
+    (conj
+     (== (list . _.5) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+     (eval-listo _.5 () ((1 x) (1 y))))
+    (disj
+     (conj
+      (== (var _.6) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+      (lookupo _.6 () ((1 x) (1 y))))
+     (disj
+      (conj
+       (conj
+        (conj
+         (==
+          (app _.7 _.8)
+          (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (eval-expo _.7 () (closure _.11 _.10)))
+        (eval-expo _.8 () _.9))
+       (eval-expo _.11 (_.9 . _.10) ((1 x) (1 y))))
+      (disj
+       (conj
+        (conj
+         (conj
+          (==
+           (cons _.12 _.13)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== (_.14 . _.15) ((1 x) (1 y))))
+         (eval-expo _.12 () _.14))
+        (eval-expo _.13 () _.15))
+       (disj
+        (conj
+         (conj
+          (==
+           (car _.16)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== _.17 ((1 x) (1 y))))
+         (eval-expo _.16 () (_.17 . _.18)))
+        (conj
+         (conj
+          (==
+           (cdr _.19)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== _.21 ((1 x) (1 y))))
+         (eval-expo _.19 () (_.20 . _.21))))))))))
+
+
+;; (stream-pretty (step 4 q-1p))
+
+'(()
+  (disj
+   (pause
+    (state ((lambda _.2)))
+    (conj
+     (== (list . _.5) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+     (eval-listo _.5 () ((1 x) (1 y)))))
+   (pause
+    (state ((lambda _.2)))
+    (disj
+     (conj
+      (== (var _.6) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+      (lookupo _.6 () ((1 x) (1 y))))
+     (disj
+      (conj
+       (conj
+        (conj
+         (==
+          (app _.7 _.8)
+          (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (eval-expo _.7 () (closure _.11 _.10)))
+        (eval-expo _.8 () _.9))
+       (eval-expo _.11 (_.9 . _.10) ((1 x) (1 y))))
+      (disj
+       (conj
+        (conj
+         (conj
+          (==
+           (cons _.12 _.13)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== (_.14 . _.15) ((1 x) (1 y))))
+         (eval-expo _.12 () _.14))
+        (eval-expo _.13 () _.15))
+       (disj
+        (conj
+         (conj
+          (==
+           (car _.16)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== _.17 ((1 x) (1 y))))
+         (eval-expo _.16 () (_.17 . _.18)))
+        (conj
+         (conj
+          (==
+           (cdr _.19)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== _.21 ((1 x) (1 y))))
+         (eval-expo _.19 () (_.20 . _.21))))))))))
+
+
+;; (stream-pretty (step 5 q-1p))
+
+'(()
+  (disj
+   (pause
+    (state ((lambda _.2)))
+    (disj
+     (conj
+      (== (var _.6) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+      (lookupo _.6 () ((1 x) (1 y))))
+     (disj
+      (conj
+       (conj
+        (conj
+         (==
+          (app _.7 _.8)
+          (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (eval-expo _.7 () (closure _.11 _.10)))
+        (eval-expo _.8 () _.9))
+       (eval-expo _.11 (_.9 . _.10) ((1 x) (1 y))))
+      (disj
+       (conj
+        (conj
+         (conj
+          (==
+           (cons _.12 _.13)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== (_.14 . _.15) ((1 x) (1 y))))
+         (eval-expo _.12 () _.14))
+        (eval-expo _.13 () _.15))
+       (disj
+        (conj
+         (conj
+          (==
+           (car _.16)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== _.17 ((1 x) (1 y))))
+         (eval-expo _.16 () (_.17 . _.18)))
+        (conj
+         (conj
+          (==
+           (cdr _.19)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== _.21 ((1 x) (1 y))))
+         (eval-expo _.19 () (_.20 . _.21))))))))
+   (disj
+    (pause
+     (state ((lambda _.2)))
+     (conj
+      (== () ((app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+      (== () ((1 x) (1 y)))))
+    (pause
+     (state ((lambda _.2)))
+     (conj
+      (conj
+       (conj
+        (== (_.22 . _.23) ((app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+        (== (_.24 . _.25) ((1 x) (1 y))))
+       (eval-expo _.22 () _.24))
+      (eval-listo _.23 () _.25))))))
+
+
+;; (stream-pretty (step 6 q-1p))
+
+'(()
+  (disj
+   (disj
+    (pause
+     (state ((lambda _.2)))
+     (conj
+      (== () ((app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+      (== () ((1 x) (1 y)))))
+    (pause
+     (state ((lambda _.2)))
+     (conj
+      (conj
+       (conj
+        (== (_.26 . _.27) ((app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+        (== (_.28 . _.29) ((1 x) (1 y))))
+       (eval-expo _.26 () _.28))
+      (eval-listo _.27 () _.29))))
+   (disj
+    (pause
+     (state ((lambda _.2)))
+     (conj
+      (== (var _.6) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+      (lookupo _.6 () ((1 x) (1 y)))))
+    (pause
+     (state ((lambda _.2)))
+     (disj
+      (conj
+       (conj
+        (conj
+         (==
+          (app _.7 _.8)
+          (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (eval-expo _.7 () (closure _.11 _.10)))
+        (eval-expo _.8 () _.9))
+       (eval-expo _.11 (_.9 . _.10) ((1 x) (1 y))))
+      (disj
+       (conj
+        (conj
+         (conj
+          (==
+           (cons _.12 _.13)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== (_.14 . _.15) ((1 x) (1 y))))
+         (eval-expo _.12 () _.14))
+        (eval-expo _.13 () _.15))
+       (disj
+        (conj
+         (conj
+          (==
+           (car _.16)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== _.17 ((1 x) (1 y))))
+         (eval-expo _.16 () (_.17 . _.18)))
+        (conj
+         (conj
+          (==
+           (cdr _.19)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== _.21 ((1 x) (1 y))))
+         (eval-expo _.19 () (_.20 . _.21))))))))))
+
+
+;; (stream-pretty (step 7 q-1p))
+
+'(()
+  (disj
+   (disj
+    (pause
+     (state ((lambda _.2)))
+     (conj
+      (== (var _.6) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+      (lookupo _.6 () ((1 x) (1 y)))))
+    (pause
+     (state ((lambda _.2)))
+     (disj
+      (conj
+       (conj
+        (conj
+         (==
+          (app _.7 _.8)
+          (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (eval-expo _.7 () (closure _.11 _.10)))
+        (eval-expo _.8 () _.9))
+       (eval-expo _.11 (_.9 . _.10) ((1 x) (1 y))))
+      (disj
+       (conj
+        (conj
+         (conj
+          (==
+           (cons _.12 _.13)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== (_.14 . _.15) ((1 x) (1 y))))
+         (eval-expo _.12 () _.14))
+        (eval-expo _.13 () _.15))
+       (disj
+        (conj
+         (conj
+          (==
+           (car _.16)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== _.17 ((1 x) (1 y))))
+         (eval-expo _.16 () (_.17 . _.18)))
+        (conj
+         (conj
+          (==
+           (cdr _.19)
+           (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+          (== _.21 ((1 x) (1 y))))
+         (eval-expo _.19 () (_.20 . _.21))))))))
+   (pause
+    (state ((lambda _.2)))
+    (conj
+     (conj
+      (conj
+       (== (_.30 . _.31) ((app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+       (== (_.32 . _.33) ((1 x) (1 y))))
+      (eval-expo _.30 () _.32))
+     (eval-listo _.31 () _.33)))))
+
+
+;; (stream-pretty (step 8 q-1p))
+
+'(()
+  (disj
+   (pause
+    (state ((lambda _.2)))
+    (conj
+     (conj
+      (conj
+       (== (_.34 . _.35) ((app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+       (== (_.36 . _.37) ((1 x) (1 y))))
+      (eval-expo _.34 () _.36))
+     (eval-listo _.35 () _.37)))
+   (pause
+    (state ((lambda _.2)))
+    (disj
+     (conj
+      (conj
+       (conj
+        (==
+         (app _.7 _.8)
+         (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+        (eval-expo _.7 () (closure _.11 _.10)))
+       (eval-expo _.8 () _.9))
+      (eval-expo _.11 (_.9 . _.10) ((1 x) (1 y))))
+     (disj
+      (conj
+       (conj
+        (conj
+         (==
+          (cons _.12 _.13)
+          (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (== (_.14 . _.15) ((1 x) (1 y))))
+        (eval-expo _.12 () _.14))
+       (eval-expo _.13 () _.15))
+      (disj
+       (conj
+        (conj
+         (== (car _.16) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (== _.17 ((1 x) (1 y))))
+        (eval-expo _.16 () (_.17 . _.18)))
+       (conj
+        (conj
+         (== (cdr _.19) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (== _.21 ((1 x) (1 y))))
+        (eval-expo _.19 () (_.20 . _.21)))))))))
+
+
+;; (stream-pretty (step 9 q-1p))
+
+'(()
+  (disj
+   (pause
+    (state ((lambda _.2)))
+    (disj
+     (conj
+      (conj
+       (conj
+        (==
+         (app _.7 _.8)
+         (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+        (eval-expo _.7 () (closure _.11 _.10)))
+       (eval-expo _.8 () _.9))
+      (eval-expo _.11 (_.9 . _.10) ((1 x) (1 y))))
+     (disj
+      (conj
+       (conj
+        (conj
+         (==
+          (cons _.12 _.13)
+          (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (== (_.14 . _.15) ((1 x) (1 y))))
+        (eval-expo _.12 () _.14))
+       (eval-expo _.13 () _.15))
+      (disj
+       (conj
+        (conj
+         (== (car _.16) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (== _.17 ((1 x) (1 y))))
+        (eval-expo _.16 () (_.17 . _.18)))
+       (conj
+        (conj
+         (== (cdr _.19) (list (app (lambda _.2) '(x)) (app (lambda _.2) '(y))))
+         (== _.21 ((1 x) (1 y))))
+        (eval-expo _.19 () (_.20 . _.21)))))))
+   (conj
+    (disj
+     (pause
+      (state ((lambda _.2)))
+      (conj
+       (== (lambda _.42) (app (lambda _.2) '(x)))
+       (== (closure _.42 ()) (1 x))))
+     (pause
+      (state ((lambda _.2)))
+      (disj
+       (conj (== '_.43 (app (lambda _.2) '(x))) (== _.43 (1 x)))
+       (disj
+        (conj
+         (== (list . _.44) (app (lambda _.2) '(x)))
+         (eval-listo _.44 () (1 x)))
+        (disj
+         (conj (== (var _.45) (app (lambda _.2) '(x))) (lookupo _.45 () (1 x)))
+         (disj
+          (conj
+           (conj
+            (conj
+             (== (app _.46 _.47) (app (lambda _.2) '(x)))
+             (eval-expo _.46 () (closure _.50 _.49)))
+            (eval-expo _.47 () _.48))
+           (eval-expo _.50 (_.48 . _.49) (1 x)))
+          (disj
+           (conj
+            (conj
+             (conj
+              (== (cons _.51 _.52) (app (lambda _.2) '(x)))
+              (== (_.53 . _.54) (1 x)))
+             (eval-expo _.51 () _.53))
+            (eval-expo _.52 () _.54))
+           (disj
+            (conj
+             (conj (== (car _.55) (app (lambda _.2) '(x))) (== _.56 (1 x)))
+             (eval-expo _.55 () (_.56 . _.57)))
+            (conj
+             (conj (== (cdr _.58) (app (lambda _.2) '(x))) (== _.60 (1 x)))
+             (eval-expo _.58 () (_.59 . _.60)))))))))))
+    (eval-listo _.39 () _.41))))
+
+
 ;; (stream-pretty (step 50 q-1p))
 ;; Snapshot 50 steps in
 
