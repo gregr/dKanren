@@ -1,4 +1,4 @@
-(load "test-transparent.scm")
+(load "transparent-evalo.scm")
 
 (define atoms
   '(() #t #f s quote app var lambda list cons car cdr closure 1 x y))
