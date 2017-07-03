@@ -155,14 +155,21 @@
     ((disj? ss) (mplus (continue (disj-c1 ss)) (disj-c2 ss)))
     ((pause? ss) (start (pause-state ss) (pause-goal ss)))))
 
-(define (stream-take n ss)
+(define (stream-next ps)
+  (define ss (continue ps))
   (cond
-    ((and n (= 0 n)) '())
     ((not ss) '())
     ((state? ss) (list ss))
-    ((pair? ss) (cons (car ss) (stream-take (and n (- n 1))
-                                            (continue (cdr ss)))))
-    (else (stream-take n (continue ss)))))
+    ((pair? ss) ss)
+    (else (stream-next ss))))
+
+(define (stream-take n ps)
+  (if (and n (= 0 n))
+    '()
+    (let ((ss (stream-next ps)))
+      (if (pair? ss)
+        (cons (car ss) (stream-take (and n (- n 1)) (cdr ss)))
+        '()))))
 
 (define (goal-pretty goal)
   (cond
@@ -217,7 +224,7 @@
     ((_ (g0 gs ...)) (conj* g0 gs ...))
     ((_ c0 cs ...) (disj (conde c0) (conde cs ...)))))
 
-(define (run-goal n st goal) (stream-take n (start st goal)))
+(define (run-goal n st goal) (stream-take n (pause st goal)))
 
 (define (reify index st tm)
   (let loop
@@ -241,7 +248,7 @@
   (syntax-rules ()
     ((_ (vr ...) g0 gs ...)
      (let ((goal (fresh (vr ...) (== (list vr ...) var-initial) g0 gs ...)))
-       (start state-empty goal)))))
+       (pause state-empty goal)))))
 (define-syntax run
   (syntax-rules ()
     ((_ n body ...) (map reify-initial (stream-take n (query body ...))))))
