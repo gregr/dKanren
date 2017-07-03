@@ -27,12 +27,12 @@
        (list-of domain d)))))
 
 (define (term-list xs) (list-of term xs))
-(define (var-index x) (list-of (lambda (x) (== 's x)) x))
+(define (vref x) (list-of (lambda (x) (== 's x)) x))
 
 (define-relation (example-lookupo x)
   (fresh (index env value)
     (== `(lookupo ,index ,env ,value) x)
-    (var-index index)
+    (vref index)
     (term-list env)
     (term value)))
 
