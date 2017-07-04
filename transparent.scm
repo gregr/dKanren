@@ -226,6 +226,12 @@
 
 (define (run-goal n st goal) (stream-take n (pause st goal)))
 
+(define (walk* st tm)
+  (let ((tm (walk st tm)))
+    (if (pair? tm)
+      `(,(walk* st (car tm)) . ,(walk* st (cdr tm)))
+      tm)))
+
 (define (reify index st tm)
   (let loop
     ((rvs store-empty) (index index) (tm tm) (k (lambda (rvs i tm) tm)))
