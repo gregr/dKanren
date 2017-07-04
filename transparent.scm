@@ -68,7 +68,9 @@
     (lambda ()
       (set! index (+ 1 index))
       (var index))))
-(define var=? eq?)
+;(define var=? eq?)
+(define (var=? t1 t2)
+  (and (var? t1) (var? t2) (eqv? (var-index t1) (var-index t2))))
 (define (var<? v1 v2) (< (var-index v1) (var-index v2)))
 (define var-initial (var/fresh))
 
