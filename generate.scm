@@ -1,22 +1,28 @@
 (load "transparent-evalo.scm")
 
+(define lvars
+  (list (var -100) (var -101) (var -102)))
+
 (define atoms
   '(() #t #f s quote app var lambda list cons car cdr closure 1 x y))
 
-(define-relation (atom-from xs x)
+(define-relation (element-from xs x)
   (fresh (next rest)
     (== `(,next . ,rest) xs)
     (conde
       ((== next x))
-      ((atom-from rest x)))))
+      ((element-from rest x)))))
 
 (define-relation (term x)
   (conde
-    ((atom-from atoms x))
+    ;; Reorder clauses to control frequency of occurrence.
+    ((element-from atoms x))
+    ((element-from lvars x))  ;; Comment this out to disable vars.
     ((fresh (a d)
        (== `(,a . ,d) x)
        (term a)
-       (term d)))))
+       (term d)))
+    ))
 
 (define-relation (list-of domain xs)
   (conde
@@ -79,8 +85,9 @@
        (let ((next (stream-next examples-current)))
          (and (pair? next)
               (set! examples-current (cdr next))
-              (let ((input (car (reify-initial (car next)))))
-                (k `(,(if (null? (run 1 (q) (test input))) 0 1) ,input)))
+              (let ((input (car (walk* (car next) var-initial))))
+                (k `(,(if (null? (run 1 (q) (test input))) 0 1)
+                      ,(reify 0 state-empty input))))
               #t))))
 
 
