@@ -1,5 +1,8 @@
 (load "transparent-evalo.scm")
 
+;; Max term size is roughly 2^max-term-depth.
+(define max-term-depth 3)  ;; Set this to #f for unlimited depth.
+
 (define lvars
   (list (var -100) (var -101) (var -102)))
 
@@ -13,16 +16,18 @@
       ((== next x))
       ((element-from rest x)))))
 
-(define-relation (term x)
-  (conde
-    ;; Reorder clauses to control frequency of occurrence.
-    ((element-from atoms x))
-    ((element-from lvars x))  ;; Comment this out to disable vars.
-    ((fresh (a d)
-       (== `(,a . ,d) x)
-       (term a)
-       (term d)))
-    ))
+(define-relation (term n x)
+  (if (and n (< 0 n))
+    (conde
+      ;; Reorder clauses to control frequency of occurrence.
+      ((element-from atoms x))
+      ((element-from lvars x))  ;; Comment this out to disable vars.
+      ((fresh (a d)
+         (== `(,a . ,d) x)
+         (term (- n 1) a)
+         (term (- n 1) d)))
+      )
+    fail))
 
 (define-relation (list-of domain xs)
   (conde
@@ -32,35 +37,35 @@
        (domain a)
        (list-of domain d)))))
 
-(define (term-list xs) (list-of term xs))
+(define (term-list n xs) (list-of (lambda (x) (term n x)) xs))
 (define (vref x) (list-of (lambda (x) (== 's x)) x))
 
 (define-relation (example-lookupo x)
   (fresh (index env value)
     (== `(lookupo ,index ,env ,value) x)
     (vref index)
-    (term-list env)
-    (term value)))
+    (term-list max-term-depth env)
+    (term max-term-depth value)))
 
 (define-relation (example-eval-expo x)
   (fresh (expr env value)
     (== `(eval-expo ,expr ,env ,value) x)
-    (term expr)
-    (term-list env)
-    (term value)))
+    (term max-term-depth expr)
+    (term-list max-term-depth env)
+    (term max-term-depth value)))
 
 (define-relation (example-eval-listo x)
   (fresh (e* env value)
     (== `(eval-listo ,e* ,env ,value) x)
-    (term-list e*)
-    (term-list env)
-    (term value)))
+    (term-list max-term-depth e*)
+    (term-list max-term-depth env)
+    (term max-term-depth value)))
 
 (define-relation (example-== x)
   (fresh (a d)
     (== `(== ,a ,d) x)
-    (term a)
-    (term d)))
+    (term max-term-depth a)
+    (term max-term-depth d)))
 
 (define (examples count generate)
   (define (test example)
