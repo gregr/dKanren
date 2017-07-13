@@ -1,8 +1,9 @@
 (load "test.scm")
 (load "discrete-set.scm")
 
-(define items '(b a #t #f 3 2 "ok" () "ab" (#f 3) (#f 1) ((#t) . 5)))
-(define items-ordered '(((#t) . 5) (#f 1) (#f 3) a b "ab" "ok" 2 3 #f #t ()))
+(define items '(b a #t #f 3 2 "ok" () "ab" #(1 2 3) (#f 3) #(5 4) (#f 1) ((#t) . 5)))
+(define items-ordered
+  '(#(5 4) #(1 2 3) ((#t) . 5) (#f 1) (#f 3) a b "ab" "ok" 2 3 #f #t ()))
 (define with-items (discrete-set-with items))
 (define without-items (discrete-set-without items))
 
@@ -19,13 +20,15 @@
   (discrete-set-complement without-items)
   `(#f . ,items-ordered))
 
-(define items2 '(c a #t 5 2 "ok" "abc" (#f 3) (#f 2) ((#t) . 5)))
+(define items2 '(c a #t 5 2 "ok" "abc" #(5 6) (#f 3) #(1 2 3) (#f 2) ((#t) . 5)))
 (define with-items2 (discrete-set-with items2))
 
-(define items-all '(b a c #t 5 #f 3 2 "ok" "abc" () "ab" (#f 2) (#f 3) (#f 1) ((#t) . 5)))
+(define items-all
+  '(b a c #t 5 #f 3 2 #(1 2 3) #(5 6) #(5 4) "ok" "abc" () "ab" (#f 2) (#f 3)
+      (#f 1) ((#t) . 5)))
 (define with-items-all (discrete-set-with items-all))
 
-(define items-missing '(b #f 3 "ab" () (#f 1)))
+(define items-missing '(b #f 3 "ab" () #(5 4) (#f 1)))
 (define with-items-missing (discrete-set-with items-missing))
 (define without-items-missing (discrete-set-complement with-items-missing))
 
@@ -75,10 +78,10 @@
   (discrete-set-join with-items2 without-items)
   without-items-missing)
 
-(define items-overlapping '(a #t 2 "ok" (#f 3) ((#t) . 5)))
+(define items-overlapping '(a #t 2 "ok" (#f 3) #(1 2 3) ((#t) . 5)))
 (define with-items-overlapping (discrete-set-with items-overlapping))
 
-(define items2-only '(c 5 "abc" (#f 2)))
+(define items2-only '(c 5 #(5 6) "abc" (#f 2)))
 (define with-items2-only (discrete-set-with items2-only))
 
 (test 'discrete-set-meet-1
