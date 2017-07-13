@@ -1,4 +1,4 @@
-(load "lch.scm")
+(load "numeric.scm")
 
 (define-syntax test
   (syntax-rules ()
