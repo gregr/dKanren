@@ -1,4 +1,4 @@
-(load "numeric.scm")
+(load "real-set.scm")
 
 (define-syntax test
   (syntax-rules ()
@@ -127,104 +127,104 @@
     '(#f . 100) 100 'lt 'lt-overlap 'a-in-b 'eq 'b-in-a 'gt-overlap 'gt)
   'lt)
 
-(test 'numeric-set-join-1
-  (numeric-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
+(test 'real-set-join-1
+  (real-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
                     '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
   '((#f . #f)))
-(test 'numeric-set-join-2
-  (numeric-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
+(test 'real-set-join-2
+  (real-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
                     '(-3 (-3 . 5) (5 . 8) 10 100 (100 . 200) 200))
   '((#f . 8) (8 . #f)))
-(test 'numeric-set-join-3
-  (numeric-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
+(test 'real-set-join-3
+  (real-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
                     '(-3 (-3 . 5) (5 . 8) 8 100 (100 . 200) 200))
   '((#f . 10) (10 . #f)))
-(test 'numeric-set-join-4
-  (numeric-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
+(test 'real-set-join-4
+  (real-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
                     '(-3 (-3 . 5) (5 . 8) 8 10 (100 . 200) 200))
   '((#f . 100) (100 . #f)))
-(test 'numeric-set-join-5
-  (numeric-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
+(test 'real-set-join-5
+  (real-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
                     '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200)))
   '((#f . 200) (200 . #f)))
-(test 'numeric-set-join-6
-  (numeric-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
+(test 'real-set-join-6
+  (real-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
                     '((-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
   '((#f . -3) (-3 . #f)))
-(test 'numeric-set-join-7
-  (numeric-set-join '((#f . -3) 5 (7 . 10) (10 . 100) (200 . #f))
+(test 'real-set-join-7
+  (real-set-join '((#f . -3) 5 (7 . 10) (10 . 100) (200 . #f))
                     '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
   '((#f . #f)))
-(test 'numeric-set-join-8
-  (numeric-set-join '((#f . -3) 0 5 (8 . 10) (10 . 100) 101 (200 . #f))
+(test 'real-set-join-8
+  (real-set-join '((#f . -3) 0 5 (8 . 10) (10 . 100) 101 (200 . #f))
                     '((-5 . 0) 0 (0 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
   '((#f . #f)))
-(test 'numeric-set-join-9
-  (numeric-set-join '((#f . -3) 5 (8 . 9) (10 . 100) (200 . #f))
+(test 'real-set-join-9
+  (real-set-join '((#f . -3) 5 (8 . 9) (10 . 100) (200 . #f))
                     '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
   '((#f . 9) 10 (10 . #f)))
-(test 'numeric-set-join-10
-  (numeric-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . 900))
+(test 'real-set-join-10
+  (real-set-join '((#f . -3) 5 (8 . 10) (10 . 100) (200 . 900))
                     '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
   '((#f . 900)))
-(test 'numeric-set-join-11
-  (numeric-set-join '((-50 . -3) 5 (8 . 10) (10 . 100) (200 . #f))
+(test 'real-set-join-11
+  (real-set-join '((-50 . -3) 5 (8 . 10) (10 . 100) (200 . #f))
                     '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
   '((-50 . #f)))
-(test 'numeric-set-join-12
-  (numeric-set-join '((-50 . -3) 5 (8 . 10) (10 . 100) (200 . 900))
+(test 'real-set-join-12
+  (real-set-join '((-50 . -3) 5 (8 . 10) (10 . 100) (200 . 900))
                     '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
   '((-50 . 900)))
 
-(test 'numeric-set-meet-1
-  (numeric-set-meet '((#f . #f))
+(test 'real-set-meet-1
+  (real-set-meet '((#f . #f))
                     '((#f . #f)))
   '((#f . #f)))
-(test 'numeric-set-meet-2
-  (numeric-set-meet '((#f . #f))
+(test 'real-set-meet-2
+  (real-set-meet '((#f . #f))
                     '((#f . 8)))
   '((#f . 8)))
-(test 'numeric-set-meet-3
-  (numeric-set-meet '((9 . #f))
+(test 'real-set-meet-3
+  (real-set-meet '((9 . #f))
                     '((#f . #f)))
   '((9 . #f)))
-(test 'numeric-set-meet-4
-  (numeric-set-meet '((#f . 12))
+(test 'real-set-meet-4
+  (real-set-meet '((#f . 12))
                     '((7 . #f)))
   '((7 . 12)))
-(test 'numeric-set-meet-5
-  (numeric-set-meet '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
+(test 'real-set-meet-5
+  (real-set-meet '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))
                     '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
   '())
-(test 'numeric-set-meet-6
-  (numeric-set-meet '((-4 . 6))
+(test 'real-set-meet-6
+  (real-set-meet '((-4 . 6))
                     '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
   '((-4 . -3) 5))
-(test 'numeric-set-meet-7
-  (numeric-set-meet '(-8 (-4 . 6))
+(test 'real-set-meet-7
+  (real-set-meet '(-8 (-4 . 6))
                     '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
   '(-8 (-4 . -3) 5))
-(test 'numeric-set-meet-8
-  (numeric-set-meet '(-8 (-4 . 6) 15)
+(test 'real-set-meet-8
+  (real-set-meet '(-8 (-4 . 6) 15)
                     '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
   '(-8 (-4 . -3) 5 15))
-(test 'numeric-set-meet-9
-  (numeric-set-meet '(-8 (-4 . 6) (15 . 20))
+(test 'real-set-meet-9
+  (real-set-meet '(-8 (-4 . 6) (15 . 20))
                     '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
   '(-8 (-4 . -3) 5 (15 . 20)))
-(test 'numeric-set-meet-10
-  (numeric-set-meet '(-8 (-4 . 6) (15 . 200))
+(test 'real-set-meet-10
+  (real-set-meet '(-8 (-4 . 6) (15 . 200))
                     '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
   '(-8 (-4 . -3) 5 (15 . 100)))
-(test 'numeric-set-meet-11
-  (numeric-set-meet '(-8 (-4 . 6) (15 . 201))
+(test 'real-set-meet-11
+  (real-set-meet '(-8 (-4 . 6) (15 . 201))
                     '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
   '(-8 (-4 . -3) 5 (15 . 100) (200 . 201)))
 
-(test 'numeric-set-complement-1
-  (numeric-set-complement '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
+(test 'real-set-complement-1
+  (real-set-complement '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
   '(-3 (-3 . 5) (5 . 8) 8 10 100 (100 . 200) 200))
-(test 'numeric-set-complement-2
-  (numeric-set-complement
-    (numeric-set-complement '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))))
+(test 'real-set-complement-2
+  (real-set-complement
+    (real-set-complement '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))))
   '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))

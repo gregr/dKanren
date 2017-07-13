@@ -6,7 +6,7 @@
         (cons (cons #f (cdar ns)) (cdr ns))
         ns))))
 
-;; A numeric-set stores sorted, open intervals of the form (lb . ub) where lb
+;; A real-set stores sorted, open intervals of the form (lb . ub) where lb
 ;; is the lower bound and ub is the upper bound.  The bounds may be #f,
 ;; representing negative and positive infinity, depending on which side they
 ;; are placed.  Individual numbers are stored sorted alongside the intervals,
@@ -79,10 +79,10 @@
              (else lt-overlap)))
           (else b-in-a))))))
 
-(define numeric-set-empty '())
-(define numeric-set-full `(,interval-full))
+(define real-set-empty '())
+(define real-set-full `(,interval-full))
 
-(define (numeric-set-join a b)
+(define (real-set-join a b)
   (define (loop a b)
     (cond
       ((null? a) b)
@@ -118,7 +118,7 @@
            (cons i0 (loop (cdr ns))))))
       (else (cons (car ns) (loop (cdr ns)))))))
 
-(define (numeric-set-meet-interval x ns)
+(define (real-set-meet-interval x ns)
   (if (null? ns)
     '()
     (let ((i (car ns)))
@@ -129,19 +129,19 @@
          (lambda () (list x))                            ;; a-in-b
          (lambda () (list x))                            ;; eq
          (lambda ()  ;; b-in-a
-           (cons i (numeric-set-meet-interval x (cdr ns))))
+           (cons i (real-set-meet-interval x (cdr ns))))
          (lambda ()  ;; gt-overlap
            (cons (interval-overlap-meet i x)
-                 (numeric-set-meet-interval x (cdr ns))))
+                 (real-set-meet-interval x (cdr ns))))
          (lambda ()  ;; gt
-           (numeric-set-meet-interval x (cdr ns))))))))
+           (real-set-meet-interval x (cdr ns))))))))
 
-(define (numeric-set-meet a b)
+(define (real-set-meet a b)
   (list-foldr
     (lambda (x ns)
-      (numeric-set-join (numeric-set-meet-interval x b) ns))
+      (real-set-join (real-set-meet-interval x b) ns))
     '()
     a))
 
-(define (numeric-set-complement ns)
-  (list-foldr numeric-set-meet numeric-set-full (map interval-invert ns)))
+(define (real-set-complement ns)
+  (list-foldr real-set-meet real-set-full (map interval-invert ns)))
