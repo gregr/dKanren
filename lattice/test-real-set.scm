@@ -218,3 +218,41 @@
   (real-set-complement
     (real-set-complement '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f))))
   '((#f . -3) 5 (8 . 10) (10 . 100) (200 . #f)))
+
+(test 'real-set-inequality-1
+  (real-set-join (real-set< 100) (real-set> 10))
+  real-set-full)
+(test 'real-set-inequality-2
+  (real-set-meet (real-set> 100) (real-set< 10))
+  real-set-empty)
+(test 'real-set-inequality-3
+  (real-set-meet (real-set< 100) (real-set> 10))
+  '((10 . 100)))
+(test 'real-set-inequality-4
+  (real-set-join (real-set> 100) (real-set< 10))
+  '((#f . 10) (100 . #f)))
+(test 'real-set-inequality-5
+  (real-set-complement (real-set-join (real-set> 100) (real-set< 10)))
+  '(10 (10 . 100) 100))
+(test 'real-set-inequality-6
+  (real-set-join (real-set<= 100) (real-set>= 10))
+  real-set-full)
+(test 'real-set-inequality-7
+  (real-set-meet (real-set>= 100) (real-set<= 10))
+  real-set-empty)
+(test 'real-set-inequality-8
+  (real-set-meet (real-set<= 100) (real-set>= 10))
+  '(10 (10 . 100) 100))
+(test 'real-set-inequality-9
+  (real-set-join (real-set>= 100) (real-set<= 10))
+  '((#f . 10) 10 100 (100 . #f)))
+(test 'real-set-inequality-10
+  (real-set-complement (real-set-join (real-set>= 100) (real-set<= 10)))
+  '((10 . 100)))
+
+(test 'real-set-points-1
+  (real-set-with '(5 2 23 5 4 18 2))
+  '(2 4 5 18 23))
+(test 'real-set-points-2
+  (real-set-without '(5 2 23 5 4 18 2))
+  '((#f . 2) (2 . 4) (4 . 5) (5 . 18) (18 . 23) (23 . #f)))

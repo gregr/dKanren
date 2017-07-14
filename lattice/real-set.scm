@@ -1,3 +1,5 @@
+(load "ordered-set.scm")
+
 (define (list-foldr f acc xs)
   (if (null? xs)
     acc
@@ -145,3 +147,13 @@
 
 (define (real-set-complement ns)
   (list-foldr real-set-meet real-set-full (map interval-invert ns)))
+
+
+(define (real-set< n) `((#f . ,n)))
+(define (real-set<= n) `((#f . ,n) ,n))
+(define (real-set>= n) `(,n (,n . #f)))
+(define (real-set> n) `((,n . #f)))
+
+;; Only use these for defining sets in terms of points.
+(define (real-set-with ns) (ordered-set ns))
+(define (real-set-without ns) (real-set-complement (real-set-with ns)))
