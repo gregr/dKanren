@@ -3,3 +3,6 @@
 
 (printf "Testing discrete-set\n")
 (load "test-discrete-set.scm")
+
+(printf "Testing dict\n")
+(load "test-dict.scm")
