@@ -1,5 +1,6 @@
 (load "ordered-set.scm")
 
+(define (last xs) (if (null? (cdr xs)) (car xs) (last (cdr xs))))
 (define (list-foldr f acc xs)
   (if (null? xs)
     acc
@@ -157,3 +158,11 @@
 ;; Only use these for defining sets in terms of points.
 (define (real-set-with ns) (ordered-set ns))
 (define (real-set-without ns) (real-set-complement (real-set-with ns)))
+
+(define (real-set-widen rs)
+  (define fst (car rs))
+  (define lst (last rs))
+  (define lb (if (number? fst) fst (car fst)))
+  (define ub (if (number? lst) lst (cdr lst)))
+  (define suffix (cons (cons lb ub) (if (number? lst) (list ub) '())))
+  (if (number? fst) (cons lb suffix) suffix))

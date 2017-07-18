@@ -256,3 +256,16 @@
 (test 'real-set-points-2
   (real-set-without '(5 2 23 5 4 18 2))
   '((#f . 2) (2 . 4) (4 . 5) (5 . 18) (18 . 23) (23 . #f)))
+
+(test 'real-set-widen-1
+  (real-set-widen real-set-full)
+  real-set-full)
+(test 'real-set-widen-2
+  (real-set-widen '((#f . 1) (2 . #f)))
+  real-set-full)
+(test 'real-set-widen-3
+  (real-set-widen '((-5 . 1) (2 . 18)))
+  '((-5 . 18)))
+(test 'real-set-widen-4
+  (real-set-widen '(-10 (-5 . 1) 2 (2 . 18) 18))
+  '(-10 (-10 . 18) 18))
