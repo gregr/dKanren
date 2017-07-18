@@ -42,7 +42,8 @@
     ((null? xs) '())
     ((null? (cdr xs)) xs)
     (else (dict-join fx fy fxy
-                     (dict (list-odds xs)) (dict (list-odds (cdr xs)))))))
+                     (assoc->dict fx fy fxy (list-odds xs))
+                     (assoc->dict fx fy fxy (list-odds (cdr xs)))))))
 
 (define (id-value k x) x)
 (define dict-empty '())
