@@ -25,16 +25,5 @@
          (lambda () (ordered-set-subtract (cdr xs) (cdr ys)))
          (lambda () (ordered-set-subtract xs (cdr ys))))))))
 
-(define (list-odds xs)
-  (cond
-    ((null? xs) '())
-    ((null? (cdr xs)) xs)
-    (else (cons (car xs) (list-odds (cddr xs))))))
-
 (define ordered-set-empty '())
-(define (ordered-set xs)
-  (cond
-    ((null? xs) '())
-    ((null? (cdr xs)) xs)
-    (else (ordered-set-join
-            (ordered-set (list-odds xs)) (ordered-set (list-odds (cdr xs)))))))
+(define (ordered-set xs) (merge-sort ordered-set-join xs))

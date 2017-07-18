@@ -32,20 +32,11 @@
   (define (id-left k x y) x)
   (dict-meet id-left xs (map (lambda (k) (cons k #f)) ys)))
 
-(define (list-odds xs)
-  (cond
-    ((null? xs) '())
-    ((null? (cdr xs)) xs)
-    (else (cons (car xs) (list-odds (cddr xs))))))
 (define (assoc->dict fx fy fxy xs)
-  (cond
-    ((null? xs) '())
-    ((null? (cdr xs)) xs)
-    (else (dict-join fx fy fxy
-                     (assoc->dict fx fy fxy (list-odds xs))
-                     (assoc->dict fx fy fxy (list-odds (cdr xs)))))))
+  (merge-sort (lambda (a b) (dict-join fx fy fxy a b)) xs))
 
 (define (id-value k x) x)
+
 (define dict-empty '())
 (define (dict xs)
   (define (error-not-unique k x y)
