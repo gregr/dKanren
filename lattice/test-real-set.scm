@@ -317,3 +317,31 @@
 (test 'real-set*-8
   (real-set* '(-20 (-15 . -11) (-2 . 2) (3 . 16) 18 (22 . #f)) '((2 . 6) 8))
   '(-160 (-120 . -22) (-16 . #f)))
+
+(test 'real-set/-1
+  (real-set/ real-set-full real-set-full)
+  real-set-full)
+(test 'real-set/-2
+  (real-set/ real-set-full real-set-empty)
+  real-set-empty)
+(test 'real-set/-3
+  (real-set/ real-set-full '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  real-set-full)
+(test 'real-set/-4
+  (real-set/ '(-20 (-15 . -11) (-2 . 2) (3 . 16) 18) '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  real-set-full)
+(test 'real-set/-5
+  (real-set/ '(-20 (-15 . -11) (3 . 16) 18) '(-10 (-5 . -3) (2 . 6) 8))
+  '((-10 . -3/10) (3/8 . 9)))
+(test 'real-set/-6
+  (real-set/ '((#f . -22) -20 (-15 . -11) (3 . 16) 18) '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  '((#f . -3/10) (3/8 . #f)))
+(test 'real-set/-7
+  (real-set/ '(-20 (-15 . -11) (3 . 16) 18 (22 . #f)) '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  '((#f . -3/10) (3/8 . #f)))
+(test 'real-set/-8
+  (real-set/ '((#f . -22) -20 (-15 . -11) (-2 . 2) (3 . 16) 18) '((2 . 6) 8))
+  '((#f . -11/8) (-1 . 9)))
+(test 'real-set/-9
+  (real-set/ '(-20 (-15 . -11) (-2 . 2) (3 . 16) 18 (22 . #f)) '((2 . 6) 8))
+  '((-10 . -11/8) (-1 . #f)))

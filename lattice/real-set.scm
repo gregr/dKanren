@@ -219,6 +219,23 @@
                       (pn (and au bl (* au bl))))
                   (cons (and np pn (min np pn)) (and nn pp (max nn pp))))))))))))
 
+(define (interval-invert ival)
+  (define (pinv p) (if p (/ 1 p) 0))
+  (cond
+    ((eqv? 0 ival) '())
+    ((number? ival) (list (/ 1 ival)))
+    (else
+      (let ((lb (car ival)) (ub (cdr ival)))
+        (cond
+          ((or (and lb (< 0 lb)) (and ub (< ub 0)))
+           (list (cons (pinv ub) (pinv lb))))
+          ((eqv? 0 lb) (list (cons (pinv ub) #f)))
+          ((eqv? 0 ub) (list (cons #f (pinv lb))))
+          (else (real-set-join (list (cons #f (pinv lb)))
+                               (list (cons (pinv ub) #f)))))))))
+(define (interval/ a b) (real-set* (list a) (interval-invert b)))
+
 (define (real-set+ as bs) (real-set-cross cons interval+ as bs))
 (define (real-set- as bs) (real-set-cross cons interval- as bs))
 (define (real-set* as bs) (real-set-cross cons interval* as bs))
+(define (real-set/ as bs) (real-set-cross append interval/ as bs))
