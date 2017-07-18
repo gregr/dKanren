@@ -18,7 +18,7 @@
 ;; half-closed interval (4 8] and the open interval (10 +infinity), i.e., all
 ;; numbers x such that either x = 2 OR 4 < x <= 8 OR 10 < x).
 (define interval-full '(#f . #f))
-(define (interval-invert x)
+(define (interval-complement x)
   (cond
     ((equal? interval-full x) '())
     ((number? x) `((#f . ,x) (,x . #f)))
@@ -147,7 +147,7 @@
     a))
 
 (define (real-set-complement ns)
-  (list-foldr real-set-meet real-set-full (map interval-invert ns)))
+  (list-foldr real-set-meet real-set-full (map interval-complement ns)))
 
 
 (define (real-set< n) `((#f . ,n)))
