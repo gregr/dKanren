@@ -167,12 +167,12 @@
   (define suffix (cons (cons lb ub) (if (number? lst) (list ub) '())))
   (if (number? fst) (cons lb suffix) suffix))
 
-(define (real-set-cross cross as bs)
+(define (real-set-cross combine cross as bs)
   (merge-sort
     real-set-join
     (list-foldr
       (lambda (a rss)
-        (list-foldr (lambda (b rss) (cons (cross a b) rss)) rss bs))
+        (list-foldr (lambda (b rss) (combine (cross a b) rss)) rss bs))
       '() as)))
 
 (define (interval+ a b)
@@ -219,6 +219,6 @@
                       (pn (and au bl (* au bl))))
                   (cons (and np pn (min np pn)) (and nn pp (max nn pp))))))))))))
 
-(define (real-set+ as bs) (real-set-cross interval+ as bs))
-(define (real-set- as bs) (real-set-cross interval- as bs))
-(define (real-set* as bs) (real-set-cross interval* as bs))
+(define (real-set+ as bs) (real-set-cross cons interval+ as bs))
+(define (real-set- as bs) (real-set-cross cons interval- as bs))
+(define (real-set* as bs) (real-set-cross cons interval* as bs))
