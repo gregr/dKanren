@@ -166,3 +166,59 @@
   (define ub (if (number? lst) lst (cdr lst)))
   (define suffix (cons (cons lb ub) (if (number? lst) (list ub) '())))
   (if (number? fst) (cons lb suffix) suffix))
+
+(define (real-set-cross cross as bs)
+  (merge-sort
+    real-set-join
+    (list-foldr
+      (lambda (a rss)
+        (list-foldr (lambda (b rss) (cons (cross a b) rss)) rss bs))
+      '() as)))
+
+(define (interval+ a b)
+  (define (ip+ i p)
+    (cons (and (car i) (+ p (car i))) (and (cdr i) (+ p (cdr i)))))
+  (if (number? a)
+    (if (number? b) (+ a b) (ip+ b a))
+    (if (number? b) (ip+ a b)
+      (cons (and (car a) (car b) (+ (car a) (car b)))
+            (and (cdr a) (cdr b) (+ (cdr a) (cdr b)))))))
+(define (interval- a b) (interval+ a (if (number? b) (- b) (interval* b -1))))
+
+(define (interval* a b)
+  (define (ip* i p)
+    (define ia (and (car i) (* p (car i))))
+    (define id (and (cdr i) (* p (cdr i))))
+    (cond ((< p 0) (cons id ia)) ((> p 0) (cons ia id)) (else 0)))
+  (if (number? a)
+    (if (number? b) (* a b) (ip* b a))
+    (if (number? b) (ip* a b)
+      (let* ((al (car a))
+             (au (cdr a))
+             (bl (car b))
+             (bu (cdr b))
+             (apos? (and al (<= 0 al)))
+             (aneg? (and au (<= au 0)))
+             (bpos? (and bl (<= 0 bl)))
+             (bneg? (and bu (<= bu 0))))
+        (if apos?
+          (if bpos? (cons (* al bl) (and au bu (* au bu)))
+            (if bneg? (cons (and au bl (* au bl)) (* al bu))
+              (cons (and au bl (* au bl)) (and au bu (* au bu)))))
+          (if aneg?
+            (if bpos? (cons (and al bu (* al bu)) (* au bl))
+              (if bneg? (cons (* au bu) (and al bl (* al bl)))
+                (cons (and al bu (* al bu)) (and al bl (* al bl)))))
+            (if bpos?
+              (cons (and bu al (* bu al)) (and bu au (* bu au)))
+              (if bneg?
+                (cons (and bl au (* bl au)) (and bl al (* bl al)))
+                (let ((nn (and al bl (* al bl)))
+                      (pp (and au bu (* au bu)))
+                      (np (and al bu (* al bu)))
+                      (pn (and au bl (* au bl))))
+                  (cons (and np pn (min np pn)) (and nn pp (max nn pp))))))))))))
+
+(define (real-set+ as bs) (real-set-cross interval+ as bs))
+(define (real-set- as bs) (real-set-cross interval- as bs))
+(define (real-set* as bs) (real-set-cross interval* as bs))

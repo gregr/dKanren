@@ -269,3 +269,51 @@
 (test 'real-set-widen-4
   (real-set-widen '(-10 (-5 . 1) 2 (2 . 18) 18))
   '(-10 (-10 . 18) 18))
+
+(test 'real-set+-1
+  (real-set+ real-set-full real-set-full)
+  real-set-full)
+(test 'real-set+-2
+  (real-set+ real-set-full real-set-empty)
+  real-set-empty)
+(test 'real-set+-3
+  (real-set+ real-set-full '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  real-set-full)
+(test 'real-set+-4
+  (real-set+ '(-20 (-15 . -11) (-2 . 2) (3 . 16) 18) '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  '(-30 (-25 . -21) (-21 . 24) 26))
+(test 'real-set+-5
+  (real-set+ '((#f . -22) -20 (-15 . -11) (-2 . 2) (3 . 16) 18) '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  '((#f . 24) 26))
+(test 'real-set+-6
+  (real-set+ '(-20 (-15 . -11) (-2 . 2) (3 . 16) 18 (22 . #f)) '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  '(-30 (-25 . -21) (-21 . #f)))
+
+(test 'real-set--1
+  (real-set- '((2 . 5)) '((3 . 6)))
+  '((-4 . 2)))
+
+(test 'real-set*-1
+  (real-set* real-set-full real-set-full)
+  real-set-full)
+(test 'real-set*-2
+  (real-set* real-set-full real-set-empty)
+  real-set-empty)
+(test 'real-set*-3
+  (real-set* real-set-full '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  real-set-full)
+(test 'real-set*-4
+  (real-set* '(-20 (-15 . -11) (-2 . 2) (3 . 16) 18) '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  '(-180 -160 (-160 . 150) 200))
+(test 'real-set*-5
+  (real-set* '((#f . -22) -20 (-15 . -11) (-2 . 2) (3 . 16) 18) '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  real-set-full)
+(test 'real-set*-6
+  (real-set* '(-20 (-15 . -11) (-2 . 2) (3 . 16) 18 (22 . #f)) '(-10 (-5 . -3) (-1 . 1) (2 . 6) 8))
+  real-set-full)
+(test 'real-set*-5
+  (real-set* '((#f . -22) -20 (-15 . -11) (-2 . 2) (3 . 16) 18) '((2 . 6) 8))
+  '((#f . -22) (-16 . 128) 144))
+(test 'real-set*-6
+  (real-set* '(-20 (-15 . -11) (-2 . 2) (3 . 16) 18 (22 . #f)) '((2 . 6) 8))
+  '(-160 (-120 . -22) (-16 . #f)))
