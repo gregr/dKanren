@@ -110,11 +110,19 @@
 (examples-start example-==)
 
 (define (print-reified x) (printf "~s\n" (reify 0 state-empty x)))
+(define (print-==-as-branch x)
+  (define branch-var (var -200))
+  (when (= 0 (car x))
+    (let ((a (cadr (cadr x)))
+          (c (caddr (cadr x))))
+      (print-reified
+        `(conj (== ,branch-var ,a)
+               (disj (== ,branch-var ,a) (== ,branch-var ,c)))))))
 
 ;; Optionally set n to the number of desired examples.
 (let loop ((n #f))
   (if (and n (= 0 n))
     #f
     (begin
-      (and (examples-next print-reified)
+      (and (examples-next print-==-as-branch)
            (loop (and n (- n 1)))))))
