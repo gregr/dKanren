@@ -101,8 +101,7 @@
          (and (pair? next)
               (set! examples-current (cdr next))
               (let ((input (car (walk* (car next) var-initial))))
-                (k `(,(if (null? (run 1 (q) (test input))) 0 1)
-                      ,(reify 0 state-empty input))))
+                (k `(,(if (null? (run 1 (q) (test input))) 0 1) ,input)))
               #t))))
 
 
@@ -110,10 +109,12 @@
 
 (examples-start example-==)
 
+(define (print-reified x) (printf "~s\n" (reify 0 state-empty x)))
+
 ;; Optionally set n to the number of desired examples.
 (let loop ((n #f))
   (if (and n (= 0 n))
     #f
     (begin
-      (and (examples-next (lambda (x) (printf "~s\n" x)))
+      (and (examples-next print-reified)
            (loop (and n (- n 1)))))))
