@@ -1,7 +1,7 @@
 (load "transparent-evalo.scm")
 
 ;; Max term size is roughly 2^max-term-depth.
-(define max-term-depth 3)
+(define max-term-depth 2)
 
 (define lvars
   (list (var -100) (var -101) (var -102)))
@@ -118,11 +118,20 @@
       (print-reified
         `(conj (== ,branch-var ,a)
                (disj (== ,branch-var ,a) (== ,branch-var ,c)))))))
+(define (print-==-as-branch2 x)
+  (define branch-var1 (var -200))
+  (define branch-var2 (var -201))
+  (when (= 0 (car x))
+    (let ((a (cadr (cadr x)))
+          (c (caddr (cadr x))))
+      (print-reified
+        `(conj (== (,branch-var1 . ,a) (,branch-var2 . ,branch-var2))
+               (disj (== ,branch-var2 ,a) (== ,branch-var1 ,c)))))))
 
 ;; Optionally set n to the number of desired examples.
 (let loop ((n #f))
   (if (and n (= 0 n))
     #f
     (begin
-      (and (examples-next print-==-as-branch)
+      (and (examples-next print-==-as-branch2)
            (loop (and n (- n 1)))))))
