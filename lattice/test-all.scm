@@ -1,8 +1,11 @@
-(printf "Testing real-set\n")
+(printf "\nTesting real-set\n")
 (load "test-real-set.scm")
 
-(printf "Testing discrete-set\n")
+(printf "\nTesting discrete-set\n")
 (load "test-discrete-set.scm")
 
-(printf "Testing dict\n")
+(printf "\nTesting dict\n")
 (load "test-dict.scm")
+
+(printf "\nTesting linear equations\n")
+(load "test-eq-linear.scm")
