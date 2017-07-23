@@ -4,10 +4,7 @@
 (define (list-foldr f acc xs)
   (if (null? xs)
     acc
-    (let ((ns (f (car xs) (list-foldr f acc (cdr xs)))))
-      (if (and (pair? ns) (pair? (car ns)) (eq? #t (caar ns)))
-        (cons (cons #f (cdar ns)) (cdr ns))
-        ns))))
+    (f (car xs) (list-foldr f acc (cdr xs)))))
 
 ;; A real-set stores sorted, open intervals of the form (lb . ub) where lb
 ;; is the lower bound and ub is the upper bound.  The bounds may be #f,
