@@ -5,6 +5,7 @@
 (define dg2 (dg-add dg1 'a 'c))
 (define dg3 (dg-add dg2 'd 'c))
 (define dg4 (dg-add dg3 'b 'd))
+(define dg5 (dg-add dg4 'e 'b))
 
 (test 'add-1
   dg1
@@ -44,6 +45,13 @@
 (test 'remove-3
   (dg-remove dg2 'a 'b)
   '((a . (c))))
+
+(test 'replace-1
+  (dg-replace dg4 '(a b) 'g)
+  '((d . (c)) (g . (c d))))
+(test 'replace-2
+  (dg-replace dg5 '(a b) 'g)
+  '((d . (c)) (e . (g)) (g . (c d))))
 
 (test 'succ-1
   (dg-succ dg-empty 'a)

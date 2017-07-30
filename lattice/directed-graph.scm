@@ -25,6 +25,17 @@
            (dg (dict-join id-value err rem dg dpred)))
       (dg-add dg a b))))
 
+(define (dg-replace dg xs y)
+  (define (replace vs)
+    (if (ormap (lambda (x) (ordered-set-member? vs x)) xs)
+      (ordered-set-join (ordered-set-subtract vs xs)
+                        (ordered-set-singleton y))
+      vs))
+  (define succ (ordered-set-subtract
+                 (ordered-set-join-map cdr (dict-project dg xs)) xs))
+  (define removed (dict-subtract dg xs))
+  (dict-set (dict-map replace removed) y succ))
+
 (define (dg-succ dg x)
   (define proj (dict-project dg (list x)))
   (if (null? proj) '() (cdar proj)))
