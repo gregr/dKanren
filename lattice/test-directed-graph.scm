@@ -84,3 +84,22 @@
 (test 'pred-5
   (dg-pred* dg4 'c)
   '(a b d))
+
+(test 'scc-1
+  (dg-scc dg-empty 'c 'b)
+  '())
+(test 'scc-2
+  (dg-scc dg1 'c 'b)
+  '())
+(test 'scc-3
+  (dg-scc dg2 'c 'b)
+  '())
+(test 'scc-4
+  (dg-scc dg3 'c 'b)
+  '())
+(test 'scc-5
+  (dg-scc dg4 'c 'b)
+  '(b c d))
+(test 'scc-5
+  (dg-scc dg4 'c 'a)
+  '(a b c d))

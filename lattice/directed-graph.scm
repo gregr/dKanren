@@ -52,3 +52,9 @@
 
 (define (dg-succ* dg x) (dg-tc dg dg-succ x))
 (define (dg-pred* dg x) (dg-tc dg dg-pred x))
+
+(define (dg-scc dg a b)
+  (if (equal? a b) (ordered-set-singleton b)
+    (let ((scc (ordered-set-join-map (lambda (y) (dg-scc dg a y))
+                                     (dg-succ dg b))))
+      (if (null? scc) '() (ordered-set-join scc (ordered-set-singleton b))))))
