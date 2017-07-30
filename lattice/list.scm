@@ -7,6 +7,6 @@
     acc
     (f (car xs) (list-foldr f acc (cdr xs)))))
 (define (list-append-map f xs)
-  (list-foldr append '() (map eq-linear-solved eqs)))
+  (list-foldr append '() (map f xs)))
 
 (define (list-last xs) (if (null? (cdr xs)) (car xs) (list-last (cdr xs))))

@@ -33,4 +33,4 @@
 (define (ordered-set-member? xs y)
   (ordered-set-<= (ordered-set-singleton y) xs))
 (define (ordered-set-map f xs) (ordered-set (map f xs)))
-(define (ordered-set-join-map f xs) (ordered-set (append-map f xs)))
+(define (ordered-set-join-map f xs) (ordered-set (list-append-map f xs)))

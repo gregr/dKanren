@@ -92,7 +92,7 @@
     (filter (lambda (eq) (null? (eq-linear-solved eq))) eqs))
 
   (define (eqs-linear-solve eqs)
-    (define solved (append-map eq-linear-solved eqs))
+    (define solved (list-append-map eq-linear-solved eqs))
     (if (null? solved) (cons '() eqs)
       (cons solved (eqs-shrink (eqs-linear-solved-remove eqs)
                                (map car solved)))))
