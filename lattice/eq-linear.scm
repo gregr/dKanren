@@ -88,14 +88,11 @@
                (lambda (rhs) (list (cons idx (/ rhs (car eq)))))
                (lambda (_) '()))))))
 
-  (define (eqs-linear-solved eqs)
-    (list-foldr append '() (map eq-linear-solved eqs)))
-
   (define (eqs-linear-solved-remove eqs)
     (filter (lambda (eq) (null? (eq-linear-solved eq))) eqs))
 
   (define (eqs-linear-solve eqs)
-    (define solved (eqs-linear-solved eqs))
+    (define solved (append-map eq-linear-solved eqs))
     (if (null? solved) (cons '() eqs)
       (cons solved (eqs-shrink (eqs-linear-solved-remove eqs)
                                (map car solved)))))
