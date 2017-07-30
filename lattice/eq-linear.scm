@@ -35,8 +35,18 @@
     (cons (car eq) (eq-expand (cdr eq) (- size 1)))
     (append (make-list size 0) eq)))
 
+(define (eq-shrink eq offset cols)
+  (if (null? cols) eq
+    (let loop ((eq eq) (offset offset) (col (car cols)))
+      (if (= offset col)
+        (eq-shrink (cdr eq) (+ offset 1) (cdr cols))
+        (cons (car eq) (loop (cdr eq) (+ 1 offset) col))))))
+
 (define (eqs-expand eqs size)
   (map (lambda (eq) (eq-expand eq size)) eqs))
+
+(define (eqs-shrink eqs cols)
+  (map (lambda (eq) (eq-shrink eq 0 cols)) eqs))
 
 (define (eq-sparse->dense eq)
   (let loop ((eq eq) (idx 0))
