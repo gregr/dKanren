@@ -55,54 +55,63 @@
               (cons (cdar eq) (loop (cdr eq) (+ 1 (caar eq)))))
       eq)))
 
+(define (eqs-next-solved next) (car next))
+(define (eqs-next-eqs next) (cdr next))
 
 ;; Linear equations
-(define (eq-linear-simplify a b)
-  (let loop ((a a) (b b) (rprefix '()))
-    (define (rebuild factor xs)
-      (list-foldl (lambda (fst rest) (cons (* factor fst) rest)) xs rprefix))
-    (cond
-      ((not (pair? a)) (rebuild 1 b))
-      ((= 0 (car a)) (loop (cdr a) (cdr b) (cons (car b) rprefix)))
-      ((= 0 (car b)) (rebuild 1 b))
-      (else
-        (let ((fa (car a)) (fb (car b)))
-          (let loop ((a (cdr a)) (b (cdr b)) (rprefix '(0)))
-            (define (sb a b) (- (* fa b) (* fb a)))
-            (if (pair? a)
-              (loop (cdr a) (cdr b) (cons (sb (car a) (car b)) rprefix))
-              (rebuild fa (list-foldl cons (sb a b) rprefix)))))))))
-
-(define (eqs-linear-simplify eqs eq)
-  (list-foldl (lambda (eq0 eq) (eq-linear-simplify eq0 eq)) eq eqs))
-
-(define (eqs-linear-insert eqs eq)
-  (cond
-    ((null? eqs) (list eq))
-    ((eq< (car eqs) eq) (cons eq eqs))
-    (else (cons (eq-linear-simplify eq (car eqs))
-                (eqs-linear-insert (cdr eqs) eq)))))
-
 (define (eqs-linear-add eqs eq)
+  (define (eq-linear-simplify a b)
+    (let loop ((a a) (b b) (rprefix '()))
+      (define (rebuild factor xs)
+        (list-foldl (lambda (fst rest) (cons (* factor fst) rest)) xs rprefix))
+      (cond
+        ((not (pair? a)) (rebuild 1 b))
+        ((= 0 (car a)) (loop (cdr a) (cdr b) (cons (car b) rprefix)))
+        ((= 0 (car b)) (rebuild 1 b))
+        (else
+          (let ((fa (car a)) (fb (car b)))
+            (let loop ((a (cdr a)) (b (cdr b)) (rprefix '(0)))
+              (define (sb a b) (- (* fa b) (* fb a)))
+              (if (pair? a)
+                (loop (cdr a) (cdr b) (cons (sb (car a) (car b)) rprefix))
+                (rebuild fa (list-foldl cons (sb a b) rprefix)))))))))
+
+  (define (eqs-linear-simplify eqs eq)
+    (list-foldl (lambda (eq0 eq) (eq-linear-simplify eq0 eq)) eq eqs))
+
+  (define (eqs-linear-insert eqs eq)
+    (cond
+      ((null? eqs) (list eq))
+      ((eq< (car eqs) eq) (cons eq eqs))
+      (else (cons (eq-linear-simplify eq (car eqs))
+                  (eqs-linear-insert (cdr eqs) eq)))))
+
+  (define (eq-linear-solved eq)
+    (let loop ((eq eq) (idx 0))
+      (and (pair? eq)
+           (if (= 0 (car eq))
+             (loop (cdr eq) (+ 1 idx))
+             (eq-zero-rhs
+               (cdr eq)
+               (lambda (rhs) (list (cons idx (/ rhs (car eq)))))
+               (lambda (_) '()))))))
+
+  (define (eqs-linear-solved eqs)
+    (list-foldr append '() (map eq-linear-solved eqs)))
+
+  (define (eqs-linear-solved-remove eqs)
+    (filter (lambda (eq) (null? (eq-linear-solved eq))) eqs))
+
+  (define (eqs-linear-solve eqs)
+    (define solved (eqs-linear-solved eqs))
+    (if (null? solved) (cons '() eqs)
+      (cons solved (eqs-shrink (eqs-linear-solved-remove eqs)
+                               (map car solved)))))
+
   (define size (max (if (null? eqs) 0 (eq-size (car eqs))) (eq-size eq)))
   (define eqs1 (eqs-expand eqs size))
   (define simplified (eqs-linear-simplify eqs1 (eq-expand eq size)))
   (if (eq-zero? simplified)
-    eqs
-    (and (eq-satisfiable? simplified) (eqs-linear-insert eqs1 simplified))))
-
-(define (eq-linear-solved eq)
-  (let loop ((eq eq) (idx 0))
-    (and (pair? eq)
-         (if (= 0 (car eq))
-           (loop (cdr eq) (+ 1 idx))
-           (eq-zero-rhs
-             (cdr eq)
-             (lambda (rhs) (list (cons idx (/ rhs (car eq)))))
-             (lambda (_) '()))))))
-
-(define (eqs-linear-solved eqs)
-  (list-foldr append '() (map eq-linear-solved eqs)))
-
-(define (eqs-linear-solved-remove eqs)
-  (filter (lambda (eq) (null? (eq-linear-solved eq))) eqs))
+    (cons '() eqs)
+    (and (eq-satisfiable? simplified)
+         (eqs-linear-solve (eqs-linear-insert eqs1 simplified)))))

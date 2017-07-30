@@ -10,33 +10,50 @@
 ;; 3x + 3y = 6
 (define e4 (eq-sparse->dense '((2 . 3) (3 . 3) . 6)))
 
-(define eqs1 (eqs-linear-add eqs-empty e1))
-(define eqs2 (eqs-linear-add eqs1 e2))
-(define eqs3 (eqs-linear-add eqs2 e3))
-(define eqs4 (eqs-linear-add eqs3 e4))
+(define n1 (eqs-linear-add eqs-empty e1))
+(define eqs1 (eqs-next-eqs n1))
+(define n2 (eqs-linear-add eqs1 e2))
+(define eqs2 (eqs-next-eqs n2))
+(define n3 (eqs-linear-add eqs2 e3))
+(define eqs3 (eqs-next-eqs n3))
+(define n4 (eqs-linear-add eqs3 e4))
+(define eqs4 (eqs-next-eqs n4))
 
 (test 'solved-1
-  (eqs-linear-solved eqs1)
+  (eqs-next-solved n1)
   '())
 (test 'solved-2
-  (eqs-linear-solved eqs2)
+  (eqs-next-solved n2)
   '())
 (test 'solved-3
-  (eqs-linear-solved eqs3)
+  (eqs-next-solved n3)
   '())
 (test 'solved-4
-  (eqs-linear-solved eqs4)
+  (eqs-next-solved n4)
   '((0 . 4) (1 . 6) (4 . 2)))  ;; v = 4, w = 6, z = 2
 
-(test 'solved-remove-1
-  (length (eqs-linear-solved-remove eqs1))
+(test 'next-eqs-1
+  (length eqs1)
   1)
-(test 'solved-remove-2
-  (length (eqs-linear-solved-remove eqs2))
+(test 'next-eqs-2
+  (length eqs2)
   2)
-(test 'solved-remove-3
-  (length (eqs-linear-solved-remove eqs3))
+(test 'next-eqs-3
+  (length eqs3)
   3)
-(test 'solved-remove-4
-  (length (eqs-linear-solved-remove eqs4))
-  1)  ;; x + y = still-unknown
+(test 'next-eqs-4
+  (length eqs4)
+  1)  ;; x and y are still-unknown
+
+(test 'next-eqs-size-1
+  (map eq-size eqs1)
+  '(2))
+(test 'next-eqs-size-2
+  (map eq-size eqs2)
+  '(5 5))
+(test 'next-eqs-size-3
+  (map eq-size eqs3)
+  '(5 5 5))
+(test 'next-eqs-size-4
+  (map eq-size eqs4)
+  '(2))  ;; x and y are still-unknown
