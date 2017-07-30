@@ -27,3 +27,10 @@
 
 (define ordered-set-empty '())
 (define (ordered-set xs) (merge-sort ordered-set-join xs))
+(define (ordered-set-singleton x) (list x))
+
+(define (ordered-set-<= xs ys) (null? (ordered-set-subtract xs ys)))
+(define (ordered-set-member? xs y)
+  (ordered-set-<= (ordered-set-singleton y) xs))
+(define (ordered-set-map f xs) (ordered-set (map f xs)))
+(define (ordered-set-join-map f xs) (ordered-set (append-map f xs)))
