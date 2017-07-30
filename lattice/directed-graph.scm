@@ -7,6 +7,13 @@
   (define (merge k xs ys) (ordered-set-join xs ys))
   (dict-join id-value id-value merge dg (dict `((,a . (,b))))))
 
+(define (dg-remove dg a b)
+  (define succ (dg-succ dg a))
+  (if (ordered-set-member? succ b)
+    (let ((succ (ordered-set-subtract succ (ordered-set-singleton b))))
+      (if (null? succ) (dict-remove dg a) (dict-set dg a succ)))
+    dg))
+
 (define (dg-succ dg x)
   (define proj (dict-project dg (list x)))
   (if (null? proj) '() (cdar proj)))

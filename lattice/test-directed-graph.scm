@@ -22,6 +22,19 @@
   dg4
   '((a . (b c)) (b . (d)) (d . (c))))
 
+(test 'remove-1
+  (dg-remove dg-empty 'x 'y)
+  dg-empty)
+(test 'remove-2
+  (dg-remove dg1 'a 'b)
+  dg-empty)
+(test 'remove-3
+  (dg-remove dg1 'a 'c)
+  '((a . (b))))
+(test 'remove-3
+  (dg-remove dg2 'a 'b)
+  '((a . (c))))
+
 (test 'succ-1
   (dg-succ dg-empty 'a)
   '())
