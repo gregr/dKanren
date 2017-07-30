@@ -13,3 +13,13 @@
 
 (define (dg-pred dg x)
   (map car (dict-filter (lambda (xs) (ordered-set-member? xs x)) dg)))
+
+(define (dg-tc dg r x)
+  (define immediate (r dg x))
+  (if (null? immediate) '()
+    (ordered-set-join
+      immediate (ordered-set-join-map
+                  (lambda (y) (dg-tc dg r y)) immediate))))
+
+(define (dg-succ* dg x) (dg-tc dg dg-succ x))
+(define (dg-pred* dg x) (dg-tc dg dg-pred x))

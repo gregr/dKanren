@@ -34,6 +34,9 @@
 (test 'succ-4
   (dg-succ dg4 'b)
   '(d))
+(test 'succ-5
+  (dg-succ* dg4 'b)
+  '(c d))
 
 (test 'pred-1
   (dg-pred dg-empty 'a)
@@ -44,6 +47,9 @@
 (test 'pred-3
   (dg-pred dg2 'c)
   '(a))
-(test 'pred-3
+(test 'pred-4
   (dg-pred dg4 'c)
   '(a d))
+(test 'pred-5
+  (dg-pred* dg4 'c)
+  '(a b d))
