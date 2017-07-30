@@ -28,10 +28,9 @@
 (test 'add-7
   (dg-add-simplify dg2 'b 'c)
   '((a . (b)) (b . (c))))
-;; TODO: intermediate simplification
-;(test 'add-8
-  ;(dg-add-simplify dg3 'b 'd)
-  ;'((a . (b)) (b . (d)) (d . (c))))
+(test 'add-8
+  (dg-add-simplify dg3 'b 'd)
+  '((a . (b)) (b . (d)) (d . (c))))
 
 (test 'remove-1
   (dg-remove dg-empty 'x 'y)

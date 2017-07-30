@@ -15,14 +15,13 @@
     dg))
 
 (define (dg-add-simplify dg a b)
-  ;; TODO: recognize intermediate simplification.
-  (define (err . _) (error 'dg-add-simplify "This should not happen."))
-  (define (rem k x _) (ordered-set-subtract x (ordered-set-singleton b)))
   (if (ordered-set-member? (dg-succ* dg a) b) dg
-    (let* ((pred (dg-pred dg b))
-           (pred (ordered-set-meet pred (dg-pred* dg a)))
-           (dpred (map (lambda (k) (cons k #t)) pred))
-           (dg (dict-join id-value err rem dg dpred)))
+    (let* ((pred (dg-pred* dg a))
+           (succ (ordered-set-join (dg-succ* dg b) (ordered-set-singleton b)))
+           (pdg (dict-project dg pred))
+           (pdg (dict-map (lambda (xs) (ordered-set-subtract xs succ)) pdg))
+           (dg (dict-join id-value id-value id-value-new dg pdg))
+           (dg (dict-filter pair? dg)))
       (dg-add dg a b))))
 
 (define (dg-replace dg xs y)
