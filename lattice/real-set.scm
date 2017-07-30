@@ -1,10 +1,5 @@
+(load "list.scm")
 (load "ordered-set.scm")
-
-(define (last xs) (if (null? (cdr xs)) (car xs) (last (cdr xs))))
-(define (list-foldr f acc xs)
-  (if (null? xs)
-    acc
-    (f (car xs) (list-foldr f acc (cdr xs)))))
 
 ;; A real-set stores sorted, open intervals of the form (lb . ub) where lb
 ;; is the lower bound and ub is the upper bound.  The bounds may be #f,
@@ -158,7 +153,7 @@
 
 (define (real-set-widen rs)
   (define fst (car rs))
-  (define lst (last rs))
+  (define lst (list-last rs))
   (define lb (if (number? fst) fst (car fst)))
   (define ub (if (number? lst) lst (cdr lst)))
   (define suffix (cons (cons lb ub) (if (number? lst) (list ub) '())))
