@@ -7,5 +7,8 @@
 (printf "\nTesting dict\n")
 (load "test-dict.scm")
 
+(printf "\nTesting directed graphs\n")
+(load "test-directed-graph.scm")
+
 (printf "\nTesting linear equations\n")
 (load "test-eq-linear.scm")
