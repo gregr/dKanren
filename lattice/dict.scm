@@ -32,10 +32,20 @@
   (define (id-left k x y) x)
   (dict-meet id-left xs (map (lambda (k) (cons k #f)) ys)))
 
+(define (dict-filter f xs)
+  (cond
+    ((null? xs) '())
+    ((f (cdar xs)) (cons (car xs) (dict-filter f (cdr xs))))
+    (else (dict-filter f (cdr xs)))))
+(define (dict-map f xs)
+  (map (lambda (kv) (cons (car kv) (f (cdr kv)))) xs))
+
 (define (assoc->dict fx fy fxy xs)
   (merge-sort (lambda (a b) (dict-join fx fy fxy a b)) xs))
 
 (define (id-value k x) x)
+(define (id-value-old k x y) x)
+(define (id-value-new k x y) y)
 
 (define dict-empty '())
 (define (dict xs)
@@ -44,3 +54,7 @@
            (format "dict given multiple values for the same key: ~s ~s ~s"
                    k x y)))
   (assoc->dict id-value id-value error-not-unique xs))
+
+(define (dict-remove xs k) (dict-subtract xs (ordered-set-singleton k)))
+(define (dict-set xs k v)
+  (dict-join id-value id-value id-value-new xs (dict `((,k . ,v)))))
