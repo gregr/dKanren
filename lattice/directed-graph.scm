@@ -57,3 +57,9 @@
     (let ((scc (ordered-set-join-map (lambda (y) (dg-scc dg a y))
                                      (dg-succ dg b))))
       (if (null? scc) '() (ordered-set-join scc (ordered-set-singleton b))))))
+
+(define (dg-transitive-add dg a b)
+  (define scc (dg-scc dg a b))
+  (if (null? scc) (cons #f (dg-add-simplify dg a b))
+    (let ((proxy (any-min scc)))
+      (cons scc (dg-replace dg scc proxy)))))

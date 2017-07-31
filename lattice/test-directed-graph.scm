@@ -102,3 +102,41 @@
 (test 'scc-5
   (dg-scc dg4 'c 'a)
   '(a b c d))
+
+(define n1 (dg-transitive-add dg-empty 'a 'b))
+(define tdg1 (cdr n1))
+(define n2 (dg-transitive-add tdg1 'a 'c))
+(define tdg2 (cdr n2))
+(define n3 (dg-transitive-add tdg2 'd 'c))
+(define tdg3 (cdr n3))
+(define n4 (dg-transitive-add tdg3 'b 'd))
+(define tdg4 (cdr n4))
+(define n5 (dg-transitive-add tdg4 'e 'b))
+(define tdg5 (cdr n5))
+(define n6 (dg-transitive-add tdg5 'f 'e))
+(define tdg6 (cdr n6))
+
+(test 'transitive-add-1
+  n1
+  '(#f . ((a . (b)))))
+(test 'transitive-add-2
+  n2
+  '(#f . ((a . (b c)))))
+(test 'transitive-add-3
+  n3
+  '(#f . ((a . (b c)) (d . (c)))))
+(test 'transitive-add-4
+  n4
+  '(#f . ((a . (b)) (b . (d)) (d . (c)))))
+(test 'transitive-add-5
+  n5
+  '(#f . ((a . (b)) (b . (d)) (d . (c)) (e . (b)))))
+(test 'transitive-add-6
+  n6
+  '(#f . ((a . (b)) (b . (d)) (d . (c)) (e . (b)) (f . (e)))))
+(test 'transitive-add-7
+  (dg-transitive-add tdg6 'b 'e)
+  '((b e) . ((a . (b)) (b . (d)) (d . (c)) (f . (b)))))
+(test 'transitive-add-8
+  (dg-transitive-add tdg6 'd 'a)
+  '((a b d) . ((a . (c)) (e . (a)) (f . (e)))))
