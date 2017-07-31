@@ -42,6 +42,15 @@
                                   (format "unsupported comparison of ~s and ~s"
                                           a b))))))))))))))))
 
+(define (any-max xs)
+  (let loop ((x (car xs)) (xs (cdr xs)))
+    (if (null? xs) x
+      (loop (any-compare x (car xs) (car xs) x x) (cdr xs)))))
+(define (any-min xs)
+  (let loop ((x (car xs)) (xs (cdr xs)))
+    (if (null? xs) x
+      (loop (any-compare x (car xs) x x (car xs)) (cdr xs)))))
+
 (define (list-odds xs)
   (cond
     ((null? xs) '())
