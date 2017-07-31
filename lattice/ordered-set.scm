@@ -1,3 +1,4 @@
+(load "list.scm")
 (load "order.scm")
 
 (define (ordered-set-join xs ys)
