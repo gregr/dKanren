@@ -7,6 +7,9 @@
 (printf "\nTesting dict\n")
 (load "test-dict.scm")
 
+(printf "\nTesting array mapped trie\n")
+(load "test-array-mapped-trie.scm")
+
 (printf "\nTesting directed graphs\n")
 (load "test-directed-graph.scm")
 
