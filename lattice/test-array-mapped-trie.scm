@@ -92,3 +92,31 @@
 (test 'set-again-ref-2
   (amt-leaf-value (amt-ref t6 0))
   'y)
+
+(test 'remove-1
+  (amt-remove amt-empty 1)
+  amt-empty)
+(test 'remove-2
+  (amt-remove (amt-leaf 5 'a) 2)
+  (amt-leaf 5 'a))
+(test 'remove-3
+  (amt-remove (amt-leaf 5 'a) 5)
+  amt-empty)
+(test 'remove-4
+  (amt-remove t2a 3)
+  (amt-leaf 15 'b))
+(test 'remove-5
+  (amt-remove t2a 15)
+  (amt-leaf 3 'a))
+(test 'remove-6
+  (amt-remove t2b 3)
+  (amt-leaf 16 'c))
+(test 'remove-7
+  (amt-remove t2b 16)
+  (amt-leaf 3 'a))
+(test 'remove-8
+  (amt-remove (amt-remove (amt-remove t4 16) 3) 15)
+  (amt-leaf 0 'z))
+(test 'remove-9
+  (amt-remove (amt-remove (amt-remove t4 0) 15) 3)
+  (amt-leaf 16 'c))
