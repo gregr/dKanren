@@ -4,7 +4,8 @@
 (define max-term-depth 2)
 
 (define lvars
-  (list (var -100) (var -101) (var -102)))
+  (list ;(var -100) (var -101) (var -102)
+        ))
 
 (define atoms
   '(() #t #f s quote app var lambda list cons car cdr closure 1 x y))
@@ -127,11 +128,108 @@
       (print-reified
         `(conj (== (,branch-var1 . ,a) (,branch-var2 . ,branch-var2))
                (disj (== ,branch-var2 ,a) (== ,branch-var1 ,c)))))))
+(define (print-==-as-branch3-left x)
+  (define branch-var1 (var -200))
+  (define branch-var2 (var -201))
+  (define branch-var3 (var -202))
+  (when (= 0 (car x))
+    (let ((a (cadr (cadr x)))
+          (c (caddr (cadr x))))
+      ;; left (== var1 var3)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var3 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var3 ,a) (== ,branch-var1 ,c))))
+      ;; left (== var1 var3)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var3 ,branch-var2 . (,branch-var2 . ,branch-var1)))
+               (disj (== ,branch-var3 ,c) (== ,branch-var1 ,a))))
+      ;; left (== var1 var3)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var3 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var1 ,a) (== ,branch-var3 ,c))))
+      ;; left (== var1 var3)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var3 ,branch-var2 . (,branch-var2 . ,branch-var1)))
+               (disj (== ,branch-var1 ,c) (== ,branch-var3 ,a))))
+      ;; left (var3 is fresh)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var1 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var3 ,c) (== ,branch-var1 ,c))))
+      ;; left (var3 is fresh)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var1 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var3 ,a) (== ,branch-var2 ,a))))
+      ;; left (var3 is fresh)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var1 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var1 ,branch-var3) (== ,branch-var2 ,branch-var1))))
+      ;; left (== var3 var1)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var3 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var2 ,branch-var3) (== ,branch-var3 ,branch-var1))))
+      )))
+
+(define (print-==-as-branch3-right x)
+  (define branch-var1 (var -200))
+  (define branch-var2 (var -201))
+  (define branch-var3 (var -202))
+  (when (= 0 (car x))
+    (let ((a (cadr (cadr x)))
+          (c (caddr (cadr x))))
+      ;; right (== var1 var3)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var3 ,branch-var2 . (,branch-var2 . ,branch-var1)))
+               (disj (== ,branch-var3 ,a) (== ,branch-var1 ,c))))
+      ;; right (== var1 var3)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var3 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var3 ,c) (== ,branch-var1 ,a))))
+      ;; right (== var1 var3)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var3 ,branch-var2 . (,branch-var2 . ,branch-var1)))
+               (disj (== ,branch-var1 ,a) (== ,branch-var3 ,c))))
+      ;; right (== var1 var3)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var3 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var1 ,c) (== ,branch-var3 ,a))))
+      ;; right (var3 is fresh)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var1 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var1 ,c) (== ,branch-var3 ,c))))
+      ;; right (var3 is fresh)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var1 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var2 ,a) (== ,branch-var3 ,a))))
+      ;; right (var3 is fresh)
+      (print-reified
+        `(conj (== (,branch-var1 . (,a . ,c))
+                   (,branch-var1 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var1 ,branch-var2) (== ,branch-var3 ,branch-var1))))
+      ;; right (== var3 var2)
+      (print-reified
+        `(conj (== (,branch-var2 . (,a . ,c))
+                   (,branch-var3 . (,branch-var1 . ,branch-var2)))
+               (disj (== ,branch-var2 ,branch-var3) (== ,branch-var3 ,branch-var1))))
+      )))
 
 ;; Optionally set n to the number of desired examples.
 (let loop ((n #f))
   (if (and n (= 0 n))
     #f
     (begin
-      (and (examples-next print-==-as-branch2)
+      (and (examples-next print-==-as-branch3-left)
            (loop (and n (- n 1)))))))
