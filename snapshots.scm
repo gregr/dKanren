@@ -1,3 +1,5 @@
+(load "transparent-evalo.scm")
+
 (define q-1p
   (query (defn)
     (fresh (body)
