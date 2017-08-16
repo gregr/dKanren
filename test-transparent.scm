@@ -47,7 +47,7 @@
   (car (stream-pretty (step 11811 (query (q) (evalo q q)))))
   '()))
 (time (test 'evalo-step-2
-  (car (stream-pretty (step 11812 (query (q) (evalo q q)))))
+  (car (stream-pretty (step 11813 (query (q) (evalo q q)))))
   '(((app
        (lambda (list 'app (var ()) (list 'quote (var ()))))
        '(lambda (list 'app (var ()) (list 'quote (var ())))))))))
