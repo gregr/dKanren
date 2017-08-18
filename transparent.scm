@@ -266,7 +266,8 @@
   (cond
     ((conj? ss) (bind (continue (conj-c1 ss)) (conj-c2 ss)))
     ((disj? ss) (mplus (continue (disj-c1 ss)) (disj-c2 ss)))
-    ((pause? ss) (start (pause-state ss) (pause-goal ss)))))
+    ((pause? ss) (start (pause-state ss) (pause-goal ss)))
+    ((not ss) #f)))
 
 (define (stream-next ps)
   (define ss (begin (solution-step! ps) (continue ps)))
