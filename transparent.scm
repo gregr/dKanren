@@ -131,18 +131,105 @@
      (define (name param ...)
        (zzz `(name ,param ...) (lambda () body ...))))))
 
-(define (bind ss goal)
+(define solution-info '())
+(define (solution-step! ss)
+  (set! solution-info (cons (cons '() ss) solution-info)))
+(define (solution-describe! desc)
+  (set! solution-info
+    (cons (cons (cons desc (caar solution-info)) (cdar solution-info))
+          (cdr solution-info))))
+
+(define (rappend xs ys)
+  (if (null? xs) ys (rappend (cdr xs) (cons (car xs) ys))))
+
+(define (solution->path sol)
+  (let loop-sol ((sol sol) (done '()) (path '()))
+    (if (null? sol)
+      (append path done)
+      (let loop-desc ((ds (caar sol)) (done done) (prefix '()) (suffix path))
+        (if (null? ds)
+          (begin
+            (loop-sol (cdr sol) done (rappend prefix suffix)))
+          (let ((desc (car ds)) (rds (cdr ds)))
+            (cond
+              ((eq? 'swap desc)
+               (if (car suffix)
+                 (loop-desc '() done prefix (cons #f (cdr suffix)))
+                 (loop-desc rds done (cons #t prefix) (cdr suffix))))
+              ((eq? 'fail desc) (loop-desc '() done prefix (cons #f suffix)))
+              ((eq? 'ascend desc)
+               (if (and (pair? suffix) (not (car suffix)))
+                 (let loop-ascend
+                   ((rds rds) (prefix prefix) (suffix (cdr suffix)))
+                   (cond
+                     ((car suffix)
+                      (loop-desc '() done (cons #f prefix) (cdr suffix)))
+                     ((eq? 'succeed (car rds))
+                      (loop-desc '() done (cons #t prefix) (cons #f (cdr suffix))))
+                     (else (loop-ascend (cdr rds)
+                                        (cons (not (car suffix)) prefix)
+                                        (cdr suffix)))))
+                 (loop-desc rds done (cons #t prefix) suffix)))
+              ((eq? 'succeed desc)
+               (if (and (pair? suffix) (car suffix))
+                 (loop-desc '() (append (cdr suffix) done) prefix '(#t))
+                 (loop-desc '() done prefix suffix)))
+              (else (error 'solution->path
+                           (format "bad description ~s" desc))))))))))
+
+(define (fbind ss goal)
   (cond
     ((not ss) #f)
     ((state? ss) (start ss goal))
-    ((pair? ss) (mplus (start (car ss) goal) (conj (cdr ss) goal)))
+    ((pair? ss) (disj (pause (car ss) goal) (conj (cdr ss) goal)))
+    ;((pair? ss) (fmplus (start (car ss) goal) (conj (cdr ss) goal)))
     (else (conj ss goal))))
-(define (mplus s1 s2)
+(define (fmplus path s1 s2)
   (cond
     ((not s1) s2)
     ((state? s1) (cons s1 s2))
     ((pair? s1) (cons (car s1) (disj s2 (cdr s1))))
     (else (disj s2 s1))))
+
+(define (follow-path path ss)
+  (cond
+    ((pair? ss) (cons path (car ss)))
+    ((state? ss) (cons path ss))
+    ((null? path) (cons '() ss))
+    ((conj? ss)
+     (let* ((result (follow-path path (conj-c1 ss)))
+            (path (car result))
+            (ss1 (cdr result)))
+       (follow-path path (fbind ss1 (conj-c2 ss)))))
+    ((disj? ss)
+     (follow-path (cdr path) (if (car path) (disj-c1 ss) (disj-c2 ss))))
+    ((pause? ss)
+     (follow-path path (start (pause-state ss) (pause-goal ss))))
+    ((not ss) (cons path #f))
+    (else (error 'follow-path (format "bad stream following ~s ~s" path ss)))))
+
+(define (bind ss goal)
+  (cond
+    ((not ss) #f)
+    ((state? ss) (start ss goal))
+    ((pair? ss) (disj (pause (car ss) goal) (conj (cdr ss) goal)))
+    ;; Immediate restart confuses solution->path, so disable this for now.
+    ;((pair? ss) (mplus (start (car ss) goal) (conj (cdr ss) goal)))
+    (else (conj ss goal))))
+(define (mplus s1 s2)
+  (cond
+    ((not s1)
+     (solution-describe! 'fail)
+     s2)
+    ((state? s1)
+     (solution-describe! 'succeed)
+     (cons s1 s2))
+    ((pair? s1)
+     (solution-describe! 'ascend)
+     (cons (car s1) (disj s2 (cdr s1))))
+    (else
+      (solution-describe! 'swap)
+      (disj s2 s1))))
 
 (define (start st goal)
   (cond
@@ -158,11 +245,14 @@
     ((pause? ss) (start (pause-state ss) (pause-goal ss)))))
 
 (define (stream-next ps)
+  (solution-step! ps)
   (define ss (continue ps))
   (cond
     ((not ss) '())
     ((state? ss) (list ss))
-    ((pair? ss) ss)
+    ((pair? ss)
+     (solution-describe! 'ascend)
+     ss)
     (else (stream-next ss))))
 
 (define (stream-take n ps)
@@ -200,9 +290,7 @@
     ((= 0 n) ss)
     ((not ss) #f)
     ((pair? ss) (cons (car ss) (step n (cdr ss))))
-    (else (step (- n 1) (continue ss)))))
-
-;; TODO: steer, a continue that prompts for choices.
+    (else (solution-step! ss) (step (- n 1) (continue ss)))))
 
 (define succeed (== #t #t))
 (define fail (== #f #t))
