@@ -7,6 +7,13 @@
       (evalo `(list (app ,defn '(x)) (app ,defn '(y)))
              '((1 x) (1 y))))))
 
+(define (print-labeled-solution q)
+  (let loop ((choices (labeled-pretty (labeled-solution q))))
+    (when (pair? choices)
+      (printf "(~s ~s)\n" (if (caar choices) 0 1) (cadar choices))
+      (loop (cdr choices)))))
+
+(print-labeled-solution q-1p)
 
 ;; (stream-pretty q-1p)
 ;; Initial snapshot
