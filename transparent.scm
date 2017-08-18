@@ -179,8 +179,8 @@
                            (format "bad description ~s" desc))))))))))
 
 (define (labeled-solution ss)
-  (solution-clear!)
-  (define answer1 (reify-initial (car (stream-take 1 q-1p))))
+  (define answer1
+    (begin (solution-clear!) (reify-initial (car (stream-take 1 q-1p)))))
   (define path (solution->path solution-info))
   (define follow (follow-path '() path ss))
   (define leftover (car follow))
@@ -269,8 +269,7 @@
     ((pause? ss) (start (pause-state ss) (pause-goal ss)))))
 
 (define (stream-next ps)
-  (solution-step! ps)
-  (define ss (continue ps))
+  (define ss (begin (solution-step! ps) (continue ps)))
   (cond
     ((not ss) '())
     ((state? ss) (list ss))
