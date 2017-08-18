@@ -7,6 +7,8 @@
       (evalo `(list (app ,defn '(x)) (app ,defn '(y)))
              '((1 x) (1 y))))))
 
+(define q-quine (query (p) (evalo p p)))
+
 (define (print-labeled-solution q)
   (let loop ((choices (labeled-pretty (labeled-solution q))))
     (when (pair? choices)
