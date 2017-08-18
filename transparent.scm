@@ -180,13 +180,12 @@
 
 (define (labeled-solution ss)
   (define answer1
-    (begin (solution-clear!) (reify-initial (car (stream-take 1 q-1p)))))
+    (begin (solution-clear!) (reify-initial (car (stream-take 1 ss)))))
   (define path (solution->path solution-info))
   (define follow (follow-path '() path ss))
   (define leftover (car follow))
   (define answer2 (reify-initial (car (stream-take 1 (cadr follow)))))
   (define choices (caddr follow))
-
   (cond
     ((pair? leftover) (printf "unused path: ~s\n" leftover))
     ((not (equal? answer1 answer2))
