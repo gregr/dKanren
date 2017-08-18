@@ -132,6 +132,7 @@
        (zzz `(name ,param ...) (lambda () body ...))))))
 
 (define solution-info '())
+(define (solution-clear!) (set! solution-info '()))
 (define (solution-step! ss)
   (set! solution-info (cons (cons '() ss) solution-info)))
 (define (solution-describe! desc)
@@ -177,6 +178,27 @@
               (else (error 'solution->path
                            (format "bad description ~s" desc))))))))))
 
+(define (labeled-solution ss)
+  (solution-clear!)
+  (define answer1 (reify-initial (car (stream-take 1 q-1p))))
+  (define path (solution->path solution-info))
+  (define follow (follow-path '() path ss))
+  (define leftover (car follow))
+  (define answer2 (reify-initial (car (stream-take 1 (cadr follow)))))
+  (define choices (caddr follow))
+
+  (cond
+    ((pair? leftover) (printf "unused path: ~s\n" leftover))
+    ((not (equal? answer1 answer2))
+     (printf "mismatching answers:\nexpected:~s\ncomputed:~s\n"
+             answer1 answer2))
+    (else choices)))
+
+(define (labeled-pretty choices)
+  (map (lambda (choice) (list (car choice)
+                              (cadr (stream-pretty (cadr choice)))))
+       choices))
+
 (define (fbind ss goal)
   (cond
     ((not ss) #f)
@@ -191,21 +213,23 @@
     ((pair? s1) (cons (car s1) (disj s2 (cdr s1))))
     (else (disj s2 s1))))
 
-(define (follow-path path ss)
+(define (follow-path choices path ss)
   (cond
-    ((pair? ss) (cons path (car ss)))
-    ((state? ss) (cons path ss))
-    ((null? path) (cons '() ss))
+    ((pair? ss) (list path (car ss) choices))
+    ((state? ss) (list path ss choices))
+    ((null? path) (list '() ss choices))
+    ((not ss) (list path #f choices))
     ((conj? ss)
-     (let* ((result (follow-path path (conj-c1 ss)))
+     (let* ((result (follow-path choices path (conj-c1 ss)))
             (path (car result))
-            (ss1 (cdr result)))
-       (follow-path path (fbind ss1 (conj-c2 ss)))))
+            (ss1 (cadr result))
+            (choices (caddr result)))
+       (follow-path choices path (fbind ss1 (conj-c2 ss)))))
     ((disj? ss)
-     (follow-path (cdr path) (if (car path) (disj-c1 ss) (disj-c2 ss))))
+     (follow-path (cons (list (car path) ss) choices) (cdr path)
+                  (if (car path) (disj-c1 ss) (disj-c2 ss))))
     ((pause? ss)
-     (follow-path path (start (pause-state ss) (pause-goal ss))))
-    ((not ss) (cons path #f))
+     (follow-path choices path (start (pause-state ss) (pause-goal ss))))
     (else (error 'follow-path (format "bad stream following ~s ~s" path ss)))))
 
 (define (bind ss goal)
