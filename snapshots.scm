@@ -1,11 +1,11 @@
 (load "transparent-evalo.scm")
 
-(define q-1p
+(define (q-np n)
   (query (defn)
-    (fresh (body)
-      (== `(lambda ,body) defn)
-      (evalo `(list (app ,defn '(x)) (app ,defn '(y)))
-             '((1 x) (1 y))))))
+         (fresh (body)
+           (== `(lambda ,body) defn)
+           (evalo `(list (app ,defn '(x)) (app ,defn '(y)))
+                  `((,n x) (,n y))))))
 
 (define q-quine (query (p) (evalo p p)))
 
@@ -22,7 +22,9 @@
       (printf "(~s ~s)\n" (map boolean->idx (caar choices)) (cadar choices))
       (loop (cdr choices)))))
 
-(print-labeled-solution q-1p)
+(print-labeled-solution* (q-np 1))
+
+;(print-labeled-solution q-quine)
 
 ;; (stream-pretty q-1p)
 ;; Initial snapshot
