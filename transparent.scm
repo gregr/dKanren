@@ -193,6 +193,21 @@
              answer1 answer2))
     (else choices)))
 
+(define (labeled-solution* ss)
+  (define answer1
+    (begin (solution-clear!) (reify-initial (car (stream-take 1 ss)))))
+  (define path (solution->path solution-info))
+  (define follow (follow-path* follow-ctx0 '() path ss))
+  (define leftover (car follow))
+  (define answer2 (reify-initial (car (stream-take 1 (cadr follow)))))
+  (define choices (cadddr follow))
+  (cond
+    ((pair? leftover) (printf "unused path: ~s\n" leftover))
+    ((not (equal? answer1 answer2))
+     (printf "mismatching answers:\nexpected:~s\ncomputed:~s\n"
+             answer1 answer2))
+    (else choices)))
+
 (define (labeled-pretty choices)
   (map (lambda (choice) (list (car choice)
                               (cadr (stream-pretty (cadr choice)))))
@@ -230,6 +245,52 @@
     ((pause? ss)
      (follow-path choices path (start (pause-state ss) (pause-goal ss))))
     (else (error 'follow-path (format "bad stream following ~s ~s" path ss)))))
+
+(define (leaf? ss)
+  (cond
+    ((disj? ss) #f)
+    ((conj? ss) (and (leaf? (conj-c1 ss)) (leaf? (conj-c2 ss))))
+    ((pause? ss) (leaf? (pause-goal ss)))
+    (else #t)))
+
+(define (follow-ctx0 subpath ss) (list subpath ss))
+
+(define (follow-path* ctx choices path ss)
+  (define (choice-shift k)
+    (lambda (choice) (ctx (car choice) (conj (cadr choice) k))))
+  (define (ctx-disj direction alt-branch)
+    (lambda (subpath ss)
+      (ctx (cons direction subpath)
+           (if ss
+             (if direction (disj ss alt-branch) (disj alt-branch ss))
+             alt-branch))))
+  (define (ctx-alt alt) (cadr (ctx '() alt)))
+  (cond
+    ((pair? ss) (list path (car ss) (ctx-alt (cdr ss)) choices))
+    ((state? ss) (list path ss (ctx-alt #f) choices))
+    ((null? path) (list '() ss (ctx-alt #f) choices))
+    ((not ss) (list path #f (ctx-alt #f) choices))
+    ((conj? ss)
+     (let* ((result (follow-path* follow-ctx0 '() path (conj-c1 ss)))
+            (path (car result))
+            (ss1 (cadr result))
+            (alt-ss (caddr result))
+            (alt-ss (and alt-ss (conj alt-ss (conj-c2 ss))))
+            (choices (append (map (choice-shift (conj-c2 ss)) (cadddr result))
+                             choices))
+            (ctx (if alt-ss (ctx-disj #t alt-ss) ctx)))
+       (follow-path* ctx choices path (fbind ss1 (conj-c2 ss)))))
+    ((disj? ss)
+     (let* ((dir (car path))
+            (branch (if dir (disj-c1 ss) (disj-c2 ss)))
+            (alt-branch (if dir (disj-c2 ss) (disj-c1 ss))))
+       (follow-path* (ctx-disj dir alt-branch)
+                     (if (leaf? branch) (cons (ctx (list dir) ss) choices)
+                       choices)
+                     (cdr path) branch)))
+    ((pause? ss)
+     (follow-path* ctx choices path (start (pause-state ss) (pause-goal ss))))
+    (else (error 'follow-path* (format "bad stream following ~s ~s" path ss)))))
 
 (define (bind ss goal)
   (cond
