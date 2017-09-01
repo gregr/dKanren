@@ -15,6 +15,13 @@
       (printf "(~s ~s)\n" (if (caar choices) 0 1) (cadar choices))
       (loop (cdr choices)))))
 
+(define (print-labeled-solution* q)
+  (define (boolean->idx b) (if b 0 1))
+  (let loop ((choices (labeled-pretty (labeled-solution* q))))
+    (when (pair? choices)
+      (printf "(~s ~s)\n" (map boolean->idx (caar choices)) (cadar choices))
+      (loop (cdr choices)))))
+
 (print-labeled-solution q-1p)
 
 ;; (stream-pretty q-1p)
