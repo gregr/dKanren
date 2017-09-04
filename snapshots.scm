@@ -37,10 +37,25 @@
       (printf "(~s ~s)\n" (map boolean->idx (caar choices)) (cadar choices))
       (loop (cdr choices)))))
 
-(print-labeled-solution* (q-np 1))
+;(print-labeled-solution* (q-np 1))
 
 ;(print-labeled-solution q-quine)
 
 
+;; list manipulation examples
 
+;; 22 steps
+(print-labeled-solution* (q-transform (lambda (x) `(,@x ,@x)) '((a) (b))))
 
+;; 34 steps (takes a moment to synthesize)
+;(print-labeled-solution* (q-transform (lambda (x) `(,@x 3 ,@x)) '((a) (b))))
+
+;; 26 steps
+;(print-labeled-solution*-hint
+  ;(q-transform-hint
+    ;(lambda (x) (cons (car x) (cddr x)))
+    ;'((a b c) (d e f))
+    ;'(lambda (cons (car (var ())) (cdr (cdr (var ()))))))
+  ;(q-transform
+    ;(lambda (x) (cons (car x) (cddr x)))
+    ;'((a b c) (d e f))))
