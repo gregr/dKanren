@@ -30,6 +30,13 @@
       (printf "(~s ~s)\n" (map boolean->idx (caar choices)) (cadar choices))
       (loop (cdr choices)))))
 
+(define (print-labeled-solution*-hint q-hint q)
+  (define (boolean->idx b) (if b 0 1))
+  (let loop ((choices (labeled-pretty (labeled-solution*-hint q-hint q))))
+    (when (pair? choices)
+      (printf "(~s ~s)\n" (map boolean->idx (caar choices)) (cadar choices))
+      (loop (cdr choices)))))
+
 (print-labeled-solution* (q-np 1))
 
 ;(print-labeled-solution q-quine)

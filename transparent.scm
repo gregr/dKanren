@@ -208,6 +208,21 @@
              answer1 answer2))
     (else choices)))
 
+(define (labeled-solution*-hint ss-hint ss)
+  (define answer1
+    (begin (solution-clear!) (reify-initial (car (stream-take 1 ss-hint)))))
+  (define path (solution->path solution-info))
+  (define follow (follow-path* follow-ctx0 '() path ss))
+  (define leftover (car follow))
+  (define answer2 (reify-initial (car (stream-take 1 (cadr follow)))))
+  (define choices (cadddr follow))
+  (cond
+    ((pair? leftover) (printf "unused path: ~s\n" leftover))
+    ((not (equal? answer1 answer2))
+     (printf "mismatching answers:\nexpected:~s\ncomputed:~s\n"
+             answer1 answer2))
+    (else choices)))
+
 (define (labeled-pretty choices)
   (map (lambda (choice) (list (car choice)
                               (cadr (stream-pretty (cadr choice)))))
