@@ -1,11 +1,19 @@
 (load "transparent-evalo.scm")
 
-(define (q-np n)
+(define (q-transform f inputs)
   (query (defn)
          (fresh (body)
            (== `(lambda ,body) defn)
-           (evalo `(list (app ,defn '(x)) (app ,defn '(y)))
-                  `((,n x) (,n y))))))
+           (evalo `(list . ,(map (lambda (input) `(app ,defn ',input)) inputs))
+                  (map f inputs)))))
+
+(define (q-transform-hint f inputs hint)
+  (query (defn)
+         (== hint defn)
+         (evalo `(list . ,(map (lambda (input) `(app ,defn ',input)) inputs))
+                (map f inputs))))
+
+(define (q-np n) (q-transform (lambda (x) (cons 1 x)) '((x) (y))))
 
 (define q-quine (query (p) (evalo p p)))
 
