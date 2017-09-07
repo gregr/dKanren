@@ -1,0 +1,47 @@
+(load "transparent-evalo.scm")
+
+(define (q-transform f inputs)
+  (query (defn)
+         (fresh (body)
+           (== `(lambda ,body) defn)
+           (evalo `(list . ,(map (lambda (input) `(app ,defn ',input)) inputs))
+                  (map f inputs)))))
+
+(define (q-transform-hint f inputs hint)
+  (query (defn)
+         (== hint defn)
+         (evalo `(list . ,(map (lambda (input) `(app ,defn ',input)) inputs))
+                (map f inputs))))
+
+(define (q-np n) (q-transform (lambda (x) (cons 1 x)) '((x) (y))))
+
+(define q-quine (query (p) (evalo p p)))
+
+
+(define (in)
+  (printf "enter a path: ")
+  (read))
+
+(define (show ss)
+  (pretty-print (or (cadr (stream-pretty ss)) ss))
+  (newline))
+
+(define (out flag) (printf "result: ~s\n" flag))
+
+(define ss (simplify (query (x)
+                       (conde
+                         ((== 1 3))
+                         ((== 2 x) (== 3 x))
+                         ((conde
+                            ((== 3 x) (== 4 x))
+                            ((== 5 x)))
+                          (conde
+                            ((== 1 1))
+                            ((== #t #t)))
+                          (conde
+                            ((== #f #t))
+                            ((== #t #t))))))))
+
+;(define ss (simplify (q-np 5)))
+
+(interact in show out ss ss)
