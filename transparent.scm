@@ -373,6 +373,44 @@
     ((not ss) #f)
     (else ss)))
 
+(define (expand-path path path-expected ss0)
+  (define r (simplify-path* simplify-ctx0 path ss0))
+  (define ss (simplify (car r)))
+  (define ss-alt (or (and (not ss) (simplify (cadr r))) (cadr r)))
+  (cond
+    ((and (not ss) (or (pair? ss-alt) (state? ss-alt)))
+     (list 'fail-solved ss-alt))
+    ((not ss) (list 'fail ss-alt))
+    ((pair? ss) (list 'solved (car ss)))
+    ((state? ss) (list 'solved ss))
+    (else (list (if (equal? path path-expected) 'good 'unknown)
+                ss))))
+
+(define (follow/feedback path ss-hint ss)
+  (define good-path
+    (let ((choices (labeled-solution*-hint ss-hint ss)))
+      (when (null? choices) (error 'follow/feedback "solution already found"))
+      (caar (reverse choices))))
+  (define expansion (expand-path path good-path ss))
+  (define flag (car expansion))
+  (define ss2 (cadr expansion))
+  (define ss-hint2 (cadr (expand-path path good-path ss-hint)))
+  (list flag ss2 ss-hint2))
+
+(define (interact in show out ss-hint0 ss0)
+  (define ss (simplify ss0))
+  (define ss-hint (simplify ss-hint0))
+  (show ss)
+  (define path (in))
+  (define result (follow/feedback path ss-hint ss))
+  (define flag (car result))
+  (define ss2 (cadr result))
+  (define ss-hint2 (caddr result))
+  (out flag)
+  (when (not (or (eq? 'solved flag) (eq? 'fail-solved flag)))
+    (interact in show out ss-hint2 ss2)))
+
+
 (define (bind ss goal)
   (cond
     ((not ss) #f)
