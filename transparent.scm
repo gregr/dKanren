@@ -187,10 +187,12 @@
   (define answer2 (reify-initial (car (stream-take 1 (cadr follow)))))
   (define choices (caddr follow))
   (cond
-    ((pair? leftover) (printf "unused path: ~s\n" leftover))
+    ((pair? leftover)
+     (error 'labeled-solution (format "unused path: ~s" leftover)))
     ((not (equal? answer1 answer2))
-     (printf "mismatching answers:\nexpected:~s\ncomputed:~s\n"
-             answer1 answer2))
+     (error 'labeled-solution
+            (format "mismatching answers:\nexpected:~s\ncomputed:~s"
+                    answer1 answer2)))
     (else choices)))
 
 (define (labeled-solution* ss)
@@ -202,10 +204,12 @@
   (define answer2 (reify-initial (car (stream-take 1 (cadr follow)))))
   (define choices (cadddr follow))
   (cond
-    ((pair? leftover) (printf "unused path: ~s\n" leftover))
+    ((pair? leftover)
+     (error 'labeled-solution* (format "unused path: ~s" leftover)) )
     ((not (equal? answer1 answer2))
-     (printf "mismatching answers:\nexpected:~s\ncomputed:~s\n"
-             answer1 answer2))
+     (error 'labeled-solution*
+            (format "mismatching answers:\nexpected:~s\ncomputed:~s"
+                    answer1 answer2)))
     (else choices)))
 
 (define (labeled-solution*-hint ss-hint ss)
@@ -217,10 +221,12 @@
   (define answer2 (reify-initial (car (stream-take 1 (cadr follow)))))
   (define choices (cadddr follow))
   (cond
-    ((pair? leftover) (printf "unused path: ~s\n" leftover))
+    ((pair? leftover)
+     (error 'labeled-solution*-hint (format "unused path: ~s" leftover)))
     ((not (equal? answer1 answer2))
-     (printf "mismatching answers:\nexpected:~s\ncomputed:~s\n"
-             answer1 answer2))
+     (error 'labeled-solution*-hint
+            (format "mismatching answers:\nexpected:~s\ncomputed:~s"
+                    answer1 answer2)))
     (else choices)))
 
 (define (labeled-pretty choices)
