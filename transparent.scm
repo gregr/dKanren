@@ -237,7 +237,7 @@
 (define (fbind ss goal)
   (cond
     ((not ss) #f)
-    ((state? ss) (start ss goal))
+    ((state? ss) (fstart ss goal))
     ((pair? ss) (disj (pause (car ss) goal) (conj (cdr ss) goal)))
     ;((pair? ss) (fmplus (start (car ss) goal) (conj (cdr ss) goal)))
     (else (conj ss goal))))
@@ -247,6 +247,12 @@
     ((state? s1) (cons s1 s2))
     ((pair? s1) (cons (car s1) (disj s2 (cdr s1))))
     (else (disj s2 s1))))
+(define (fstart st goal)
+  (cond
+    ((conj? goal) (fbind (fstart st (conj-c1 goal)) (conj-c2 goal)))
+    ((disj? goal) (disj (pause st (disj-c1 goal)) (pause st (disj-c2 goal))))
+    ((zzz? goal) (fstart st ((zzz-wake goal))))
+    ((==? goal) (unify st (==-t1 goal) (==-t2 goal)))))
 
 (define (follow-path choices path ss)
   (cond
@@ -264,7 +270,7 @@
      (follow-path (cons (list (car path) ss) choices) (cdr path)
                   (if (car path) (disj-c1 ss) (disj-c2 ss))))
     ((pause? ss)
-     (follow-path choices path (start (pause-state ss) (pause-goal ss))))
+     (follow-path choices path (fstart (pause-state ss) (pause-goal ss))))
     (else (error 'follow-path (format "bad stream following ~s ~s" path ss)))))
 
 (define (leaf? ss)
@@ -310,7 +316,7 @@
                        choices)
                      (cdr path) branch)))
     ((pause? ss)
-     (follow-path* ctx choices path (start (pause-state ss) (pause-goal ss))))
+     (follow-path* ctx choices path (fstart (pause-state ss) (pause-goal ss))))
     (else (error 'follow-path* (format "bad stream following ~s ~s" path ss)))))
 
 (define (bind ss goal)
