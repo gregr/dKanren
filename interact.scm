@@ -53,6 +53,8 @@
 
 (define (out flag) (printf "~s\n" flag))
 
-(define ss (simplify (q-np 5)))
+(define (read-query) (simplify (eval (read))))
+
+(define ss (read-query))
 
 (interact in show out ss ss)
