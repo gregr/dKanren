@@ -13,7 +13,7 @@
          (evalo `(list . ,(map (lambda (input) `(app ,defn ',input)) inputs))
                 (map f inputs))))
 
-(define (q-np n) (q-transform (lambda (x) (cons 1 x)) '((x) (y))))
+(define (q-np n) (q-transform (lambda (x) (cons n x)) '((x) (y))))
 
 (define q-quine (query (p) (evalo p p)))
 
