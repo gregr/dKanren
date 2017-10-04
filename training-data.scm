@@ -1,36 +1,4 @@
-(load "transparent-evalo.scm")
-
-(define-relation (atomo v)
-  (conde
-    ((== '() v)) ((== #t v)) ((== #f v)) ((== 'a v)) ((== 'b v)) ((== 's v))
-    ((== '1 v)) ((== 'x v)) ((== 'y v)) ((== 'quote v)) ((== 'list v))
-    ((== 'cons v)) ((== 'car v)) ((== 'cdr v)) ((== 'var v)) ((== 'lambda v))
-    ((== 'app v)) ((== 'closure v))))
-
-(define-relation (literalo v)
-  (conde
-    ((atomo v))
-    ((fresh (a d) (== `(,a . ,d) v) (literalo a) (literalo d)))))
-
-(define-relation (refo e)
-  (conde
-    ((== `(var ()) e))
-    ((fresh (ec) (== `(car ,ec) e) (refo ec)))
-    ((fresh (ec) (== `(cdr ,ec) e) (refo ec)))))
-
-(define-relation (transformo e)
-  (conde
-    ((== '(var ()) e))
-    ((fresh (ea ed) (== `(cons ,ea ,ed) e) (transformo ea) (transformo ed)))
-    ((fresh (ec) (== `(car ,ec) e) (refo ec)))
-    ((fresh (ec) (== `(cdr ,ec) e) (refo ec)))
-    ((fresh (q) (== `(quote ,q) e) (literalo q)))))
-
-(define q-defs
-  (query (defn) (fresh (body) (== `(lambda ,body) defn) (transformo body))))
-
-(define (q-examples n defn)
-  (run n (input output) (evalo `(app ,defn ',input) output) (literalo input)))
+(load "transparent-evalo-transform.scm")
 
 (define (print-labeled-solution*-hint q-hint q)
   (define (boolean->idx b) (if b 0 1))
@@ -47,15 +15,9 @@
   (define ios (q-examples 4 lam))
   (define is (map car ios))
   (define os (map cadr ios))
-
-  (define q-hint
-    (query (defn)
-      (== lam defn)
-      (evalo `(list . ,(map (lambda (i) `(app ,defn ',i)) is)) os)))
-  (define q
-    (query (defn)
-      (fresh (body) (== `(lambda ,body) defn)
-        (evalo `(list . ,(map (lambda (i) `(app ,defn ',i)) is)) os))))
+  (define qh (q/hint lam is os))
+  (define q-hint (car qh))
+  (define q (cadr qh))
 
   ;; Uncomment some of these to see the kinds of examples we're generating.
   ;(print `(lam ,lam))
