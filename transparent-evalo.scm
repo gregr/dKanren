@@ -1,5 +1,20 @@
 (load "transparent.scm")
 
+;; TODO: add 'if and 'pair? to tokens.
+(define (atomo v)
+  (conde
+    ((== '() v)) ((== #t v)) ((== #f v)) ((== 'a v)) ((== 'b v)) ((== 's v))
+    ((== '1 v)) ((== 'x v)) ((== 'y v)) ((== 'quote v)) ((== 'list v))
+    ((== 'cons v)) ((== 'car v)) ((== 'cdr v)) ((== 'var v)) ((== 'lambda v))
+    ((== 'app v)) ((== 'closure v)) ((== 'pair? v)) ((== 'if v))))
+(define (not-falseo v)
+  (conde
+    ((== '() v)) ((== #t v)) ((== 'a v)) ((== 'b v)) ((== 's v))
+    ((== '1 v)) ((== 'x v)) ((== 'y v)) ((== 'quote v)) ((== 'list v))
+    ((== 'cons v)) ((== 'car v)) ((== 'cdr v)) ((== 'var v)) ((== 'lambda v))
+    ((== 'app v)) ((== 'closure v)) ((== 'pair? v)) ((== 'if v))
+    ((fresh (a d) (== `(,a . ,d) v)))))
+
 (define (evalo expr value) (eval-expo expr '() value))
 (define-relation (eval-expo expr env value)
   (conde
@@ -33,7 +48,17 @@
     ((fresh (c va vd)
        (== `(cdr ,c) expr)
        (== vd value)
-       (eval-expo c env `(,va . ,vd))))))
+       (eval-expo c env `(,va . ,vd))))
+    ((fresh (e a d v)
+       (== `(pair? ,e) expr)
+       (conde
+         ((== #t value) (eval-expo e env `(,a . ,d)))
+         ((== #f value) (eval-expo e env v) (atomo v)))))
+    ((fresh (c t f v)
+       (== `(if ,c ,t ,f) expr)
+       (conde
+         ((eval-expo c env #f) (eval-expo f env value))
+         ((eval-expo c env v) (not-falseo v) (eval-expo t env value)))))))
 
 (define-relation (lookupo index env value)
   (fresh (arg e*)
