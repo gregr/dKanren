@@ -77,3 +77,49 @@
        (== `(,va . ,vd) value)
        (eval-expo ea env va)
        (eval-listo ed env vd)))))
+
+;(define Z0
+  ;(lambda (f)
+    ;((lambda (x) (lambda (a) ((f (x x)) a)))
+     ;(lambda (x) (lambda (a) ((f (x x)) a))))))
+
+(define Z
+  '(lambda
+     (app (lambda (lambda (app (app (var (s s))
+                                    (app (var (s)) (var (s)))) (var ()))))
+          (lambda (lambda (app (app (var (s s))
+                                    (app (var (s)) (var (s)))) (var ())))))))
+
+;(define Z0-append
+  ;(Z0 (lambda (append)
+    ;(lambda (xs)
+      ;(lambda (ys)
+        ;(if (pair? xs)
+          ;(cons (car xs) ((append (cdr xs)) ys))
+          ;ys))))))
+
+(define Z-append
+  `(app ,Z (lambda
+             (lambda
+               (lambda
+                 (if (pair? (var (s)))
+                   (cons (car (var (s)))
+                         (app (app (var (s s)) (cdr (var (s)))) (var ())))
+                   (var ())))))))
+
+;(define Z0-map
+  ;(Z0 (lambda (map)
+       ;(lambda (f)
+         ;(lambda (xs)
+           ;(if (pair? xs)
+             ;(cons (f (car xs)) ((map f) (cdr xs)))
+             ;'()))))))
+
+(define Z-map
+  `(app ,Z (lambda
+             (lambda
+               (lambda
+                 (if (pair? (var ()))
+                   (cons (app (var (s)) (car (var ())))
+                         (app (app (var (s s)) (var (s))) (cdr (var ()))))
+                   '()))))))
