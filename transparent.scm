@@ -106,18 +106,18 @@
     (and (not (var=? vr tm)) st)))
 
 (define (unify st t1 t2)
-  (let ((t1 (walk st t1)) (t2 (walk st t2)))
-    (cond
-      ((eqv? t1 t2) st)
-      ((var? t1)
-       (if (var? t2)
-         (state-var-==-var st t1 t2)
-         (state-var-== st t1 t2)))
-      ((var? t2) (state-var-== st t2 t1))
-      ((and (pair? t1) (pair? t2))
-       (let*/and ((st (unify st (car t1) (car t2))))
-         (unify st (cdr t1) (cdr t2))))
-      (else #f))))
+  (and st (let ((t1 (walk st t1)) (t2 (walk st t2)))
+            (cond
+              ((eqv? t1 t2) st)
+              ((var? t1)
+               (if (var? t2)
+                 (state-var-==-var st t1 t2)
+                 (state-var-== st t1 t2)))
+              ((var? t2) (state-var-== st t2 t1))
+              ((and (pair? t1) (pair? t2))
+               (let*/and ((st (unify st (car t1) (car t2))))
+                 (unify st (cdr t1) (cdr t2))))
+              (else #f)))))
 
 (defrecord conj conj? conj-c1 conj-c2)
 (defrecord disj disj? disj-c1 disj-c2)
@@ -234,19 +234,25 @@
                               (cadr (stream-pretty (cadr choice)))))
        choices))
 
+(define (fbind/no-fail ss goal)
+  (cond
+    ((or (not ss) (state? ss)) (fstart/no-fail ss goal))
+    ((pair? ss) (disj (pause (car ss) goal) (conj (cdr ss) goal)))
+    (else (conj ss goal))))
+(define (fstart/no-fail st goal)
+  (cond
+    ((conj? goal) (fbind/no-fail (fstart/no-fail st (conj-c1 goal))
+                                 (conj-c2 goal)))
+    ((disj? goal) (disj (pause st (disj-c1 goal)) (pause st (disj-c2 goal))))
+    ((zzz? goal) (fstart/no-fail st ((zzz-wake goal))))
+    ((==? goal) (and st (unify st (==-t1 goal) (==-t2 goal))))))
+
 (define (fbind ss goal)
   (cond
     ((not ss) #f)
     ((state? ss) (fstart ss goal))
     ((pair? ss) (disj (pause (car ss) goal) (conj (cdr ss) goal)))
-    ;((pair? ss) (fmplus (start (car ss) goal) (conj (cdr ss) goal)))
     (else (conj ss goal))))
-(define (fmplus path s1 s2)
-  (cond
-    ((not s1) s2)
-    ((state? s1) (cons s1 s2))
-    ((pair? s1) (cons (car s1) (disj s2 (cdr s1))))
-    (else (disj s2 s1))))
 (define (fstart st goal)
   (cond
     ((conj? goal) (fbind (fstart st (conj-c1 goal)) (conj-c2 goal)))
@@ -366,10 +372,60 @@
          ((==? goal) (finish ctx path (unify st (==-t1 goal) (==-t2 goal)))))))
     (else (error 'simplify-path* (format "bad stream ~s ~s" path ss)))))
 
+(define (simplify-path*/no-fail ctx path ss)
+  (define (finish ctx path ss)
+    (cond
+      ((pair? ss) (list (car ss) (ctx (cdr ss))))
+      ((state? ss) (list ss (ctx #f)))
+      ((not ss) (list #f (ctx #f)))
+      (else (list (ctx ss) #f))))
+  (define (ctx-disj direction alt-branch)
+    (define (k ss)
+      (cond
+        ((not ss) alt-branch)
+        ((pair? ss) (cons (car ss) (k (cdr ss))))
+        ((state? ss) (cons ss alt-branch))
+        (else (if direction (disj ss alt-branch) (disj alt-branch ss)))))
+    (lambda (ss) (ctx (k ss))))
+  (cond
+    ((conj? ss)
+     (let* ((result (simplify-path*/no-fail simplify-ctx0 path (conj-c1 ss)))
+            (ss1 (fbind/no-fail (car result) (conj-c2 ss)))
+            (alt-ss (cadr result))
+            (alt-ss (and alt-ss (conj alt-ss (conj-c2 ss))))
+            (ctx (if alt-ss (ctx-disj #t alt-ss) ctx)))
+       (finish ctx '() ss1)))
+    ((disj? ss)
+     (if (null? path)
+       (simplify-path*/no-fail ctx '(#t) ss)
+       (let* ((dir (car path))
+              (branch (if dir (disj-c1 ss) (disj-c2 ss)))
+              (alt-branch (if dir (disj-c2 ss) (disj-c1 ss))))
+         (simplify-path*/no-fail
+           (ctx-disj dir alt-branch) (cdr path) branch))))
+    ((pause? ss)
+     (let ((st (pause-state ss)) (goal (pause-goal ss)))
+       (cond
+         ((conj? goal)
+          (simplify-path*/no-fail ctx path (conj (pause st (conj-c1 goal))
+                                                 (conj-c2 goal))))
+         ((disj? goal)
+          (simplify-path*/no-fail ctx path (disj (pause st (disj-c1 goal))
+                                                 (pause st (disj-c2 goal)))))
+         ((zzz? goal) (finish ctx path (pause st ((zzz-wake goal)))))
+         ((==? goal) (finish ctx path (unify st (==-t1 goal) (==-t2 goal)))))))
+    (else (error 'simplify-path*/no-fail (format "bad stream ~s ~s" path ss)))))
+
 (define (simplify ss)
   (cond
     ((conj? ss) (fbind (simplify (conj-c1 ss)) (conj-c2 ss)))
     ((pause? ss) (simplify (fstart (pause-state ss) (pause-goal ss))))
+    ((not ss) #f)
+    (else ss)))
+(define (simplify/no-fail ss)
+  (cond
+    ((conj? ss) (fbind/no-fail (simplify/no-fail (conj-c1 ss)) (conj-c2 ss)))
+    ((pause? ss) (simplify/no-fail (fstart/no-fail (pause-state ss) (pause-goal ss))))
     ((not ss) #f)
     (else ss)))
 
@@ -385,6 +441,23 @@
     ((state? ss) (list 'solved ss))
     (else (list (if (equal? path path-expected) 'good 'unknown)
                 ss))))
+(define (expand-path/no-fail path path-expected ss0)
+  (define r (simplify-path*/no-fail simplify-ctx0 path ss0))
+  (define ss (simplify/no-fail (car r)))
+  (define ss-alt (or (and (not ss) (simplify/no-fail (cadr r))) (cadr r)))
+  (cond
+    ((and (not ss) (or (pair? ss-alt) (state? ss-alt)))
+     (list 'fail-solved ss-alt))
+    ((not ss) (list 'fail ss-alt))
+    ((pair? ss) (list 'solved (car ss)))
+    ((state? ss) (list 'solved ss))
+    (else (list (if (equal? path path-expected) 'good 'unknown)
+                ss))))
+
+(define (mirror-path unknown? path path-expected ss0)
+  (if unknown?
+    (cadr (expand-path/no-fail path path-expected ss0))
+    (cadr (expand-path path path-expected ss0))))
 
 (define (good-path ss-hint ss)
   (let ((choices (labeled-solution*-hint ss-hint ss)))
@@ -395,7 +468,7 @@
   (define expansion (expand-path path good ss))
   (define flag (car expansion))
   (define ss2 (cadr expansion))
-  (define ss-hint2 (cadr (expand-path path good ss-hint)))
+  (define ss-hint2 (mirror-path (eq? 'unknown flag) path good ss-hint))
   (list flag ss2 ss-hint2))
 
 (define (interact in show out ss-hint0 ss0 gpath show?)
