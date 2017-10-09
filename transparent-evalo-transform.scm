@@ -3,14 +3,25 @@
 (define-relation (atomo v)
   (conde
     ((== '() v)) ((== #t v)) ((== #f v)) ((== 'a v)) ((== 'b v)) ((== 's v))
-    ((== '1 v)) ((== 'x v)) ((== 'y v)) ((== 'quote v)) ((== 'list v))
-    ((== 'cons v)) ((== 'car v)) ((== 'cdr v)) ((== 'var v)) ((== 'lambda v))
-    ((== 'app v)) ((== 'closure v))))
+    ((== '1 v)) ((== 'x v)) ((== 'y v))
+
+    ;; Leave these out for now.
+    ;((== 'quote v)) ((== 'list v))
+    ;((== 'cons v)) ((== 'car v)) ((== 'cdr v)) ((== 'var v)) ((== 'lambda v))
+    ;((== 'app v))
+
+    ;; Leave this one out, as it can be dangerous.
+    ;((== 'closure v))
+    ))
+
+(define atoms (run* (a) (atomo a)))
+(define (atom-random) (list-ref atoms (random (length atoms))))
 
 (define-relation (literalo v)
   (conde
-    ((atomo v))
-    ((fresh (a d) (== `(,a . ,d) v) (literalo a) (literalo d)))))
+    ((== (atom-random) v))
+    ((fresh (a d) (== `(,a . ,d) v) (literalo a) (literalo d)))
+    ((atomo v))))
 
 (define-relation (refo e)
   (conde
@@ -30,7 +41,12 @@
   (query (defn) (fresh (body) (== `(lambda ,body) defn) (transformo body))))
 
 (define (q-examples n defn)
-  (run n (input output) (evalo `(app ,defn ',input) output) (literalo input)))
+  (map (lambda (st)
+         (caar (run 1 (v)
+                 (== (walk* st var-initial) v)
+                 (literalo v))))
+       (stream-take n (query (input output) (evalo `(app ,defn ',input) output)
+                             (literalo output)))))
 
 (define (q/hint fcode is os)
   (define q-hint
