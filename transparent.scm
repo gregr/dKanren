@@ -525,14 +525,17 @@
     ((conj? goal) (bind (start st (conj-c1 goal)) (conj-c2 goal)))
     ((disj? goal) (disj (pause st (disj-c1 goal)) (pause st (disj-c2 goal))))
     ((zzz? goal) (start st ((zzz-wake goal))))
-    ((==? goal) (unify st (==-t1 goal) (==-t2 goal)))))
+    ((==? goal) (unify st (==-t1 goal) (==-t2 goal)))
+    (else (error 'start (format "invalid goal to start: ~s" goal)))))
 
 (define (continue ss)
   (cond
     ((conj? ss) (bind (continue (conj-c1 ss)) (conj-c2 ss)))
     ((disj? ss) (mplus (continue (disj-c1 ss)) (disj-c2 ss)))
     ((pause? ss) (start (pause-state ss) (pause-goal ss)))
-    ((not ss) #f)))
+    ((not ss) #f)
+    ((state? ss) ss)
+    (else (error 'start (format "invalid stream to continue: ~s" ss)))))
 
 (define (stream-next ps)
   (define ss (begin (solution-step! ps) (continue ps)))
