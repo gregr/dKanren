@@ -534,14 +534,14 @@
     ((disj? ss) (mplus (continue (disj-c1 ss)) (disj-c2 ss)))
     ((pause? ss) (start (pause-state ss) (pause-goal ss)))
     ((not ss) #f)
-    ((state? ss) ss)
+    ((state? ss) (cons ss #f))
     (else (error 'start (format "invalid stream to continue: ~s" ss)))))
 
 (define (stream-next ps)
   (define ss (begin (solution-step! ps) (continue ps)))
   (cond
     ((not ss) '())
-    ((state? ss) (list ss))
+    ((state? ss) (cons ss #f))
     ((pair? ss)
      (solution-describe! 'ascend)
      ss)
