@@ -494,7 +494,7 @@
            (out (list 'follow-path flag))
            (when (not (or (eq? 'solved flag) (eq? 'fail-solved flag)))
              (interact in show out ss-hint2 ss2 #f #t))))
-        (error 'interact (format "invalid request: ~s" request))))))
+        (else (error 'interact (format "invalid request: ~s" request)))))))
 
 
 (define (bind ss goal)
