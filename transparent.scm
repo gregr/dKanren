@@ -505,6 +505,18 @@
     ((not ss) #f)
     (else ss)))
 
+(define (inject-hint cx ss)
+  (if (==? cx)
+    (cond
+      ((conj? ss) (conj (inject-hint cx (conj-c1 ss)) (conj-c2 ss)))
+      ((disj? ss) (disj (inject-hint cx (disj-c1 ss))
+                        (inject-hint cx (disj-c2 ss))))
+      ((pause? ss) (let ((st (unify (pause-state ss) (==-t1 cx) (==-t2 cx))))
+                     (and st (pause st (pause-goal ss)))))
+      ((not ss) #f)
+      (else (error 'inject-hint (format "unexpected stream: ~s" ss))))
+    (error 'inject-hint (format "unexpected constraint: ~s" cx))))
+
 (define (interact in show out ss-hint0 ss0 gpath show?)
   (define (valid-path? path)
     (or (null? path)
