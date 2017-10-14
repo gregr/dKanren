@@ -49,15 +49,11 @@
                              (literalo output)))))
 
 (define (q/hint fcode is os)
-  (define q-hint
-    (query (defn)
-      (== fcode defn)
-      (evalo `(list . ,(map (lambda (i) `(app ,defn ',i)) is)) os)))
   (define q
     (query (defn)
       (fresh (body) (== `(lambda ,body) defn)
         (evalo `(list . ,(map (lambda (i) `(app ,defn ',i)) is)) os))))
-  (list q-hint q))
+  (list (== (list fcode) var-initial) q))
 
 ;; We will interact with uses of this.
 (define (q-transform/hint fcode inputs)

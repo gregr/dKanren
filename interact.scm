@@ -24,10 +24,10 @@
       (else (error 'out (format "unrecognized output: ~s" response)))))
   (printf "~s\n" output))
 
-(define (read-query/hint) (simplify (eval (read))))
+(define (read-query/hint) (eval (read)))
 
 (define ss/hint (read-query/hint))
-(define ss-hint (car ss/hint))
+(define hint (car ss/hint))
 (define ss (cadr ss/hint))
 
-(interact in show out ss-hint ss #f #t)
+(interact in show out hint (prune #t ss) #f #t)
