@@ -1,6 +1,5 @@
 (load "transparent.scm")
 
-;; TODO: add 'if and 'pair? to tokens.
 (define (atomo v)
   (conde
     ((== '() v)) ((== #t v)) ((== #f v)) ((== 'a v)) ((== 'b v)) ((== 's v))
