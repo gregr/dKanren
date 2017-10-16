@@ -1,19 +1,5 @@
 (load "transparent-evalo.scm")
 
-(define-relation (atomo v)
-  (conde
-    ((== '() v)) ((== #t v)) ((== #f v)) ((== 'a v)) ((== 'b v)) ((== 's v))
-    ((== '1 v)) ((== 'x v)) ((== 'y v))
-
-    ;; Leave these out for now.
-    ;((== 'quote v)) ((== 'list v))
-    ;((== 'cons v)) ((== 'car v)) ((== 'cdr v)) ((== 'var v)) ((== 'lambda v))
-    ;((== 'app v))
-
-    ;; Leave this one out, as it can be dangerous.
-    ;((== 'closure v))
-    ))
-
 (define atoms (run* (a) (atomo a)))
 (define (atom-random) (list-ref atoms (random (length atoms))))
 

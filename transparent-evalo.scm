@@ -2,10 +2,29 @@
 
 (define (atomo v)
   (conde
-    ((== '() v)) ((== #t v)) ((== #f v)) ((== 'a v)) ((== 'b v)) ((== 's v))
-    ((== '1 v)) ((== 'x v)) ((== 'y v)) ((== 'quote v)) ((== 'list v))
-    ((== 'cons v)) ((== 'car v)) ((== 'cdr v)) ((== 'var v)) ((== 'lambda v))
-    ((== 'app v)) ((== 'closure v)) ((== 'pair? v)) ((== 'if v))))
+    ((== '() v))
+    ((== 'a v))
+    ((== 'b v))
+    ((== '1 v))
+    ((== 'x v))
+    ((== 'y v))
+    ((== 's v))
+    ((== #t v))
+    ((== #f v))
+    ;; TODO: leave these out for now.
+    ;((== 'quote v))
+    ;((== 'list v))
+    ;((== 'cons v))
+    ;((== 'car v))
+    ;((== 'cdr v))
+    ;((== 'var v))
+    ;((== 'lambda v))
+    ;((== 'app v))
+    ;((== 'closure v))
+    ;((== 'pair? v))
+    ;((== 'if v)))
+  )
+
 (define (not-falseo v)
   (conde
     ((== '() v)) ((== #t v)) ((== 'a v)) ((== 'b v)) ((== 's v))
