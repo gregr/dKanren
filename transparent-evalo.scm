@@ -22,8 +22,8 @@
     ;((== 'app v))
     ;((== 'closure v))
     ;((== 'pair? v))
-    ;((== 'if v)))
-  )
+    ;((== 'if v))
+  ))
 
 (define (not-falseo v)
   (conde
