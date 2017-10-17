@@ -141,3 +141,5 @@
                    (cons (app (var (s)) (car (var ())))
                          (app (app (var (s s)) (var (s))) (cdr (var ()))))
                    '()))))))
+
+(define Z-map-context (lambda (body) `(app (lambda ,body) ,Z-map)))
