@@ -3,7 +3,11 @@
 (define (in)
   (define request (read))
   (cond
-    ((eq? 'good-path request) 'good-path)
+    ((or (eq? 'good-path request)
+         (eq? 'steps-remaining request)
+         (and (pair? request)
+              (eq? 'jump-to-steps-remaining (car request))))
+     request)
     ((pair? request)
      (map (lambda (n)
             (cond
@@ -11,16 +15,18 @@
               ((= 1 n) #f)
               (else (error 'in (format "invalid path segment ~s" n)))))
           request))
-    (else request)))
+    (else (error 'in (format "unexpected request: ~s" request)))))
 
 (define (show ss) (printf "~s\n" (cadr (stream-pretty ss))))
 
 (define (out response)
+  (define (bool->bit b) (if b 0 1))
+  (define (bools->bits bs) (map bool->bit bs))
   (define output
     (cond
-      ((eq? 'good-path (car response))
-       (map (lambda (b) (if b 0 1)) (cadr response)))
+      ((eq? 'good-path (car response)) (bools->bits (cadr response)))
       ((eq? 'follow-path (car response)) (cadr response))
+      ((eq? 'steps-remaining (car response)) (map bools->bits (cadr response)))
       (else (error 'out (format "unrecognized output: ~s" response)))))
   (printf "~s\n" output))
 
